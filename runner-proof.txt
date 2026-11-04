@@ -1,0 +1,1 @@
+Throwaway file proving the self-hosted runner picks up pull request checks. Deleted with its branch.
