@@ -1,0 +1,81 @@
+name: Checks
+
+# Pull request checks. Everything here runs without secrets,
+# without production and without the deployment's data: the
+# syntax checks read the tree, the build-stamp check compares two
+# files, and the drills run against a throwaway self-host instance
+# the harness starts itself (tests/local-checks.mjs).
+#
+# This workflow runs on the project's self-hosted runner, like
+# the deploy and backup workflows. It uses no repository secrets
+# and holds only the read-only permissions below.
+#
+# Only a pull request whose branch lives in this repository starts
+# the job. A fork pull request gets no automatic check run anywhere:
+# a stranger's code must not run on the project's own runner. A
+# maintainer runs these checks by hand before merging a stranger's
+# change.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 30
+    steps:
+      # Pinned to commits, as in deploy.yml: a moving tag must not
+      # reach a job unreviewed.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      # Node 24: the project floor is 22.5 (the self-host server
+      # uses node:sqlite), and the checks run on a current release.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+
+      - name: Syntax-check the JavaScript
+        run: |
+          git ls-files '*.js' '*.mjs' | while IFS= read -r f; do
+            node --check "$f" || exit 1
+          done
+
+      # The same stamp agreement the deploy checks: the app reads
+      # the Worker's build stamp on every open and reloads itself
+      # once when they disagree, so a pull request that moves one
+      # stamp without the other fails here, not after landing.
+      - name: Check the build stamps agree
+        run: |
+          WORKER_STAMP=$(grep -o 'var BUILD_ID = "[^"]*"' worker/core.js | head -1)
+          APP_STAMP=$(grep -o 'var BUILD_ID = "[^"]*"' public/app.js | head -1)
+          test -n "$WORKER_STAMP" && test "$WORKER_STAMP" = "$APP_STAMP"
+
+      # The smoke tier (issue #140): the harness's own syntax and
+      # stamp checks, its route check and one live boot of a
+      # throwaway instance, walked at the API level. It runs before
+      # the Playwright install on purpose, so a broken boot fails
+      # the pull request in under a minute instead of after the
+      # browser download. No secrets, like every step here.
+      - name: Smoke checks
+        run: npm run test:smoke
+
+      # The Playwright pair the UI drill borrows, installed the way
+      # tests/README.md documents: playwright-core as a module Node
+      # can borrow (no package.json change, no lock file) and its
+      # Chromium build in the runner's cache. The self-hosted
+      # runner already carries Chromium's system libraries, so
+      # this follows the documented install without --with-deps.
+      - name: Install the UI drill's Playwright
+        run: |
+          npm install --no-save --package-lock=false playwright-core@1.64.0
+          npx playwright-core install chromium
+
+      # The standing drills, run the documented local way: the API
+      # drill in self-host mode against a throwaway instance, the
+      # server drill, and the UI drill in the real browser.
+      - name: Run the drills
+        run: node tests/local-checks.mjs --ui

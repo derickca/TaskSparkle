@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TaskSparkle</title>
+<meta name="description" content="TaskSparkle is a task board for people and their agents: boards, cards, checklists and comments behind your own sign-in.">
+<!-- The theme paints before the body does: boot.js reads this
+     device's stored theme and sets it on the document. It stands
+     in its own file so the page's security policy needs no
+     inline-script exception (issue #70). -->
+<script src="boot.js"></script>
+<link rel="stylesheet" href="styles.css">
+<!-- The installable app: a manifest, the colour a phone's chrome
+     wears around the page (the Standard look's green), and the
+     icon a home screen shows. The service worker behind it keeps
+     no copies of anything; see sw.js. -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1f5c3d">
+<!-- A desktop browser's tab icon comes from rel="icon". Without
+     one it falls back to its own pale placeholder — the white,
+     hard to see mark; /favicon.ico at the root covers browsers
+     that only ask there. The mark is the brand's: a mint
+     four-point sparkle on a deep violet tile, drawn for the
+     project's splash. The SVG leads and the PNGs follow as
+     fallbacks, in files the install bypass already serves
+     without a session — the same mark the phones use. -->
+<link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="/icons/icon-64.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TaskSparkle">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <!-- The header row holds the wordmark, the board buttons and,
+         on the right, the theme button, the display button and the
+         gear. On a phone the row wraps instead: the wordmark and
+         the three buttons keep the first row and the board buttons
+         take a second row of their own, still one row that scrolls
+         sideways rather than wrapping further. The board row's own
+         wrapper carries that second row: the board buttons scroll
+         inside it and the See all columns and Schedule icon
+         buttons stand pinned at its right margin, clear of the
+         scrolling run. On a wide screen the wrapper steps aside
+         and the Schedule icon simply joins the header's buttons;
+         the See all columns button is a phone's only. Adding a
+         card is not up here: each column carries a plus at its
+         foot. Board buttons and column names carry an icon and a
+         word; the display button steps between showing both, the
+         words alone and the icons alone, and that choice belongs
+         to this device. -->
+    <div class="header-row">
+      <h1>TaskSparkle</h1>
+      <div class="board-row">
+        <nav class="board-switcher" id="board-switcher" aria-label="Boards"></nav>
+        <div class="board-row-actions">
+          <button type="button" id="overview-toggle" class="overview-btn" data-role="overview-toggle" aria-label="See all columns" title="See all columns" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M15 4v16"/></svg>
+          </button>
+          <button type="button" id="schedule-toggle" class="schedule-btn" aria-label="Schedule" title="Schedule" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button type="button" class="settings-btn" id="search-toggle" aria-label="Search" title="Search" aria-pressed="false">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+        </button>
+        <button type="button" class="settings-btn" id="theme-toggle" aria-label="Theme: System" title="Theme: System"></button>
+        <button type="button" class="settings-btn" id="display-toggle" aria-label="Show words only" title="Show words only"></button>
+        <button type="button" class="settings-btn" id="settings-open" aria-label="Settings" title="Settings">⚙</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+  <p class="api-error" id="api-error" role="alert" hidden></p>
+  <p class="push-note" id="push-note" role="status" hidden></p>
+
+  <!-- Search: the bar the header's search button slides in.
+       app.js fills the filter dropdowns and the results from
+       state on every render, so the results stay live. -->
+  <div id="search-area" class="search-area" hidden>
+    <div class="search-bar">
+      <input type="search" id="search-input" placeholder="Search cards" aria-label="Search cards" autocomplete="off">
+      <button type="button" class="btn" id="search-filters-btn" aria-expanded="false">Filters</button>
+    </div>
+    <div id="search-filters" class="search-filters" hidden>
+      <label class="search-filter-field">Board
+        <select id="search-board" aria-label="Board"></select>
+      </label>
+      <label class="search-filter-field">Project
+        <select id="search-project" aria-label="Project"></select>
+      </label>
+      <label class="search-filter-field">Label
+        <select id="search-label" aria-label="Label"></select>
+      </label>
+      <div class="search-bubbles">
+        <button type="button" class="filter-btn search-bubble" id="search-archived-bubble" aria-pressed="false">Archived</button>
+      </div>
+    </div>
+    <div id="search-results" class="search-results" aria-live="polite"></div>
+  </div>
+
+  <div id="loading-state">
+    <p class="loading-note">Loading your boards…</p>
+  </div>
+
+  <div id="load-error" hidden>
+    <p id="load-error-message">TaskSparkle could not load your boards. Check your connection, then try again.</p>
+    <p>
+      <button type="button" class="btn btn-primary" id="retry-btn">Retry</button>
+      <button type="button" class="btn" id="reload-btn" hidden>Reload</button>
+    </p>
+  </div>
+
+  <!-- The waiting page for an account that is not linked to any
+       boards yet (issue #109). app.js fills it: plain words for
+       everyone, and for an administrator the claim list — the
+       unclaimed board sets, their shape only, with the account
+       picker an administrator links one with. -->
+  <div id="unlinked-state" hidden>
+    <h2>Your boards are not linked yet</h2>
+    <p id="unlinked-note"></p>
+    <div id="unlinked-claims"></div>
+    <p><a class="btn" href="/logout">Log out</a></p>
+  </div>
+
+  <div id="board-ui" hidden>
+    <nav class="project-filter" id="project-filter" aria-label="Filter by project"></nav>
+
+    <!-- The next-step filter (issue #119): Everyone, Mine, and
+         one entry per agent key. app.js fills it from the
+         owner's keys, and it stands only while a key exists —
+         with no keys there is nobody else's step to filter by. -->
+    <nav class="project-filter step-filter" id="step-filter" aria-label="Filter by next step" hidden></nav>
+
+    <form id="project-add-form" class="project-add-form" hidden>
+      <label class="project-add-label" for="project-name-input">New project on this board</label>
+      <div class="project-add-row">
+        <span id="project-icon-mount"></span>
+        <input id="project-name-input" type="text" placeholder="Type a project name" autocomplete="off">
+        <button type="submit" class="btn btn-primary">Add project</button>
+        <button type="button" class="btn btn-quiet" id="project-add-cancel">Cancel</button>
+      </div>
+    </form>
+
+    <nav class="column-stepper" id="column-stepper" aria-label="Columns"></nav>
+
+    <section class="columns" id="columns" aria-live="polite"></section>
+
+    <!-- The phone's overview: every column side by side as narrow
+         strips, opened by the See all columns button pinned at the
+         right of the board row. It is a place to look and to
+         choose, not to edit: a tap on a strip lands inside that
+         column at full size. It exists only on a phone; the
+         styles never show it any wider. -->
+    <section class="board-overview" id="board-overview" aria-label="All columns" hidden></section>
+
+    <!-- The board's archived cards. Archiving is not deleting:
+         every archived card stands here with a way back to the
+         column it came from and a Delete that asks first. The
+         section shows itself only while the board holds archived
+         cards. -->
+    <section class="archived-section" id="archived-section" aria-label="Archived cards" hidden>
+      <h2 class="archived-heading">Archived</h2>
+      <div id="archived-list"></div>
+    </section>
+
+    <!-- The schedule: the board under its project filter, as one
+         scrolling list. It swaps in for the columns; app.js fills
+         it and shows it only while the schedule stands open. -->
+    <section id="schedule-view" aria-label="Schedule" hidden></section>
+  </div>
+</main>
+
+<button type="button" id="back-to-top" class="back-to-top" hidden aria-label="Back to top">
+  <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" focusable="false"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
+
+<div class="editor-backdrop settings-backdrop" id="settings-backdrop" hidden>
+  <div class="editor settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-heading">
+    <div class="editor-head">
+      <h2 id="settings-heading">Settings</h2>
+      <button type="button" class="btn btn-quiet" id="settings-close">Close</button>
+    </div>
+
+    <div class="settings-back-row" id="settings-back-row" hidden>
+      <button type="button" class="btn btn-quiet" id="settings-back">← Back</button>
+    </div>
+
+    <!-- Settings opens as this list. Each entry opens its own page
+         below; Back returns here and Close leaves Settings. -->
+    <nav class="settings-list" id="settings-list" aria-label="Settings">
+      <button type="button" class="settings-list-btn" data-settings-page="settings-account"><span>Account</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
+      <button type="button" class="settings-list-btn" data-settings-page="settings-theme"><span>Theme</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
+      <button type="button" class="settings-list-btn" data-settings-page="settings-boards"><span>Boards</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
+      <button type="button" class="settings-list-btn" data-settings-page="settings-columns-section"><span>Columns</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
+      <button type="button" class="settings-list-btn" data-settings-page="settings-labels-section"><span>Labels</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
+      <button type="button" class="settings-list-btn" data-settings-page="settings-projects-section"><span>Projects</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
+      <button type="button" class="settings-list-btn" data-settings-page="setup-agent"><span>Set Up Agent</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
+      <button type="button" class="settings-list-btn" id="settings-people-btn" data-settings-page="settings-people" hidden><span>Admin</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
+    </nav>
+
+    <section class="settings-section settings-page" id="settings-account" hidden>
+      <h3>Account</h3>
+      <p>Signed in as <strong id="account-name"></strong>.</p>
+      <!-- The name the person goes by (issue #66): it starts
+           from the sign-in, and the person can change it here.
+           It is the name their agents see. Editing the field
+           saves at once, like every edit in the app. -->
+      <label class="settings-field" for="account-name-input">Your name on your boards
+        <input id="account-name-input" type="text" maxlength="120" autocomplete="name">
+      </label>
+      <p class="settings-note">Agents see this name.</p>
+      <p class="settings-note" id="account-note" aria-live="polite"></p>
+      <!-- The sign-in section (issue #109): the person's own
+           passkeys, their password change, and signing out
+           everywhere. Guarded acts ask for a fresh proof first;
+           the proof panel below is where the page collects it. -->
+      <div id="account-signin">
+        <!-- The proof panel stands above the sections it
+             serves: a guarded act in any of them (a passkey
+             enrolment, a password change) collects its fresh
+             proof here, so it belongs to no one heading. -->
+        <div id="account-proof-panel" hidden>
+          <p class="settings-note" id="account-proof-text"></p>
+          <label class="settings-field" for="account-proof-password">Your password
+            <input id="account-proof-password" type="password" autocomplete="current-password">
+          </label>
+          <p>
+            <button type="button" class="btn" id="account-proof-password-btn">Prove with password</button>
+            <button type="button" class="btn" id="account-proof-passkey-btn">Prove with a passkey</button>
+          </p>
+          <!-- Stands only at an address that cannot run a
+               passkey ceremony (issue #113): the passkey proof
+               button above is then hidden and this line says
+               why. app.js fills the words and unhides it. -->
+          <p class="settings-note" id="account-proof-off" hidden></p>
+        </div>
+        <h4>Passkeys</h4>
+        <p class="settings-note">A passkey signs you in with a tap instead of a password.</p>
+        <div id="account-passkeys-list"></div>
+        <label class="settings-field" for="account-passkey-nickname">Name for a new passkey (the device it lives on)
+          <input id="account-passkey-nickname" type="text" maxlength="120" autocomplete="off">
+        </label>
+        <p><button type="button" class="btn" id="account-passkey-add">Add a passkey</button></p>
+        <!-- Stands only at an address that cannot run a
+             passkey ceremony (issue #113): the nickname field
+             and the add button above are then hidden and this
+             line says why. Passkeys already made still list
+             above and can be removed. app.js fills the words
+             and unhides it. -->
+        <p class="settings-note" id="account-passkey-off" hidden></p>
+        <!-- The password section's two states (issue #122):
+             with a password standing it is the change form,
+             with the drop offered beneath while a passkey
+             stands; with no password it reads as a state —
+             the line below — with Add a password under it.
+             app.js renders the section from /api/auth/me. -->
+        <div id="account-password-section">
+          <h4 id="account-password-heading">Change password</h4>
+          <p class="settings-note" id="account-password-state" hidden>No password — you sign in with a passkey.</p>
+          <label class="settings-field" for="account-password-new">New password (at least 12 characters)
+            <input id="account-password-new" type="password" autocomplete="new-password">
+          </label>
+          <label class="settings-field" for="account-password-confirm">New password again
+            <input id="account-password-confirm" type="password" autocomplete="new-password">
+          </label>
+          <p><button type="button" class="btn" id="account-password-btn">Change password</button></p>
+          <div id="account-password-drop" hidden>
+            <p class="settings-note">The account will sign in with passkeys alone.</p>
+            <p><button type="button" class="btn" id="account-password-remove">Remove my password</button></p>
+          </div>
+        </div>
+        <h4>Sign out</h4>
+        <p class="settings-note">Sign out of this device, or out of every device.</p>
+        <p><button type="button" class="btn" id="account-signout-everywhere">Sign out everywhere else</button></p>
+        <!-- Logging out ends this device's sign-in session, so
+             the next visit asks for sign-in again. The row
+             carries its own class: the button stands clear of
+             the text above it rather than crowding it
+             (issue #43). -->
+        <p class="logout-row"><a class="btn" id="logout-link" href="/logout">Log out (this device)</a></p>
+        <p class="settings-note" id="account-auth-note" aria-live="polite"></p>
+      </div>
+      <!-- Deleting the account (issue #57): the person's own
+           erasure path, standing apart at the foot of the page.
+           The first press opens the delete dialog (issue #99);
+           the dialog names what goes and what outlives it, and
+           the act itself waits for DELETE typed in full inside
+           the dialog — the strongest confirm the app has, for
+           the one act with no undo. -->
+      <div class="account-delete" id="account-delete">
+        <h4>Delete account</h4>
+        <p class="settings-note">Deletes all your boards, cards, comments and keys — no undo.</p>
+        <button type="button" class="btn btn-danger" id="account-delete-btn">Delete my boards and account</button>
+      </div>
+    </section>
+
+    <!-- People (issue #109): the administrator's surface on
+         both copies — each account's standing (passkeys held,
+         password set), inviting a person by name, a fresh
+         password link for an existing name, making another
+         account an administrator, signing a person out
+         everywhere, removing one of another person's passkeys,
+         removing a person, and linking unclaimed board sets.
+         The section and its nav entry stay hidden unless the
+         sign-in routes' people read answers for this caller, so
+         non-administrators never see them; the routes refuse
+         non-administrators themselves, in any case. app.js
+         fills the list and wires the actions. -->
+    <section class="settings-section settings-page" id="settings-people" hidden>
+      <h3>Admin</h3>
+      <p class="settings-note">Everyone with an account on this copy.</p>
+      <div id="people-list"></div>
+      <div id="people-unclaimed"></div>
+      <div id="people-audit"></div>
+      <h4>Invite someone</h4>
+      <p class="settings-note">Inviting someone gives them their own account and their own boards — your boards are not shared with them.</p>
+      <label class="settings-field" for="people-invite-name">Name for the invite
+        <input id="people-invite-name" type="text" maxlength="120" autocomplete="off">
+      </label>
+      <p><button type="button" class="btn" id="people-invite-btn">Make invite link</button></p>
+      <p class="settings-note" id="people-note" aria-live="polite"></p>
+    </section>
+
+    <section class="settings-section settings-page" id="settings-theme" hidden>
+      <h3>Theme</h3>
+      <p class="settings-note">Saved on this device only.</p>
+      <div class="look-grid" role="group" aria-label="Look">
+        <button type="button" class="look-btn" data-look="standard"><span class="look-swatches"><span class="look-swatch look-swatch-standard-light"></span><span class="look-swatch look-swatch-standard-dark"></span></span><span class="look-name">Standard</span></button>
+        <button type="button" class="look-btn" data-look="comic"><span class="look-swatches"><span class="look-swatch look-swatch-comic-light"></span><span class="look-swatch look-swatch-comic-dark"></span></span><span class="look-name">Comic</span></button>
+        <button type="button" class="look-btn" data-look="console"><span class="look-swatches"><span class="look-swatch look-swatch-console-light"></span><span class="look-swatch look-swatch-console-dark"></span></span><span class="look-name">Console</span></button>
+        <button type="button" class="look-btn" data-look="pretty"><span class="look-swatches"><span class="look-swatch look-swatch-pretty-light"></span><span class="look-swatch look-swatch-pretty-dark"></span></span><span class="look-name">Pretty</span></button>
+        <button type="button" class="look-btn" data-look="artistic"><span class="look-swatches"><span class="look-swatch look-swatch-artistic-light"></span><span class="look-swatch look-swatch-artistic-dark"></span></span><span class="look-name">Artistic</span></button>
+        <button type="button" class="look-btn" data-look="sunset"><span class="look-swatches"><span class="look-swatch look-swatch-sunset-light"></span><span class="look-swatch look-swatch-sunset-dark"></span></span><span class="look-name">Sunset</span></button>
+        <button type="button" class="look-btn" data-look="forest"><span class="look-swatches"><span class="look-swatch look-swatch-forest-light"></span><span class="look-swatch look-swatch-forest-dark"></span></span><span class="look-name">Forest</span></button>
+        <button type="button" class="look-btn" data-look="midnight"><span class="look-swatches"><span class="look-swatch look-swatch-midnight-light"></span><span class="look-swatch look-swatch-midnight-dark"></span></span><span class="look-name">Midnight</span></button>
+      </div>
+      <p class="settings-note">System follows your device.</p>
+      <div class="theme-switch" role="group" aria-label="Mode">
+        <button type="button" class="btn theme-mode-btn" data-theme-mode="system">System</button>
+        <button type="button" class="btn theme-mode-btn" data-theme-mode="light">Light</button>
+        <button type="button" class="btn theme-mode-btn" data-theme-mode="dark">Dark</button>
+      </div>
+    </section>
+
+    <section class="settings-section settings-page" id="settings-boards" hidden>
+      <h3>Boards</h3>
+      <p class="settings-note">New boards start with five columns, no labels.</p>
+      <div id="settings-boards-list"></div>
+      <div class="board-add-row">
+        <span id="board-add-icon-mount"></span>
+        <input id="board-add-name" type="text" placeholder="New board name" aria-label="New board name" autocomplete="off">
+        <button type="button" class="btn btn-primary" id="board-add-btn">Add board</button>
+      </div>
+    </section>
+
+    <section class="settings-section settings-page" id="settings-columns-section" hidden>
+      <h3>Columns</h3>
+      <p class="settings-note">Changes apply at once.</p>
+      <div class="columns-board-row">
+        <label for="columns-board-picker">Board</label>
+        <select id="columns-board-picker"></select>
+      </div>
+      <div id="settings-columns-list"></div>
+      <div class="column-add-row">
+        <button type="button" class="btn btn-primary" id="column-add-btn">+ Column</button>
+      </div>
+    </section>
+
+    <section class="settings-section settings-page" id="settings-labels-section" hidden>
+      <h3>Labels</h3>
+      <p class="settings-note">Deleting a label leaves its cards with no label.</p>
+      <div class="columns-board-row">
+        <label for="labels-board-picker">Board</label>
+        <select id="labels-board-picker"></select>
+      </div>
+      <div id="settings-labels"></div>
+    </section>
+
+    <section class="settings-section settings-page" id="settings-projects-section" hidden>
+      <h3>Projects</h3>
+      <p class="settings-note">Deleting a project leaves its cards with no project.</p>
+      <div class="columns-board-row">
+        <label for="projects-board-picker">Board</label>
+        <select id="projects-board-picker"></select>
+      </div>
+      <div id="settings-projects"></div>
+    </section>
+
+    <section class="settings-section settings-page" id="setup-agent" hidden>
+      <h3>Set Up Agent</h3>
+      <p>Give these instructions to your agent.</p>
+      <label for="agent-instructions">Instructions for your agent</label>
+      <textarea id="agent-instructions" class="copy-field" rows="9" readonly></textarea>
+      <div class="copy-row">
+        <button type="button" class="btn" id="copy-instructions">Copy instructions</button>
+      </div>
+      <p class="settings-note">Your agent reads the full directions with its key.</p>
+      <div class="copy-row">
+        <button type="button" class="btn" id="directions-toggle">What your agent will read</button>
+      </div>
+      <div id="directions-view" hidden>
+        <label for="agent-directions">Directions your agent reads</label>
+        <textarea id="agent-directions" class="copy-field" rows="18" readonly></textarea>
+      </div>
+      <p class="settings-note" id="directions-note" aria-live="polite"></p>
+      <!-- The owner's keys, as a list (issue #45): every key is
+           named, all of them work at once, and each is managed on
+           its own — rename changes the name only, delete stops
+           that one key. app.js fills the list from the key route. -->
+      <h4 class="settings-subhead">Your keys</h4>
+      <p class="settings-note">One key per agent; deleting one never touches another.</p>
+      <p class="settings-note">Each card names whose next step it is; a key's cards wait in its queue until it writes on one.</p>
+      <div id="keys-list"></div>
+      <!-- The naming warning stands where a key is named
+           (issue #61): the name becomes permanent board
+           content the moment the key first writes. -->
+      <p class="settings-note">Name it for the work: its name stamps its cards and comments, and stays.</p>
+      <div class="key-add-row">
+        <input id="key-add-name" type="text" placeholder="Name for the new key" aria-label="Name for the new key" autocomplete="off">
+        <button type="button" class="btn btn-primary" id="key-add">Add a key</button>
+      </div>
+      <p class="settings-note" id="key-note" aria-live="polite"></p>
+    </section>
+  </div>
+</div>
+
+<!-- Copy board: the dialog the Boards page's Copy board buttons
+     open. app.js fills the name and reads the four checkboxes;
+     the copy itself is one call to the worker. -->
+<div class="editor-backdrop" id="copy-backdrop" hidden>
+  <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="copy-heading">
+    <div class="editor-head">
+      <h2 id="copy-heading">Copy board</h2>
+      <button type="button" class="btn btn-quiet" id="copy-cancel">Cancel</button>
+    </div>
+    <p class="settings-note" id="copy-source"></p>
+    <label class="search-filter-field">New board name
+      <input type="text" id="copy-name">
+    </label>
+    <div class="copy-checks">
+      <label><input type="checkbox" id="copy-columns"> Columns</label>
+      <label><input type="checkbox" id="copy-labels"> Labels</label>
+      <label><input type="checkbox" id="copy-projects"> Projects</label>
+      <label><input type="checkbox" id="copy-cards"> Cards</label>
+    </div>
+    <p class="settings-note" id="copy-warn" hidden></p>
+    <div class="copy-row">
+      <button type="button" class="btn btn-primary" id="copy-submit">Copy board</button>
+    </div>
+  </div>
+</div>
+
+<!-- Remove column: the dialog a column's Remove button opens
+     (issue #42; every column since issue #135). app.js names
+     the column and its cards, fills the picker with the
+     board's other columns, and the confirm sends the move and
+     the removal as one call. For an empty column the picker
+     stands down and the confirm removes the column alone. -->
+<div class="editor-backdrop" id="column-remove-backdrop" hidden>
+  <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="column-remove-heading">
+    <div class="editor-head">
+      <h2 id="column-remove-heading">Remove column</h2>
+      <button type="button" class="btn btn-quiet" id="column-remove-cancel">Cancel</button>
+    </div>
+    <p class="settings-note" id="column-remove-text"></p>
+    <label class="search-filter-field" id="column-remove-dest-row">Move its cards to
+      <select id="column-remove-dest"></select>
+    </label>
+    <div class="copy-row">
+      <button type="button" class="btn btn-danger" id="column-remove-submit">Move cards and remove column</button>
+    </div>
+  </div>
+</div>
+
+<div class="editor-backdrop" id="editor-backdrop" hidden>
+  <div class="editor" role="dialog" aria-modal="true" aria-labelledby="editor-heading">
+    <div class="editor-head">
+      <h2 id="editor-heading">Card</h2>
+      <button type="button" class="btn btn-quiet" id="editor-close">Close</button>
+    </div>
+    <form id="editor-form">
+      <label for="field-title">Title</label>
+      <input id="field-title" type="text">
+
+      <!-- Who made the card (issue #126): "Made by" and the
+           maker's name in the creator-tag pill the comments
+           wear, filled by openEditor from the card as read. -->
+      <p class="made-by-line" id="made-by-line" data-role="card-maker" hidden></p>
+
+      <label for="field-notes">Notes</label>
+      <textarea id="field-notes" rows="4"></textarea>
+
+      <div class="checklist-block">
+        <label for="checklist-add-input">Checklist</label>
+        <div class="checklist-list" id="checklist-list"></div>
+        <div class="checklist-add-row">
+          <input id="checklist-add-input" type="text" placeholder="Add a step" autocomplete="off">
+          <button type="button" class="btn" id="checklist-add-btn">Add step</button>
+        </div>
+      </div>
+
+      <div class="links-block">
+        <label for="link-add-url">Links</label>
+        <div class="links-list" id="links-list"></div>
+        <p class="link-error" id="link-error" role="alert" hidden></p>
+        <div class="link-add-row">
+          <input id="link-add-url" type="text" placeholder="Web address" autocomplete="off">
+          <input id="link-add-name" type="text" placeholder="Name (optional)" autocomplete="off">
+          <button type="button" class="btn" id="link-add-btn">Add link</button>
+        </div>
+      </div>
+
+      <div class="comments-block">
+        <label for="comment-add-input">Comments</label>
+        <div class="comments-list" id="comments-list"></div>
+        <p class="link-error" id="comment-error" role="alert" hidden></p>
+        <div class="comment-add-row">
+          <textarea id="comment-add-input" rows="2" placeholder="Leave an update" autocomplete="off"></textarea>
+          <button type="button" class="btn" id="comment-add-btn">Add comment</button>
+        </div>
+      </div>
+
+      <!-- Whose turn the card's next step is (issue #119). The
+           line names the holder as the step stands — and, while
+           a hand-over waits for its pickup, how long it has
+           waited. The chooser hands the step over; a comment in
+           the box above rides with the hand-over. -->
+      <div class="step-block">
+        <label for="field-step">Next step</label>
+        <p class="step-line" id="step-line" data-role="step-line"></p>
+        <select id="field-step"></select>
+        <p class="field-note">A comment in the box above is posted with the hand-over.</p>
+      </div>
+
+      <span class="field-heading" id="field-labels-heading">Labels</span>
+      <div class="label-tick-list" id="field-labels"></div>
+
+      <label for="field-project">Project</label>
+      <select id="field-project"></select>
+
+      <label for="field-due">Due date</label>
+      <input id="field-due" type="date">
+
+      <label class="important-label" for="field-important">
+        <input id="field-important" type="checkbox">
+        Important
+      </label>
+    </form>
+
+    <div id="editor-conflict" class="editor-conflict" hidden>
+      <p id="editor-conflict-text"></p>
+      <div class="editor-conflict-actions">
+        <button type="button" class="btn" id="editor-conflict-mine">Keep mine</button>
+        <button type="button" class="btn" id="editor-conflict-theirs">Use theirs</button>
+      </div>
+    </div>
+
+    <div class="move-block">
+      <h3>Move to column</h3>
+      <div class="move-buttons" id="move-buttons"></div>
+      <button type="button" class="btn" id="editor-move-board" hidden>Move board</button>
+    </div>
+
+    <div class="danger-actions">
+      <button type="button" class="btn btn-warn" id="editor-archive">Archive</button>
+      <button type="button" class="btn btn-danger" id="editor-delete">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete card: the dialog a card's Delete opens, from the
+     editor or from the Archived list (issue #97). It asks over
+     whatever stands underneath — the edit view keeps its shape
+     and its edits — and app.js fills the words: the card's name,
+     whether it is on the board or archived, what goes with it
+     and that the deletion cannot be undone. Standing it down
+     returns to what was underneath, untouched. -->
+<div class="editor-backdrop" id="card-delete-backdrop" hidden>
+  <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="card-delete-heading">
+    <div class="editor-head">
+      <h2 id="card-delete-heading">Delete card</h2>
+      <button type="button" class="btn btn-quiet" id="card-delete-cancel">Cancel</button>
+    </div>
+    <p class="settings-note" id="card-delete-text"></p>
+    <div class="copy-row">
+      <button type="button" class="btn btn-danger" id="card-delete-confirm">Delete card</button>
+    </div>
+  </div>
+</div>
+
+<!-- Move board: the dialog the card editor's Move board button
+     opens (issue #163). It asks over the editor, which keeps its
+     shape and its edits. app.js fills the three pickers — the
+     board a card that is not the card's own, the column and the
+     project re-aimed by name whenever the board pick changes —
+     and names every label the chosen board does not carry, so
+     nothing is left behind silently. Confirming makes the move
+     as one card edit; the editor closes behind it. -->
+<div class="editor-backdrop" id="move-board-backdrop" hidden>
+  <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="move-board-heading">
+    <div class="editor-head">
+      <h2 id="move-board-heading">Move board</h2>
+      <button type="button" class="btn btn-quiet" id="move-board-cancel">Cancel</button>
+    </div>
+    <label class="search-filter-field">Board
+      <select id="move-board-board"></select>
+    </label>
+    <label class="search-filter-field">Column
+      <select id="move-board-column"></select>
+    </label>
+    <label class="search-filter-field">Project
+      <select id="move-board-project"></select>
+    </label>
+    <p class="settings-note" id="move-board-labels" hidden></p>
+    <p class="link-error" id="move-board-error" role="alert" hidden></p>
+    <div class="copy-row">
+      <button type="button" class="btn btn-primary" id="move-board-confirm">Move card</button>
+    </div>
+  </div>
+</div>
+
+<!-- Your new key: the dialog a made key arrives in (issue #98).
+     The key shows once, here, with a button that copies it;
+     the Set Up Agent page underneath never carries it. Closing
+     the dialog clears the field, so the value stands nowhere
+     on the page afterwards — only its hash exists anywhere. -->
+<div class="editor-backdrop" id="key-created-backdrop" hidden>
+  <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="key-created-heading">
+    <div class="editor-head">
+      <h2 id="key-created-heading">Your new key</h2>
+      <button type="button" class="btn btn-quiet" id="key-created-close">Done</button>
+    </div>
+    <label for="agent-key">Your new TaskSparkle key</label>
+    <input id="agent-key" class="copy-field" type="text" readonly>
+    <div class="copy-row">
+      <button type="button" class="btn" id="copy-key">Copy key</button>
+    </div>
+    <p class="settings-note">Shown once — copy it now.</p>
+  </div>
+</div>
+
+<!-- Invite link: the dialog a minted invite arrives in on the
+     People page (issue #107). It mirrors the new-key dialog:
+     the link shows once, here, with a button that copies it,
+     and closing the dialog clears the field. -->
+<div class="editor-backdrop" id="invite-created-backdrop" hidden>
+  <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="invite-created-heading">
+    <div class="editor-head">
+      <h2 id="invite-created-heading">Invite link</h2>
+      <button type="button" class="btn btn-quiet" id="invite-created-close">Done</button>
+    </div>
+    <p class="settings-note" id="invite-created-text"></p>
+    <label for="invite-link">The invite link</label>
+    <input id="invite-link" class="copy-field" type="text" readonly>
+    <div class="copy-row">
+      <button type="button" class="btn" id="copy-invite">Copy link</button>
+    </div>
+    <p class="settings-note">Send it to the person directly, in a private message. It works for 7 days and stops working the moment it is used.</p>
+  </div>
+</div>
+
+<!-- Remove person: the dialog the People page's Remove opens
+     (issue #107). It names what goes — the account, its boards
+     and everything on them, its keys — and the act waits for
+     the press inside the dialog. -->
+<div class="editor-backdrop" id="person-delete-backdrop" hidden>
+  <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="person-delete-heading">
+    <div class="editor-head">
+      <h2 id="person-delete-heading">Remove person</h2>
+      <button type="button" class="btn btn-quiet" id="person-delete-cancel">Cancel</button>
+    </div>
+    <p class="settings-note" id="person-delete-text"></p>
+    <div class="copy-row">
+      <button type="button" class="btn btn-danger" id="person-delete-confirm">Remove person</button>
+    </div>
+  </div>
+</div>
+
+<!-- Remove passkey: the dialog the People page's passkey
+     Remove opens (issue #109). It names whose passkey goes and
+     what stands after — the person's password — and says
+     plainly that removing is all an administrator can do with
+     another person's passkeys. -->
+<div class="editor-backdrop" id="passkey-remove-backdrop" hidden>
+  <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="passkey-remove-heading">
+    <div class="editor-head">
+      <h2 id="passkey-remove-heading">Remove passkey</h2>
+      <button type="button" class="btn btn-quiet" id="passkey-remove-cancel">Cancel</button>
+    </div>
+    <p class="settings-note" id="passkey-remove-text"></p>
+    <div class="copy-row">
+      <button type="button" class="btn btn-danger" id="passkey-remove-confirm">Remove passkey</button>
+    </div>
+  </div>
+</div>
+
+<!-- Remove my passkey: the dialog the Account page's own
+     passkey Remove opens (issue #136). It names the passkey
+     and what stands after, in the Admin dialog's shapes —
+     including the last-passkey order, whose refusal the
+     server still speaks for itself. -->
+<div class="editor-backdrop" id="own-passkey-remove-backdrop" hidden>
+  <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="own-passkey-remove-heading">
+    <div class="editor-head">
+      <h2 id="own-passkey-remove-heading">Remove passkey</h2>
+      <button type="button" class="btn btn-quiet" id="own-passkey-remove-cancel">Cancel</button>
+    </div>
+    <p class="settings-note" id="own-passkey-remove-text"></p>
+    <div class="copy-row">
+      <button type="button" class="btn btn-danger" id="own-passkey-remove-confirm">Remove passkey</button>
+    </div>
+  </div>
+</div>
+
+<!-- Remove my password: the dialog the Account page's drop
+     opens (issue #122). It names the recovery story before
+     the confirm stands — signing in with passkeys alone, the
+     recovery link as the only way back, the address warning,
+     and the sole administrator's operator-held recovery where
+     that is the caller's shape — in plain words, filled by
+     app.js. The act itself takes a fresh passkey tap. -->
+<div class="editor-backdrop" id="password-drop-backdrop" hidden>
+  <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="password-drop-heading">
+    <div class="editor-head">
+      <h2 id="password-drop-heading">Remove your password?</h2>
+      <button type="button" class="btn btn-quiet" id="password-drop-cancel">Cancel</button>
+    </div>
+    <div class="settings-note" id="password-drop-text"></div>
+    <div class="copy-row">
+      <button type="button" class="btn btn-danger" id="password-drop-confirm">Remove my password</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete project: the one dialog a project's Delete opens,
+     from Settings → Projects and from the press-and-hold editor
+     alike (issue #99). It asks over the untouched row or editor
+     and app.js fills the words: the project's name and how many
+     cards carry it — they keep living, projectless. Standing it
+     down returns to the row or editor exactly as it stood. -->
+<div class="editor-backdrop" id="project-delete-backdrop" hidden>
+  <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="project-delete-heading">
+    <div class="editor-head">
+      <h2 id="project-delete-heading">Delete project</h2>
+      <button type="button" class="btn btn-quiet" id="project-delete-cancel">Cancel</button>
+    </div>
+    <p class="settings-note" id="project-delete-text"></p>
+    <div class="copy-row">
+      <button type="button" class="btn btn-danger" id="project-delete-confirm">Delete project</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete account: the dialog the Account page's delete
+     button opens (issues #57 and #99). It carries the same
+     facts the expanding box carried — the standing counts of
+     boards and cards, the keys, the backups' 14 days — and the
+     same strongest confirm: the type-DELETE field lives inside
+     the dialog and the confirm button arms only when DELETE
+     stands typed in full. -->
+<div class="editor-backdrop" id="account-delete-backdrop" hidden>
+  <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="account-delete-heading">
+    <div class="editor-head">
+      <h2 id="account-delete-heading">Delete account</h2>
+      <button type="button" class="btn btn-quiet" id="account-delete-cancel">Cancel</button>
+    </div>
+    <p class="confirm-note" id="account-delete-note"></p>
+    <label class="settings-field" for="account-delete-type">Type DELETE to confirm
+      <input id="account-delete-type" type="text" autocomplete="off">
+    </label>
+    <div class="copy-row">
+      <button type="button" class="btn btn-danger" id="account-delete-confirm-btn" disabled>Delete everything</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete board: the dialog a board's Delete opens (issue
+     #99 — it used to act on one click). app.js fills the words:
+     the board's name and what goes with it — its archived
+     cards (the count), its labels and its projects. The guards
+     stand as they were: a board holding active cards cannot be
+     deleted, and neither can the last board. -->
+<div class="editor-backdrop" id="board-delete-backdrop" hidden>
+  <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="board-delete-heading">
+    <div class="editor-head">
+      <h2 id="board-delete-heading">Delete board</h2>
+      <button type="button" class="btn btn-quiet" id="board-delete-cancel">Cancel</button>
+    </div>
+    <p class="settings-note" id="board-delete-text"></p>
+    <div class="copy-row">
+      <button type="button" class="btn btn-danger" id="board-delete-confirm">Delete board</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete label: the dialog a label's Delete opens (issue
+     #99 — it used to act on one click). app.js fills the words:
+     the label's name and how many cards on its board wear it,
+     in a plain wording when none do. Confirming strips the
+     label from every card that wears it and removes it. -->
+<div class="editor-backdrop" id="label-delete-backdrop" hidden>
+  <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="label-delete-heading">
+    <div class="editor-head">
+      <h2 id="label-delete-heading">Delete label</h2>
+      <button type="button" class="btn btn-quiet" id="label-delete-cancel">Cancel</button>
+    </div>
+    <p class="settings-note" id="label-delete-text"></p>
+    <div class="copy-row">
+      <button type="button" class="btn btn-danger" id="label-delete-confirm">Delete label</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete key: the dialog a key's Delete opens (issue #98).
+     It asks over the key list as it stands — the row it was
+     pressed on never changes shape — and app.js fills the
+     words: the key's name and ending, that anything using it
+     stops working at once, and that the cards and comments it
+     already stamped keep its name. -->
+<div class="editor-backdrop" id="key-delete-backdrop" hidden>
+  <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="key-delete-heading">
+    <div class="editor-head">
+      <h2 id="key-delete-heading">Delete key</h2>
+      <button type="button" class="btn btn-quiet" id="key-delete-cancel">Cancel</button>
+    </div>
+    <p class="settings-note" id="key-delete-text"></p>
+    <div class="copy-row">
+      <button type="button" class="btn btn-danger" id="key-delete-confirm">Delete key</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+name: Nightly backup
+
+# TaskSparkle's nightly backup, run as a workflow on a self-hosted
+# runner.
+#
+# The job exports the D1 database to one dated .sql file and stores
+# it in a Cloudflare R2 bucket. The bucket has a lifecycle rule that
+# deletes objects after 14 days, so old backups clear themselves
+# out. Nothing is uploaded to GitHub.
+#
+# One export holds the whole database, for every person on the
+# copy: every board, card and comment, each owner's email and
+# name, and every agent key's hash and last four characters.
+# Anyone who can open the Cloudflare account, or who holds the
+# deployment credential below, can read an export in full — set
+# the bucket's lifecycle rule with that in mind, and know that
+# data a person deletes ages out of the exports within the same
+# 14 days.
+#
+# The bucket's name and the export's date timezone in the steps
+# below are this deployment's own: change them together if yours
+# differ. The export and the bucket commands address the database
+# and the bucket by name, so this job never reads wrangler.toml.
+#
+# Timing: GitHub schedules run on UTC only, so the cron below is
+# the UTC spelling of a late-evening local time. A hand dispatch
+# runs the same job at once.
+#
+# The job's Cloudflare credential is the repository's Actions secrets
+# CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, handed to the job
+# for this run only. No credential rests on the runner machine.
+
+on:
+  schedule:
+    - cron: "20 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tasksparkle-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      # Pinned to a commit (the v4 tag's commit on 2026-10-27), as
+      # in deploy.yml: a moving tag must not reach a job that holds
+      # the deploy credential.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - name: Export the database
+        id: export
+        run: |
+          FILE="tasksparkle-$(TZ=America/Vancouver date +%Y-%m-%d).sql"
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+          npx --yes wrangler@4.153.0 d1 export tasksparkle --remote --output="$FILE"
+          test -s "$FILE"
+
+      - name: Store the export in R2
+        run: |
+          FILE="${{ steps.export.outputs.file }}"
+          npx --yes wrangler@4.153.0 r2 object put "tasksparkle-backups/$FILE" --file="$FILE"
+
+      - name: Confirm the backup landed
+        # wrangler has no verb that lists a bucket's objects, so this
+        # step reads the stored object back and checks it is not
+        # empty: the proof that the upload arrived in the bucket.
+        run: |
+          FILE="${{ steps.export.outputs.file }}"
+          npx --yes wrangler@4.153.0 r2 object get "tasksparkle-backups/$FILE" --file=/tmp/tasksparkle-backup-check.sql
+          test -s /tmp/tasksparkle-backup-check.sql
+          rm -f /tmp/tasksparkle-backup-check.sql
+
+      # The export holds every owner's boards and the stored key
+      # hashes. It must not rest on the runner after the job, on
+      # any outcome: this step runs even when an earlier step
+      # failed, and the dated-name sweep catches an export whose
+      # step never reported its file name.
+      - name: Remove the local copies of the export
+        if: always()
+        run: |
+          rm -f "${{ steps.export.outputs.file }}" /tmp/tasksparkle-backup-check.sql
+          rm -f tasksparkle-*.sql

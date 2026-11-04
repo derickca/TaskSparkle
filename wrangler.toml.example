@@ -1,0 +1,112 @@
+# TaskSparkle on Cloudflare — example settings.
+#
+# Copy this file to wrangler.toml and fill in your own values:
+#
+#   cp wrangler.toml.example wrangler.toml
+#
+# wrangler.toml itself is not committed (it is in .gitignore),
+# because it names one deployment: your domain, your database and
+# the people allowed in. docs/cloudflare-setup.md walks through
+# where each value comes from.
+#
+# No secret values live in this file. A deployment's Cloudflare
+# credential lives in the repository's GitHub Actions secrets and
+# is handed to a deploy job for that run only. The values under
+# [vars] are public identifiers and configuration, not secrets.
+
+name = "tasksparkle"
+main = "worker/worker.js"
+compatibility_date = "2026-10-26"
+
+# No workers.dev address. The Worker answers on the routes below
+# and nowhere else, so there is no third door around the sign-in wall.
+workers_dev = false
+
+# Two doors, two kinds of caller. Name two hosts on a domain you
+# control on Cloudflare; the names below are examples.
+# - The first host is the people's door. The whole host sits behind
+#   a Cloudflare Access app, and the Worker checks the Access token
+#   (JWT) on every API call.
+# - The second host is the agents' door. It is in no Access app.
+#   The Worker ignores Access headers there and accepts only an
+#   agent key sent as an Authorization Bearer token.
+# The people's door needs every route listed, not just /api/*: the
+# Worker serves the sign-in, setup and invite pages itself, and a
+# page call that matches no route falls through to the static site
+# and fails. /login/* carries the passkey calls the sign-in page
+# makes under /login; /setup/* carries the passkey calls the setup
+# page makes under /setup; /invite-code is the paste-a-code form's
+# own address, which /invite/* does not cover.
+routes = [
+  { pattern = "tasksparkle.your-domain.com/api/*", zone_name = "your-domain.com" },
+  { pattern = "tasksparkle.your-domain.com/login", zone_name = "your-domain.com" },
+  { pattern = "tasksparkle.your-domain.com/login/*", zone_name = "your-domain.com" },
+  { pattern = "tasksparkle.your-domain.com/setup", zone_name = "your-domain.com" },
+  { pattern = "tasksparkle.your-domain.com/setup/*", zone_name = "your-domain.com" },
+  { pattern = "tasksparkle.your-domain.com/invite/*", zone_name = "your-domain.com" },
+  { pattern = "tasksparkle.your-domain.com/invite-code", zone_name = "your-domain.com" },
+  { pattern = "tasksparkle.your-domain.com/logout", zone_name = "your-domain.com" },
+  { pattern = "tasksparkle-api.your-domain.com/api/*", zone_name = "your-domain.com" },
+]
+
+# The API reads and writes one D1 database, bound here as DB.
+# worker/worker.js uses env.DB for every query. Create the database with
+# `wrangler d1 create tasksparkle` and paste the id it prints here.
+[[d1_databases]]
+binding = "DB"
+database_name = "tasksparkle"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+# Optional: a second database for the sign-in tables alone,
+# bound as AUTH_DB. A flood of sign-in attempts writes defence
+# rows; in their own database those writes can exhaust that
+# database's daily write quota without ever touching the
+# boards' database. Create it with `wrangler d1 create
+# tasksparkle-auth`. Leave the block out and the sign-in
+# tables live in the main database above.
+# [[d1_databases]]
+# binding = "AUTH_DB"
+# database_name = "tasksparkle-auth"
+# database_id = "00000000-0000-0000-0000-000000000000"
+
+# Live updates ride one Durable Object per owner (the OwnerPush
+# class in worker/worker.js, bound here as PUSH). An object holds only its
+# owner's open browser sockets and passes each new change-marker
+# number to them; it stores nothing. Sockets are held with the
+# hibernation API, so an idle socket costs nothing. The migration
+# below creates the class with SQLite storage, the kind the free
+# plan carries.
+[durable_objects]
+bindings = [
+  { name = "PUSH", class_name = "OwnerPush" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["OwnerPush"]
+
+[vars]
+# The two doors' hosts. worker/worker.js reads these to tell the doors
+# apart (the agents' door takes keys only), to redirect the doors'
+# plain-HTTP spelling to HTTPS, and to print the agents' door
+# address in the directions and the Set Up Agent text. They must
+# match the routes above.
+BROWSER_HOST = "tasksparkle.your-domain.com"
+AGENT_HOST = "tasksparkle-api.your-domain.com"
+# One job only, and only until the first account stands: the
+# agent keys of the people named here keep working before any
+# account exists, so an agent is never locked out of a fresh
+# copy before its person has signed in. Once accounts stand,
+# every key answers to its person's account instead, and this
+# list governs nothing. Comma-separated email addresses — an
+# address is how a key's owner row was named before accounts
+# existed; the claim step in the app joins the two up.
+OWNER_EMAILS = "you@example.com"
+# The setup code is NOT a var: it is a secret, set with
+# `wrangler secret put SETUP_CODE`, never written in this file.
+# It is a long random string (at least 22 characters) that the
+# setup page asks for before it makes the first account, so a
+# stranger who finds a brand-new copy cannot take that account.
+# It is spent the moment the first account stands — the page
+# never asks again — and deployments that predate accounts
+# need it once, at the cutover (docs/cloudflare-setup.md).

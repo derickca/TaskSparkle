@@ -1,0 +1,2860 @@
+/* Theme colours. Light is the default set. The dark set hangs off the
+   data-theme attribute that the early script and app.js keep on <html>.
+   The chosen mode (system, light or dark) resolves to one of these. */
+:root {
+  color-scheme: light;
+  --bg: #f4f5f2;
+  --panel: #ffffff;
+  --column-bg: #e9ebe6;
+  --ink: #191c19;
+  --muted: #4c524c;
+  /* The hairline clears 3:1 against the page background
+     (issue #142) — the local checks measure it, so a softer
+     value fails the run. */
+  --line: #83887d;
+  --accent: #1f5c3d;
+  --accent-ink: #ffffff;
+  --field-bg: #ffffff;
+  --copy-bg: #f8f8f5;
+  --tag-bg: #ffffff;
+  --invert-bg: #191c19;
+  --invert-ink: #ffffff;
+  --card-hover: #9aa392;
+  --good: #234d20;
+  --due-soon: #7d1f14;
+  --flag: #b34700;
+  --flag-bg: #fdeadb;
+  --flag-border: #eec39a;
+  --late-bg: #fbe3e0;
+  --late-ink: #7d1f14;
+  --late-border: #e3b3ad;
+  --warn-bg: #fdf0d9;
+  --warn-ink: #6b4b00;
+  --warn-border: #e4cf9e;
+  --danger-bg: #fbe3e0;
+  --danger-ink: #7d1f14;
+  --danger-border: #e3b3ad;
+  --radius: 10px;
+  /* The Standard look's fonts. Every named look below carries
+     its own pair; the stacks name fonts already on people's
+     devices, so no look downloads a font. */
+  --font: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #131512;
+  --panel: #1f231f;
+  --column-bg: #262b26;
+  --ink: #eceee9;
+  --muted: #a7aea4;
+  /* The dark hairline clears the same 3:1 bar (issue #142). */
+  --line: #6c776c;
+  --field-bg: #262b26;
+  --copy-bg: #262b26;
+  --tag-bg: #2c332c;
+  --invert-bg: #eceee9;
+  --invert-ink: #171917;
+  --card-hover: #5f6a5f;
+  --good: #a9d6a4;
+  --due-soon: #ffa79a;
+  --flag: #ffa25e;
+  --flag-bg: #40260e;
+  --flag-border: #7a4d1c;
+  --late-bg: #3d1f1b;
+  --late-ink: #f0a49c;
+  --late-border: #7a4038;
+  --warn-bg: #3a2f14;
+  --warn-ink: #f0cd7e;
+  --warn-border: #6e5a24;
+  --danger-bg: #3d1f1b;
+  --danger-ink: #f0a49c;
+  --danger-border: #7a4038;
+}
+
+/* Named looks. Each look carries two authored palettes, light
+   and dark, and the System, Light and Dark mode composes with
+   every one: the light block answers the look alone and the
+   dark block answers look and dark together, so it wins.
+   Every block sets the whole variable set, so no value leaks
+   in from another look. Label colours are not here — a
+   label's colour keeps its identity inside every look.
+   Every text pair in these palettes meets WCAG AA at 4.5:1
+   (the flag pair 3:1), proven from the rendered styles. */
+
+:root[data-look="comic"] {
+  color-scheme: light;
+  --bg: #fff3c4;
+  --panel: #ffffff;
+  --column-bg: #ffe08a;
+  --ink: #232323;
+  --muted: #5a5136;
+  --line: #8a7a3a;
+  --accent: #2050c8;
+  --accent-ink: #ffffff;
+  --field-bg: #ffffff;
+  --copy-bg: #fffbe8;
+  --tag-bg: #ffffff;
+  --invert-bg: #232323;
+  --invert-ink: #ffffff;
+  --card-hover: #fff8dc;
+  --good: #1d5c1e;
+  --due-soon: #a31607;
+  --flag: #b34700;
+  --flag-bg: #ffe3c2;
+  --flag-border: #d89a55;
+  --late-bg: #ffd9d2;
+  --late-ink: #8f1306;
+  --late-border: #e8a396;
+  --warn-bg: #ffedb8;
+  --warn-ink: #6b4b00;
+  --warn-border: #e3c979;
+  --danger-bg: #ffd9d2;
+  --danger-ink: #8f1306;
+  --danger-border: #e8a396;
+  --radius: 14px;
+  --font: "Comic Sans MS", "Comic Neue", "Chalkboard SE", "Segoe UI", sans-serif;
+  --font-display: "Comic Sans MS", "Comic Neue", "Chalkboard SE", "Segoe UI", sans-serif;
+}
+
+:root[data-look="comic"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1d1b2e;
+  --panel: #2a2742;
+  --column-bg: #332f52;
+  --ink: #fdf6d8;
+  --muted: #cfc7a8;
+  --line: #857fb0;
+  --accent: #ffd23e;
+  --accent-ink: #231f00;
+  --field-bg: #332f52;
+  --copy-bg: #332f52;
+  --tag-bg: #3a3660;
+  --invert-bg: #fdf6d8;
+  --invert-ink: #1d1b2e;
+  --card-hover: #332f52;
+  --good: #a9e6a4;
+  --due-soon: #ffab9e;
+  --flag: #ffb35e;
+  --flag-bg: #4a2c0d;
+  --flag-border: #7a4d1c;
+  --late-bg: #47201c;
+  --late-ink: #ffb3a7;
+  --late-border: #7a4038;
+  --warn-bg: #453512;
+  --warn-ink: #ffd97a;
+  --warn-border: #7d6530;
+  --danger-bg: #47201c;
+  --danger-ink: #ffb3a7;
+  --danger-border: #7a4038;
+}
+
+:root[data-look="console"] {
+  color-scheme: light;
+  --bg: #f2f5ec;
+  --panel: #fbfdf7;
+  --column-bg: #e2ead3;
+  --ink: #0d2812;
+  --muted: #3d5a36;
+  --line: #64804c;
+  --accent: #0e7a2f;
+  --accent-ink: #ffffff;
+  --field-bg: #fbfdf7;
+  --copy-bg: #eef3e2;
+  --tag-bg: #f4f8ec;
+  --invert-bg: #0d2812;
+  --invert-ink: #eafbe9;
+  --card-hover: #eef3e2;
+  --good: #0e6b24;
+  --due-soon: #a31607;
+  --flag: #b34700;
+  --flag-bg: #f7e8c8;
+  --flag-border: #d89a55;
+  --late-bg: #f9dcd6;
+  --late-ink: #8f1306;
+  --late-border: #dfa89e;
+  --warn-bg: #f9ecc4;
+  --warn-ink: #6b4b00;
+  --warn-border: #e0cd93;
+  --danger-bg: #f9dcd6;
+  --danger-ink: #8f1306;
+  --danger-border: #dfa89e;
+  --radius: 4px;
+  --font: ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
+  --font-display: ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
+}
+
+:root[data-look="console"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #000000;
+  --panel: #0a120a;
+  --column-bg: #101a0e;
+  --ink: #4ae36a;
+  --muted: #5cb871;
+  --line: #3a7a44;
+  --accent: #33e05c;
+  --accent-ink: #001703;
+  --field-bg: #0d150c;
+  --copy-bg: #0d150c;
+  --tag-bg: #12240f;
+  --invert-bg: #33e05c;
+  --invert-ink: #001703;
+  --card-hover: #101a0e;
+  --good: #4ae36a;
+  --due-soon: #ff9d94;
+  --flag: #ffb35e;
+  --flag-bg: #33200a;
+  --flag-border: #7a4d1c;
+  --late-bg: #2e0f0c;
+  --late-ink: #ffab9e;
+  --late-border: #5e2a24;
+  --warn-bg: #2e2305;
+  --warn-ink: #f2cd7e;
+  --warn-border: #5e4c14;
+  --danger-bg: #2e0f0c;
+  --danger-ink: #ffab9e;
+  --danger-border: #5e2a24;
+}
+
+:root[data-look="pretty"] {
+  color-scheme: light;
+  --bg: #fdf0f6;
+  --panel: #ffffff;
+  --column-bg: #fbdff0;
+  --ink: #472236;
+  --muted: #7a4a61;
+  --line: #ad7593;
+  --accent: #b02a63;
+  --accent-ink: #ffffff;
+  --field-bg: #ffffff;
+  --copy-bg: #fdf6fa;
+  --tag-bg: #ffffff;
+  --invert-bg: #472236;
+  --invert-ink: #ffffff;
+  --card-hover: #fdf6fa;
+  --good: #256b22;
+  --due-soon: #a31607;
+  --flag: #b34700;
+  --flag-bg: #fdeadb;
+  --flag-border: #d89a55;
+  --late-bg: #fbdcd6;
+  --late-ink: #8f1306;
+  --late-border: #e2a396;
+  --warn-bg: #fdf0d9;
+  --warn-ink: #6b4b00;
+  --warn-border: #ecd9a8;
+  --danger-bg: #fbdcd6;
+  --danger-ink: #8f1306;
+  --danger-border: #e2a396;
+  --radius: 16px;
+  --font: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: Georgia, "Times New Roman", serif;
+}
+
+:root[data-look="pretty"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #221219;
+  --panel: #301b26;
+  --column-bg: #3a2230;
+  --ink: #f9e4ef;
+  --muted: #d3a4bc;
+  --line: #96667e;
+  --accent: #e58bb5;
+  --accent-ink: #33101f;
+  --field-bg: #3a2230;
+  --copy-bg: #3a2230;
+  --tag-bg: #422838;
+  --invert-bg: #f9e4ef;
+  --invert-ink: #2c1420;
+  --card-hover: #3a2230;
+  --good: #a9d6a4;
+  --due-soon: #ffab9e;
+  --flag: #ffb35e;
+  --flag-bg: #40260e;
+  --flag-border: #7a4d1c;
+  --late-bg: #47201c;
+  --late-ink: #ffb3a7;
+  --late-border: #7a4038;
+  --warn-bg: #453512;
+  --warn-ink: #ffd97a;
+  --warn-border: #7d6530;
+  --danger-bg: #47201c;
+  --danger-ink: #ffb3a7;
+  --danger-border: #7a4038;
+}
+
+:root[data-look="artistic"] {
+  color-scheme: light;
+  --bg: #f5efe3;
+  --panel: #fffdf6;
+  --column-bg: #eadfc8;
+  --ink: #2e2620;
+  --muted: #66553f;
+  --line: #97814f;
+  --accent: #a52f14;
+  --accent-ink: #ffffff;
+  --field-bg: #fffdf6;
+  --copy-bg: #f8f2e4;
+  --tag-bg: #fffdf6;
+  --invert-bg: #2e2620;
+  --invert-ink: #f7f1e3;
+  --card-hover: #f8f2e4;
+  --good: #2d5c1e;
+  --due-soon: #a31607;
+  --flag: #b34700;
+  --flag-bg: #f7e3c2;
+  --flag-border: #d89a55;
+  --late-bg: #f6d9d2;
+  --late-ink: #8f1306;
+  --late-border: #e0a08f;
+  --warn-bg: #f7ecc4;
+  --warn-ink: #6b4b00;
+  --warn-border: #e6d194;
+  --danger-bg: #f6d9d2;
+  --danger-ink: #8f1306;
+  --danger-border: #e0a08f;
+  --radius: 10px;
+  --font: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: Georgia, "Times New Roman", serif;
+}
+
+:root[data-look="artistic"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #171310;
+  --panel: #231d17;
+  --column-bg: #2d241b;
+  --ink: #f0e7d6;
+  --muted: #c4b198;
+  --line: #867452;
+  --accent: #e2703a;
+  --accent-ink: #2a1200;
+  --field-bg: #2d241b;
+  --copy-bg: #2d241b;
+  --tag-bg: #352a1f;
+  --invert-bg: #f0e7d6;
+  --invert-ink: #221a12;
+  --card-hover: #2d241b;
+  --good: #a9d6a4;
+  --due-soon: #ffab9e;
+  --flag: #ffb35e;
+  --flag-bg: #40260e;
+  --flag-border: #7a4d1c;
+  --late-bg: #47201c;
+  --late-ink: #ffb3a7;
+  --late-border: #7a4038;
+  --warn-bg: #453512;
+  --warn-ink: #ffd97a;
+  --warn-border: #7d6530;
+  --danger-bg: #47201c;
+  --danger-ink: #ffb3a7;
+  --danger-border: #7a4038;
+}
+
+:root[data-look="sunset"] {
+  color-scheme: light;
+  --bg: #fdeedd;
+  --panel: #fffaf2;
+  --column-bg: #f9dcbc;
+  --ink: #42202b;
+  --muted: #7a4636;
+  --line: #a97a52;
+  --accent: #bc380f;
+  --accent-ink: #ffffff;
+  --field-bg: #fffaf2;
+  --copy-bg: #fdf3e3;
+  --tag-bg: #fffaf2;
+  --invert-bg: #42202b;
+  --invert-ink: #ffefe0;
+  --card-hover: #fdf3e3;
+  --good: #2d5c1e;
+  --due-soon: #a31607;
+  --flag: #a83e00;
+  --flag-bg: #fbe3c2;
+  --flag-border: #d89a55;
+  --late-bg: #f8d5ce;
+  --late-ink: #8f1306;
+  --late-border: #e5a08e;
+  --warn-bg: #f9ecc4;
+  --warn-ink: #6b4b00;
+  --warn-border: #e8d194;
+  --danger-bg: #f8d5ce;
+  --danger-ink: #8f1306;
+  --danger-border: #e5a08e;
+  --radius: 12px;
+  --font: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Trebuchet MS", "Segoe UI", Verdana, sans-serif;
+}
+
+:root[data-look="sunset"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #1e1226;
+  --panel: #2b1a33;
+  --column-bg: #382142;
+  --ink: #ffe9d4;
+  --muted: #d9a98f;
+  --line: #8f659a;
+  --accent: #ff8c42;
+  --accent-ink: #38160a;
+  --field-bg: #382142;
+  --copy-bg: #382142;
+  --tag-bg: #42264d;
+  --invert-bg: #ffe9d4;
+  --invert-ink: #31182e;
+  --card-hover: #382142;
+  --good: #b5e3a8;
+  --due-soon: #ffab9e;
+  --flag: #ffb35e;
+  --flag-bg: #40260e;
+  --flag-border: #7a4d1c;
+  --late-bg: #47201c;
+  --late-ink: #ffb3a7;
+  --late-border: #7a4038;
+  --warn-bg: #453512;
+  --warn-ink: #ffd97a;
+  --warn-border: #7d6530;
+  --danger-bg: #47201c;
+  --danger-ink: #ffb3a7;
+  --danger-border: #7a4038;
+}
+
+:root[data-look="forest"] {
+  color-scheme: light;
+  --bg: #edf4e2;
+  --panel: #fbfdf5;
+  --column-bg: #dae7c8;
+  --ink: #1e2b16;
+  --muted: #495c39;
+  --line: #75895a;
+  --accent: #2e6b30;
+  --accent-ink: #ffffff;
+  --field-bg: #fbfdf5;
+  --copy-bg: #f0f5e6;
+  --tag-bg: #fbfdf5;
+  --invert-bg: #1e2b16;
+  --invert-ink: #eef6e2;
+  --card-hover: #f0f5e6;
+  --good: #256b22;
+  --due-soon: #a31607;
+  --flag: #b34700;
+  --flag-bg: #f7e8c8;
+  --flag-border: #d89a55;
+  --late-bg: #f6d9d2;
+  --late-ink: #8f1306;
+  --late-border: #e0a08f;
+  --warn-bg: #f9ecc4;
+  --warn-ink: #6b4b00;
+  --warn-border: #e6d194;
+  --danger-bg: #f6d9d2;
+  --danger-ink: #8f1306;
+  --danger-border: #e0a08f;
+  --radius: 12px;
+  --font: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: Georgia, "Times New Roman", serif;
+}
+
+:root[data-look="forest"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0c1710;
+  --panel: #14231a;
+  --column-bg: #1b2f21;
+  --ink: #e7f3de;
+  --muted: #a9c69b;
+  --line: #597d52;
+  --accent: #69a85e;
+  --accent-ink: #0d2108;
+  --field-bg: #1b2f21;
+  --copy-bg: #1b2f21;
+  --tag-bg: #223a29;
+  --invert-bg: #e7f3de;
+  --invert-ink: #14240f;
+  --card-hover: #1b2f21;
+  --good: #a9d6a4;
+  --due-soon: #ffab9e;
+  --flag: #ffb35e;
+  --flag-bg: #40260e;
+  --flag-border: #7a4d1c;
+  --late-bg: #47201c;
+  --late-ink: #ffb3a7;
+  --late-border: #7a4038;
+  --warn-bg: #453512;
+  --warn-ink: #ffd97a;
+  --warn-border: #7d6530;
+  --danger-bg: #47201c;
+  --danger-ink: #ffb3a7;
+  --danger-border: #7a4038;
+}
+
+:root[data-look="midnight"] {
+  color-scheme: light;
+  --bg: #e7edfc;
+  --panel: #fbfcff;
+  --column-bg: #d3defa;
+  --ink: #16213d;
+  --muted: #46557c;
+  --line: #6f84b8;
+  --accent: #2b4acb;
+  --accent-ink: #ffffff;
+  --field-bg: #fbfcff;
+  --copy-bg: #eef2fd;
+  --tag-bg: #fbfcff;
+  --invert-bg: #16213d;
+  --invert-ink: #e7edfc;
+  --card-hover: #eef2fd;
+  --good: #256b22;
+  --due-soon: #a31607;
+  --flag: #b34700;
+  --flag-bg: #f7e8c8;
+  --flag-border: #d89a55;
+  --late-bg: #f6d9d2;
+  --late-ink: #8f1306;
+  --late-border: #e0a08f;
+  --warn-bg: #f9ecc4;
+  --warn-ink: #6b4b00;
+  --warn-border: #e6d194;
+  --danger-bg: #f6d9d2;
+  --danger-ink: #8f1306;
+  --danger-border: #e0a08f;
+  --radius: 10px;
+  --font: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Avenir Next", "Segoe UI", Roboto, sans-serif;
+}
+
+:root[data-look="midnight"][data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #050914;
+  --panel: #0b1428;
+  --column-bg: #111c36;
+  --ink: #e3ebff;
+  --muted: #a4b5de;
+  --line: #50679c;
+  --accent: #7aa2ff;
+  --accent-ink: #0a1430;
+  --field-bg: #111c36;
+  --copy-bg: #111c36;
+  --tag-bg: #16233f;
+  --invert-bg: #e3ebff;
+  --invert-ink: #0d1730;
+  --card-hover: #111c36;
+  --good: #a9d6a4;
+  --due-soon: #ffab9e;
+  --flag: #ffb35e;
+  --flag-bg: #33200a;
+  --flag-border: #7a4d1c;
+  --late-bg: #2e0f0c;
+  --late-ink: #ffab9e;
+  --late-border: #5e2a24;
+  --warn-bg: #2e2305;
+  --warn-ink: #f2cd7e;
+  --warn-border: #5e4c14;
+  --danger-bg: #2e0f0c;
+  --danger-ink: #ffab9e;
+  --danger-border: #5e2a24;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+/* Headings wear the look's display font. Form controls do not
+   inherit the body font on their own, so in any look but
+   Standard they take the look's font like everything else;
+   Standard keeps the rendering it has always had. */
+h1, h2, h3 { font-family: var(--font-display, var(--font)); }
+
+:root:not([data-look="standard"]) button,
+:root:not([data-look="standard"]) input,
+:root:not([data-look="standard"]) select,
+:root:not([data-look="standard"]) textarea {
+  font-family: inherit;
+}
+
+/* Two looks carry a flavour past their colours: Comic draws its
+   cards, columns and buttons with chunky borders, and Console
+   sets its wordmark the way a terminal titles a session. */
+:root[data-look="comic"] .card,
+:root[data-look="comic"] .column,
+:root[data-look="comic"] .btn {
+  border-width: 2px;
+}
+
+:root[data-look="console"] .topbar h1 {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.topbar {
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 14px 16px 12px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: 0;
+}
+
+/* The header row: the wordmark, the board buttons, then the
+   theme button, the display button and the gear. The switcher
+   takes the room in the middle and scrolls sideways rather than
+   wrapping. On a phone the row wraps on purpose instead: the
+   board buttons take a second row of their own (see the phone
+   block at the end of this file). */
+.header-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-row h1 { flex: 0 0 auto; }
+
+/* The wordmark is the one place the app downloads a font: the
+   name in the header is set in Comfortaa Bold, the brand's face,
+   from a subset that carries only the letters of "TaskSparkle"
+   (about 1.4 KB; the font's licence stands beside it in
+   /fonts/OFL.txt). Every other word in the app keeps the look's
+   own stacks above. */
+@font-face {
+  font-family: "Comfortaa";
+  src: url("/fonts/comfortaa-bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+.topbar h1 {
+  font-family: "Comfortaa", var(--font-display);
+  font-weight: 700;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.settings-btn {
+  appearance: none;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+
+
+/* The small header buttons are smaller than the shared round base
+   above: all four are 32 by 32 with a 16 pixel icon. The search,
+   theme and display buttons' icons are svgs; the settings
+   button's icon is its gear character, sized by the font-size
+   below. */
+#search-toggle,
+#theme-toggle,
+#display-toggle,
+#settings-open {
+  width: 32px;
+  height: 32px;
+}
+
+#search-toggle svg,
+#theme-toggle svg,
+#display-toggle svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 0 auto;
+}
+
+/* The search button wears the inverted colours while the search
+   stands open, like the other toggles wear theirs. */
+#search-toggle.active {
+  background: var(--invert-bg);
+  color: var(--invert-ink);
+  border-color: var(--invert-bg);
+}
+
+/* The search area: the bar slides in under the top row when the
+   search opens and slides back out when it closes. The results
+   grow below the bar, one row per card. */
+.search-area { margin: 0 0 14px; animation: search-in 0.18s ease-out; }
+
+.search-area.closing { animation: search-out 0.15s ease-in forwards; }
+
+@keyframes search-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes search-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-area, .search-area.closing { animation: none; }
+}
+
+.search-bar { display: flex; gap: 8px; }
+
+#search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--field-bg);
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.search-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.search-filters[hidden] { display: none; }
+
+/* The column-remove dialog's destination row is a
+   search-filter-field, whose flex display below would
+   defeat the hidden attribute the dialog toggles (issue
+   #135): the guard stands so an empty column's dialog
+   shows no destination to pick. */
+#column-remove-dest-row[hidden] { display: none; }
+
+.search-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.search-filter-field select {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--field-bg);
+  color: var(--ink);
+  font-size: 14px;
+  max-width: 220px;
+}
+
+.search-bubbles { display: flex; gap: 8px; padding-bottom: 2px; }
+
+.search-results { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+
+.search-results:empty { margin-top: 0; }
+
+.search-result {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  color: var(--ink);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.search-result:hover { background: var(--card-hover); }
+
+.search-result-title { font-weight: 600; flex: 1 1 auto; }
+
+.search-result-meta { color: var(--muted); font-size: 13px; white-space: nowrap; }
+
+.search-hint, .search-empty { color: var(--muted); margin: 2px 0; }
+
+/* The copy-board dialog: the editor panel with a name field and
+   four plain checkboxes. It opens over Settings, so its backdrop
+   stands above the settings backdrop's layer. */
+#copy-backdrop { z-index: 45; }
+
+/* The column removal dialog opens from inside Settings, so it
+   rides at the copy dialog's height, over the settings panel. */
+#column-remove-backdrop { z-index: 45; }
+
+/* The key dialogs open from inside Settings too (issue #98), so
+   their backdrops ride at the same height, over the panel. */
+#key-created-backdrop { z-index: 45; }
+#key-delete-backdrop { z-index: 45; }
+
+/* The delete dialogs of the dialog sweep (issue #99) open over
+   Settings too — and the project one also over the press
+   editor (z-index 40) — so their backdrops ride at the same
+   height, over both. */
+#project-delete-backdrop { z-index: 45; }
+#account-delete-backdrop { z-index: 45; }
+#board-delete-backdrop { z-index: 45; }
+#label-delete-backdrop { z-index: 45; }
+
+/* The People page's dialogs (issue #107) — the minted invite's
+   link and the remove-person confirm — open over Settings the
+   same way, so their backdrops ride at the same height. */
+#invite-created-backdrop { z-index: 45; }
+#person-delete-backdrop { z-index: 45; }
+
+/* The password drop's confirm (issue #122) opens over the
+   Account page inside Settings, so its backdrop rides at the
+   same height. */
+#password-drop-backdrop { z-index: 45; }
+
+/* The own-passkey removal confirm (issue #136) opens over
+   the Account page inside Settings the same way. */
+#own-passkey-remove-backdrop { z-index: 45; }
+
+.copy-dialog .search-filter-field { margin-top: 10px; }
+
+#copy-name {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--field-bg);
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.copy-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.copy-checks label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.copy-checks input { width: 18px; height: 18px; }
+
+#settings-open {
+  font-size: 16px;
+}
+
+.api-error {
+  background: var(--danger-bg);
+  color: var(--danger-ink);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+
+/* A plain note from the live-update path: it speaks only when
+   something the person was looking at changed under them, like
+   the card in the open editor being gone. Routine updates repaint
+   silently and never show it. */
+.push-note {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+
+.loading-note {
+  color: var(--muted);
+  font-size: 16px;
+  padding: 24px 4px;
+}
+
+/* The board row: a wrapper around the board buttons and the
+   two icon buttons that stand beside them. On a wide screen the
+   wrapper and its inner group step aside (display: contents),
+   so the header row lays its pieces out as it always has and
+   the Schedule icon joins the header's own buttons. On a phone
+   the wrapper becomes the header's second row itself: the board
+   buttons scroll inside the room it leaves, and the two buttons
+   stand pinned at its right margin, outside the scrolling run,
+   so no board button can slide underneath them (see the phone
+   block at the end of this file). */
+.board-row { display: contents; }
+
+.board-row-actions { display: contents; }
+
+.board-switcher {
+  display: flex;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.board-switcher::-webkit-scrollbar { display: none; }
+
+.board-tab {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  white-space: nowrap;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 16px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.board-tab-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.board-tab.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+/* The display mode, a device setting: board buttons and column
+   names show their icon and word together, the word alone, or the
+   icon alone. The class lives on <html> and comes from this
+   device's own storage, never from the API. Card faces are not
+   governed: their chips and tags keep their words in every mode. */
+html.display-words .board-tab-icon,
+html.display-words .column-icon,
+html.display-words .step-icon { display: none; }
+html.display-icons .board-tab-name,
+html.display-icons .column-name,
+html.display-icons .step-name { display: none; }
+
+/* The display modes reach the card faces too, and the filter
+   pills: in Words mode no icon shows anywhere; in Icons mode a
+   chip, tag or pill that carries an icon lets its word step
+   aside, and one with no icon keeps its word. */
+html.display-words .chip-icon,
+html.display-words .project-icon { display: none; }
+html.display-icons .chip.has-icon .chip-name,
+html.display-icons .project-tag.has-icon .project-tag-name,
+html.display-icons .filter-btn.has-icon .filter-name { display: none; }
+html.display-icons .chip.has-icon .chip-icon,
+html.display-icons .project-tag.has-icon .project-icon { margin-right: 0; }
+html.display-icons .board-tab { padding-left: 13px; padding-right: 13px; }
+html.display-icons .column-icon,
+html.display-icons .step-icon { margin-right: 0; }
+
+.page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 12px 12px 32px;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 15px;
+  padding: 9px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+/* Project filter row */
+.project-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.filter-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.filter-btn.active {
+  background: var(--invert-bg);
+  color: var(--invert-ink);
+  border-color: var(--invert-bg);
+  font-weight: 600;
+}
+
+.filter-add { border-style: dashed; color: var(--muted); }
+
+/* A project with an icon shows the emoji beside its name. */
+.project-icon {
+  font-size: 15px;
+  line-height: 1;
+  margin-right: 6px;
+  flex: 0 0 auto;
+}
+
+/* Project tag on a card: an outline pill naming the project.
+   Deliberately plainer than the filled label chip. */
+.project-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--tag-bg);
+  color: var(--ink);
+}
+
+.project-tag .project-icon { margin-right: 5px; font-size: 13px; }
+
+/* The creator tag: the pill that names the agent key that made
+   a card (on its face) or wrote a comment (in the editor). The
+   same plain outline pill as the project tag; the name inside
+   is a snapshot, spelled the way the key was named when the
+   card or comment was written. It carries no icon, so — the
+   way a label chip with no icon keeps its word — its word
+   stands in every display mode. */
+.creator-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--tag-bg);
+  color: var(--ink);
+}
+
+/* The editor's maker line (issue #126): "Made by" and the
+   maker's name in the creator-tag pill, under the title
+   field. The [hidden] guard stands because the flex display
+   would otherwise defeat the attribute (the issue #125
+   lesson). */
+.made-by-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.made-by-line[hidden] {
+  display: none;
+}
+
+/* The next-step chip (issue #119): the pill that names the
+   agent key holding a card's next step. It wears the accent
+   border so it never reads as the creator tag beside it —
+   created-by and whose-turn are different facts. While the
+   card waits for its pickup the chip carries the wait's age
+   after the name, and the chip fills with the accent tint so
+   a waiting card stands out on the board. */
+.step-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: var(--tag-bg);
+  color: var(--ink);
+}
+
+.step-chip.waiting {
+  background: var(--tag-bg);
+  background: color-mix(in srgb, var(--accent) 20%, var(--tag-bg));
+}
+
+/* The editor's Next step row: the line names the holder as
+   the step stands, above the chooser that hands it over. */
+.step-line {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+
+.step-block select {
+  width: 100%;
+}
+
+/* Inline add-project form */
+.project-add-form {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.project-add-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.project-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.project-add-row input {
+  flex: 1 1 180px;
+  min-width: 0;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 44px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+.btn-quiet { background: transparent; }
+.btn-warn { background: var(--warn-bg); color: var(--warn-ink); border-color: var(--warn-border); }
+.btn-danger { background: var(--danger-bg); color: var(--danger-ink); border-color: var(--danger-border); }
+
+/* Column stepper: phone only. The chips scroll in a run of
+   their own; the run holds chips and nothing else, since the
+   See all columns and Schedule buttons live in the board row. */
+.column-stepper {
+  display: none;
+  gap: 6px;
+  align-items: center;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+
+/* While the schedule stands open app.js hides the stepper, and
+   the phone rule below would otherwise beat the hidden flag. */
+.column-stepper[hidden] { display: none; }
+
+/* The chips run: each chip sizes to its whole word, and the run
+   scrolls sideways when the words need more room than the screen
+   gives. The scrollbar stays a thin line, never a heavy bar.
+   The line fades (issue #36): while the run is at rest the line
+   stands at no strength, and while the run is being used it
+   rises to full strength and fades back a second after the use
+   stops. app.js names the state with the chips-in-use class;
+   here the strength is a plain number, registered so the
+   browser can ease between its values, and the thumb in both
+   its spellings is the line colour mixed with transparency at
+   that strength. The line colour is each look's own variable,
+   so the fade is the same in every look, light and dark. The
+   scrollbar's size is set once and never changes with the
+   strength, so nothing shifts as the line comes and goes. */
+@property --chips-bar-strength {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+.step-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  scrollbar-width: thin;
+  --chips-bar-strength: 0;
+  transition: --chips-bar-strength 0.45s ease;
+  scrollbar-color: color-mix(in srgb, var(--line) calc(var(--chips-bar-strength) * 100%), transparent) transparent;
+}
+
+.step-chips.chips-in-use { --chips-bar-strength: 1; }
+
+.step-chips::-webkit-scrollbar { height: 6px; }
+
+.step-chips::-webkit-scrollbar-thumb {
+  --chips-bar-strength: 0;
+  transition: --chips-bar-strength 0.45s ease;
+  background: color-mix(in srgb, var(--line) calc(var(--chips-bar-strength) * 100%), transparent);
+  border-radius: 3px;
+}
+
+.step-chips.chips-in-use::-webkit-scrollbar-thumb { --chips-bar-strength: 1; }
+
+/* The See all columns button: a round button in the header
+   buttons' family, 32 by 32 with a 16 pixel mark. While the
+   overview stands it fills in, the way the active chip does,
+   and its label reads as the way back. */
+.overview-btn {
+  appearance: none;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.overview-btn svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 0 auto;
+}
+
+.overview-btn.active {
+  background: var(--invert-bg);
+  color: var(--invert-ink);
+  border-color: var(--invert-bg);
+}
+
+/* The See all columns button is a phone's only: on a wide screen
+   it never shows, and while the schedule stands open app.js hides
+   it at any width, since there are no columns to zoom out to. */
+@media (min-width: 900px) {
+  #overview-toggle { display: none; }
+}
+
+#overview-toggle[hidden] { display: none; }
+
+.step-btn {
+  appearance: none;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 14px;
+  padding: 8px 12px;
+  text-align: center;
+  border-radius: 999px;
+  cursor: pointer;
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.step-btn.active {
+  background: var(--invert-bg);
+  color: var(--invert-ink);
+  border-color: var(--invert-bg);
+  font-weight: 600;
+}
+
+/* A chip a card drag is hovering wears the drop ring. */
+.step-btn.drop-target {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Columns */
+.columns {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+
+.column {
+  min-width: 0;
+  background: var(--column-bg);
+  border-radius: var(--radius);
+  padding: 10px;
+}
+
+.column.drag-over { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+.column-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0 2px 10px;
+}
+
+.column-head h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.column-count { color: var(--muted); font-size: 13px; }
+
+/* A column's icon sits before its name, in the board's column
+   headers and in the phone's column switcher chips alike. */
+.column-icon { margin-right: 6px; }
+.step-icon { margin-right: 5px; }
+
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 40px;
+}
+
+/* A column's foot carries its own plus: a round green button in
+   the family of the header's small round buttons. A card added
+   from here starts in this column. */
+.column-foot {
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+}
+
+.column-add-btn {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 20px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* A column's touch handling: up-and-down pans scroll, the way
+   they always have, and sideways pans are left delivering
+   pointer events so the app can page between columns on a swipe.
+   A card follows the same rule, except its grip, where a drag
+   must own the touch outright so it can never scroll or page. */
+.column, .card-list, .card { touch-action: pan-y; }
+
+.card {
+  position: relative;
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.card:hover { border-color: var(--card-hover); }
+
+/* The grip in a card's top corner: quiet grey dots until the card
+   is hovered or the grip itself is touched. On a touch screen
+   there is no hover, so the dots stand a little stronger there. */
+.card-grip {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--muted);
+  opacity: 0.45;
+  touch-action: none;
+  cursor: grab;
+}
+.card-grip svg { width: 10px; height: 16px; display: block; }
+.card:hover .card-grip, .card:focus-visible .card-grip { opacity: 0.95; }
+@media (pointer: coarse) {
+  .card-grip { opacity: 0.7; }
+}
+
+/* The drag's two stand-ins: a copy of the card that follows the
+   pointer, and a dashed space in the list marking where the card
+   will land. */
+.drag-ghost {
+  position: fixed;
+  margin: 0;
+  z-index: 80;
+  pointer-events: none;
+  opacity: 0.95;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  cursor: grabbing;
+}
+.drop-indicator {
+  flex: none;
+  border: 2px dashed var(--accent);
+  border-radius: 8px;
+}
+body.dragging-card { cursor: grabbing; }
+
+.card-title {
+  display: block;
+  font-weight: 600;
+  font-size: 15px;
+  overflow-wrap: break-word;
+  padding-right: 26px;
+}
+
+.card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.chip {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+/* A label's emoji sits inside its chip, before the name. */
+.chip-icon { margin-right: 4px; }
+
+.chip-household { background: #dcead9; color: #234d20; border-color: #b7d3b2; }
+.chip-family { background: #fde8c8; color: #6b4b00; border-color: #f0d194; }
+.chip-health { background: #dbeafe; color: #1d3f7d; border-color: #aecbf5; }
+.chip-errands { background: #ece2f5; color: #472a66; border-color: #d0bce8; }
+.chip-admin { background: #e5e5e0; color: #3d403d; border-color: #c9cdc4; }
+.chip-writing { background: #e3e0f5; color: #3b2a6b; border-color: #c4bce8; }
+.chip-building { background: #d7f0ec; color: #0f4c44; border-color: #a5d8d0; }
+.chip-outreach { background: #fde3ef; color: #701a3e; border-color: #f2b8d0; }
+.chip-money { background: #e6f2d8; color: #33590f; border-color: #c2dd9e; }
+.chip-none { background: #eeeeea; color: #4c524c; border-color: #d5d8d0; }
+
+.due {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.due.soon { color: var(--due-soon); font-weight: 600; }
+
+.checklist-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.checklist-progress svg { width: 14px; height: 14px; flex: none; }
+
+.checklist-progress.all-done { color: var(--good); font-weight: 600; }
+
+.link-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.link-count svg { width: 14px; height: 14px; flex: none; }
+
+.comment-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.comment-count svg { width: 14px; height: 14px; flex: none; }
+
+/* The one marker a flagged card wears: a small flag in a warm
+   colour, in the same row and at the same size as the checklist
+   and link counts. Unflagged cards render nothing for it. */
+/* The Important flag stands on its own tinted footing, clear of
+   the due date beside it, so it never reads as decoration on the
+   date. Its warm colour is the same in every theme's own shades. */
+.important-flag {
+  display: inline-flex;
+  align-items: center;
+  color: var(--flag);
+  background: var(--flag-bg);
+  border: 1px solid var(--flag-border);
+  border-radius: 999px;
+  padding: 2px 6px;
+}
+
+/* A card past its due date wears this tag beside the date. A card
+   due today wears nothing: today is not late. */
+.late-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--late-bg);
+  color: var(--late-ink);
+  border: 1px solid var(--late-border);
+}
+
+.important-flag svg { width: 14px; height: 14px; flex: none; }
+
+.empty-note {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 2px;
+}
+
+
+/* Editor */
+.editor-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 22, 20, 0.55);
+  z-index: 20;
+  overflow-y: auto;
+  padding: 16px 12px;
+}
+
+.editor {
+  background: var(--panel);
+  border-radius: 12px;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.editor-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.editor-head h2 { margin: 0; font-size: 20px; }
+
+/* On a wide screen the card editor uses the room around it
+   (issue #40): the board behind it runs the full width, and a
+   560px editor left most of a desktop empty. The title, notes,
+   checklist and links inside are fluid, so they gain the same
+   room the dialog does. Phone widths keep the editor as it was,
+   and the other dialogs keep their own widths. */
+@media (min-width: 900px) {
+  #editor-backdrop .editor {
+    max-width: 980px;
+  }
+}
+
+.editor label {
+  display: block;
+  font-weight: 600;
+  margin: 12px 0 4px;
+}
+
+/* A field heading that is not a form label, styled to match one:
+   the Labels tick list below it is a set of rows, not one control. */
+.editor .field-heading {
+  display: block;
+  font-weight: 600;
+  margin: 12px 0 4px;
+}
+
+/* The card's labels, inside the editor. One row per label on the
+   board: a tick box and the label's chip, exactly as the chip reads
+   on the card's face. Ticking a row puts that label on the card or
+   lifts it off, at once. */
+.label-tick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+
+.editor label.label-tick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 400;
+  margin: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.label-tick input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin: 0;
+}
+
+/* The Important toggle, under the due date: one tick box and the
+   word. Ticking it flags the card at once, like every other field. */
+.editor label.important-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 4px;
+  cursor: pointer;
+}
+
+.important-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  flex: none;
+  margin: 0;
+}
+
+.editor input[type="text"],
+.editor input[type="date"],
+.editor textarea,
+.editor select {
+  width: 100%;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 44px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+
+/* The card's checklist, inside the editor. Each row is a move
+   grip, a tick box, the step's text and a Remove button. The
+   text stands as plain wrapped text — no field and no box — so
+   a step of any length reads in full; tapping it swaps in the
+   editing field for as long as the rename lasts. A ticked
+   step's text is struck through, so where a card has got to
+   reads at a glance. */
+.checklist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+
+.checklist-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.checklist-row input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin: 11px 0 0;
+}
+
+/* A step's move grip: the same six dots a card carries, standing
+   at the row's left. It is the one place a step drag can start
+   from, so a press on the text or the tick box never picks a
+   step up. Quiet grey until the row is hovered or the grip
+   itself is touched; on a touch screen there is no hover, so
+   the dots stand a little stronger there. */
+.step-grip {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--muted);
+  opacity: 0.45;
+  touch-action: none;
+  cursor: grab;
+}
+.step-grip svg { width: 10px; height: 16px; display: block; }
+.checklist-row:hover .step-grip { opacity: 0.95; }
+@media (pointer: coarse) {
+  .step-grip { opacity: 0.7; }
+}
+
+/* The copy of a step row that follows the pointer while the
+   step is dragged: it needs the editor's own ground under it,
+   where a card's copy brings its own. */
+.step-drag-ghost {
+  background: var(--panel);
+  border-radius: 8px;
+  padding-right: 8px;
+}
+
+.checklist-row .step-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+  padding: 10px 2px;
+  cursor: text;
+}
+
+.checklist-row .step-edit { flex: 1; min-width: 0; }
+
+.checklist-row.done .step-text {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.checklist-row .btn { flex: none; }
+
+.checklist-add-row { display: flex; gap: 8px; }
+.checklist-add-row input[type="text"] { flex: 1; min-width: 0; }
+.checklist-add-row .btn { flex: none; }
+
+/* The card's links, inside the editor. Each row is the link itself
+   and a Remove button. The link shows its name, or its address
+   when it has no name, with the address under a named link, and
+   following it opens the address in a new tab. */
+.links-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+
+.link-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.link-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field-bg);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.link-open:hover { border-color: var(--card-hover); }
+
+.link-name {
+  font-weight: 600;
+  font-size: 15px;
+  overflow-wrap: break-word;
+}
+
+.link-url {
+  font-size: 13px;
+  color: var(--muted);
+  overflow-wrap: break-word;
+}
+
+.link-row .btn { flex: none; }
+
+.link-error {
+  color: var(--due-soon);
+  font-size: 14px;
+  margin: 4px 0 8px;
+}
+
+.link-add-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.link-add-row #link-add-url { flex: 1 1 100%; }
+.link-add-row #link-add-name { flex: 1; min-width: 0; }
+.link-add-row .btn { flex: none; }
+
+/* The card's comments, inside the editor. Each comment stands
+   as its body — plain wrapped text, keeping the line breaks it
+   was written with — over a quiet foot: the author tag when an
+   agent key wrote it (the same pill a key-made card wears on
+   its face), the time it was written, and its Remove button.
+   A comment the person wrote wears no tag. */
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 4px 0 8px;
+}
+
+.comment-row {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field-bg);
+  padding: 8px 10px;
+}
+
+.comment-body {
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  font-size: 15px;
+}
+
+.comment-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.comment-time {
+  font-size: 13px;
+  color: var(--muted);
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-foot .btn { flex: none; }
+
+.comment-add-row { display: flex; gap: 8px; align-items: flex-start; }
+.comment-add-row textarea { flex: 1; min-width: 0; }
+.comment-add-row .btn { flex: none; }
+
+.editor-conflict {
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 10px 12px;
+  margin-top: 16px;
+}
+.editor-conflict p { margin: 0 0 8px; }
+.editor-conflict-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.move-block { margin-top: 20px; }
+.move-block h3 { margin: 0 0 8px; font-size: 16px; }
+
+.move-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.move-buttons .btn.current {
+  background: var(--invert-bg);
+  color: var(--invert-ink);
+  border-color: var(--invert-bg);
+}
+
+.danger-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 22px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+/* Settings */
+.settings-backdrop { z-index: 30; }
+
+/* The Settings list: one row per page, a name and a quiet arrow.
+   Tapping a row swaps the list for that page alone. */
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.settings-list[hidden] { display: none; }
+.settings-list-btn[hidden] { display: none; }
+
+.settings-list-btn {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font: inherit;
+  font-size: 17px;
+  text-align: left;
+  padding: 14px 2px;
+  min-height: 52px;
+  cursor: pointer;
+}
+
+.settings-list-btn:first-child { border-top: 1px solid var(--line); }
+
+.settings-list-arrow {
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.settings-back-row { margin-top: 4px; }
+.settings-back-row[hidden] { display: none; }
+
+.settings-panel {
+  max-width: 720px;
+}
+
+/* The Account page's Log out button stands clear of the text
+   above it (issue #43): the section's own paragraph spacing left
+   it crowding the line over it. */
+.settings-section .logout-row {
+  margin-top: 30px;
+}
+
+/* The Account page's delete section (issue #57) stands apart
+   at the foot of the page, clear of the sign-in facts and the
+   Log out row above it: it is the one act here with no undo. */
+.settings-section .account-delete {
+  margin-top: 30px;
+}
+
+/* The Set Up Agent key list (issue #45): one row per key — its
+   name, its ending and date, then its own Rename and Delete.
+   Rename and the delete confirm open inside the row. */
+.key-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+
+.key-main { flex: 1 1 200px; min-width: 0; }
+.key-name { margin: 0; font-weight: 600; overflow-wrap: break-word; }
+.key-sub { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+.key-actions { display: flex; gap: 8px; }
+
+.key-rename {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1 1 100%;
+}
+
+.key-rename input[type="text"] {
+  flex: 1 1 160px;
+  min-width: 0;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 44px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+.key-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.key-add-row input[type="text"] {
+  flex: 1 1 180px;
+  min-width: 0;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 44px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+/* A labelled field standing on its own row in Settings, the
+   account page's name field the first of them. */
+.settings-field {
+  display: block;
+  margin-top: 12px;
+  font-weight: 600;
+}
+
+/* The class's display would otherwise beat the hidden
+   attribute (the pattern the other [hidden] guards in this
+   file exist for): a field the page hides — the passkey name
+   field where passkeys cannot run — must actually go. */
+.settings-field[hidden] { display: none; }
+
+.settings-field input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 6px;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 44px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+.settings-section {
+  border-top: 1px solid var(--line);
+  padding: 14px 0 6px;
+  margin-top: 14px;
+}
+
+.settings-section h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+/* The sub-headings inside a settings section (Passkeys,
+   Change password, Sign out, Your keys): without a size of
+   their own they fall back to the browser's h4, which is
+   body size — on the phone they read as bold body text, not
+   headings. 17px against the 16px body keeps them visibly
+   headings at every width, under the section's 18px. */
+.settings-section h4 {
+  margin: 16px 0 6px;
+  font-size: 17px;
+}
+
+.settings-section p { margin: 6px 0; }
+.settings-subhead { font-weight: 700; margin-top: 14px !important; }
+.settings-note { color: var(--muted); font-size: 14px; }
+
+.preview-switcher {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.preview-btn.active {
+  background: var(--invert-bg);
+  color: var(--invert-ink);
+  border-color: var(--invert-bg);
+  font-weight: 600;
+}
+
+/* The look picker: one button per look, each carrying two
+   swatches — the look's light ground split with its accent, and
+   its dark ground split with its accent. */
+.look-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 10px 0 16px;
+}
+
+.look-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.look-btn.active {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 1px var(--ink);
+}
+
+.look-swatches { display: inline-flex; flex: 0 0 auto; }
+
+.look-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.18);
+}
+
+.look-swatch + .look-swatch { margin-left: -6px; }
+
+.look-swatch-standard-light { background: linear-gradient(135deg, #f4f5f2 0 55%, #1f5c3d 55% 100%); }
+.look-swatch-standard-dark { background: linear-gradient(135deg, #131512 0 55%, #1f5c3d 55% 100%); }
+.look-swatch-comic-light { background: linear-gradient(135deg, #fff3c4 0 55%, #2050c8 55% 100%); }
+.look-swatch-comic-dark { background: linear-gradient(135deg, #1d1b2e 0 55%, #ffd23e 55% 100%); }
+.look-swatch-console-light { background: linear-gradient(135deg, #f2f5ec 0 55%, #0e7a2f 55% 100%); }
+.look-swatch-console-dark { background: linear-gradient(135deg, #000000 0 55%, #33e05c 55% 100%); }
+.look-swatch-pretty-light { background: linear-gradient(135deg, #fdf0f6 0 55%, #b02a63 55% 100%); }
+.look-swatch-pretty-dark { background: linear-gradient(135deg, #221219 0 55%, #e58bb5 55% 100%); }
+.look-swatch-artistic-light { background: linear-gradient(135deg, #f5efe3 0 55%, #a52f14 55% 100%); }
+.look-swatch-artistic-dark { background: linear-gradient(135deg, #171310 0 55%, #e2703a 55% 100%); }
+.look-swatch-sunset-light { background: linear-gradient(135deg, #fdeedd 0 55%, #bc380f 55% 100%); }
+.look-swatch-sunset-dark { background: linear-gradient(135deg, #1e1226 0 55%, #ff8c42 55% 100%); }
+.look-swatch-forest-light { background: linear-gradient(135deg, #edf4e2 0 55%, #2e6b30 55% 100%); }
+.look-swatch-forest-dark { background: linear-gradient(135deg, #0c1710 0 55%, #69a85e 55% 100%); }
+.look-swatch-midnight-light { background: linear-gradient(135deg, #e7edfc 0 55%, #2b4acb 55% 100%); }
+.look-swatch-midnight-dark { background: linear-gradient(135deg, #050914 0 55%, #7aa2ff 55% 100%); }
+
+.theme-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.theme-mode-btn.active {
+  background: var(--invert-bg);
+  color: var(--invert-ink);
+  border-color: var(--invert-bg);
+  font-weight: 600;
+}
+
+.btn[disabled] { opacity: 0.55; cursor: not-allowed; }
+
+.field-note {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.board-manage-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.board-manage-row input[type="text"] {
+  flex: 1 1 150px;
+  min-width: 0;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 44px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+.board-note {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+/* The board's label colour mode picker (issue #95): a small
+   labelled select standing on the board's own row, so the
+   Boards page reads each board's mode at a glance. */
+.board-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.board-mode select {
+  font-size: 14px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 44px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+.board-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.board-add-row input {
+  flex: 1 1 180px;
+  min-width: 0;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 44px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+.label-row,
+.label-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.label-row input[type="text"],
+.label-add-row input[type="text"] {
+  flex: 1 1 150px;
+  min-width: 0;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 44px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+/* Settings → Projects rows wear the Labels rows' shapes: one
+   board's projects under the page's board picker, the thing's
+   mark first, its name in a field, and its delete asking on its
+   own line when it asks. */
+.project-row,
+.project-add-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.project-row input[type="text"],
+.project-add-row input[type="text"] {
+  flex: 1 1 150px;
+  min-width: 0;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 44px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+.project-row input[type="color"],
+.project-add-row input[type="color"] {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 44px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field-bg);
+  cursor: pointer;
+}
+
+.label-row select,
+.label-add-row select {
+  flex: 0 1 140px;
+  min-width: 0;
+  font-size: 16px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 44px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+.label-preview {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+.columns-board-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.columns-board-row label {
+  display: inline;
+  margin: 0;
+}
+
+.columns-board-row select {
+  flex: 0 1 220px;
+  min-width: 0;
+  font-size: 16px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 44px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+.column-manage-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.column-manage-row input[type="text"] {
+  flex: 1 1 150px;
+  min-width: 0;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 44px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+.column-note {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.column-add-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.settings-panel label {
+  display: block;
+  font-weight: 600;
+  margin: 14px 0 4px;
+}
+
+.copy-field {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.45;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--copy-bg);
+  color: var(--ink);
+}
+
+::placeholder { color: var(--muted); opacity: 1; }
+
+textarea.copy-field { resize: vertical; }
+
+.copy-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Phone: one column at a time */
+@media (max-width: 899px) {
+  .column-stepper { display: flex; }
+  .columns { display: block; }
+  .column { display: none; }
+  .column.active { display: block; }
+  .topbar-inner { padding: 12px 12px 10px; }
+  h1 { font-size: 19px; }
+  /* On a phone the heading takes two rows: the wordmark and
+     the three small buttons hold the first row, and the board
+     row takes a second row of its own at full width. That row
+     stays one row: the switcher scrolls sideways inside the
+     room the pinned buttons leave it rather than wrapping,
+     however many boards there are, and the See all columns and
+     Schedule buttons stand at the row's right margin, pinned
+     outside the scrolling run. Board buttons follow the display
+     mode on a phone like everywhere else. */
+  .header-row { flex-wrap: wrap; gap: 6px; row-gap: 8px; }
+  .header-actions { margin-left: auto; }
+  .board-row {
+    order: 3;
+    flex: 1 1 100%;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .board-switcher { gap: 4px; }
+  .board-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+  /* Every header button on a phone is the same small size: the
+     board buttons stand at the 32 pixels the theme, display and
+     gear buttons already are, so the heading reads as one family
+     across its two rows. */
+  .board-tab { padding: 0 8px; height: 32px; min-height: 32px; }
+  .board-tab-icon { font-size: 17px; }
+}
+
+/* The phone's overview never shows any wider than a phone. */
+.board-overview { display: none; }
+
+/* The phone's overview: every column side by side as narrow
+   strips, standing where the columns stand while it is open.
+   A strip is a place to look and to choose: its cards scroll
+   inside it, and a tap lands inside the column. Names and
+   titles cut short rather than pushing a strip wider, so
+   however many columns a board has, the strips share the
+   width and the page never scrolls sideways. */
+@media (max-width: 899px) {
+  /* The strips stand only as tall as their cards: the row takes
+     the tallest strip's height and no more, and a long column's
+     cards scroll inside its strip, capped at the room the
+     screen gives the overview. */
+  /* The overview keeps the columns' own spacing: the gap
+     between strips is the columns' gap, a strip's top and
+     bottom padding is a column's padding, its head's bottom
+     margin is a column head's, and the gap between its cards
+     is the card list's gap — the same values, taken from the
+     column rules above, so the zoomed-out board breathes
+     exactly as the full-size one does. A strip's side padding
+     stays narrow: five strips share a phone's width, and the
+     room belongs to the titles. */
+  .board-overview {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .board-overview[hidden] { display: none; }
+  .show-overview .columns { display: none; }
+
+  .ov-strip {
+    flex: 1 1 0;
+    min-width: 0;
+    max-height: calc(100dvh - 216px);
+    display: flex;
+    flex-direction: column;
+    background: var(--column-bg);
+    border-radius: var(--radius);
+    padding: 10px 4px;
+    cursor: pointer;
+  }
+  .ov-strip.current {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+  .ov-strip:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+  }
+
+  /* A strip's head stands in two lines: the icon and the count
+     on the first, the name on its own line under them, so the
+     name gets the strip's whole width before it must cut short. */
+  .ov-head {
+    flex: 0 0 auto;
+    margin: 0 1px 10px;
+  }
+  .ov-head-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 2px;
+  }
+  .ov-icon { font-size: 12px; }
+  .ov-name {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ov-count { flex: 0 0 auto; font-size: 11px; color: var(--muted); }
+
+  .ov-cards {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    touch-action: pan-y;
+  }
+  .ov-card {
+    flex: 0 0 auto;
+    display: block;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 4px;
+    font-size: 12px;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ov-empty { font-size: 11px; color: var(--muted); margin: 2px 1px 0; }
+}
+
+/* The Archived list stands under the columns: one row per
+   archived card, naming the card and the column Restore takes
+   it back to. A row asking its delete question gives the
+   question its own line, the way the editor's does. */
+/* The Schedule control and the schedule itself. The control is
+   an icon button in the header buttons' family: round, 32 by
+   32, with a 16 pixel calendar mark. It never carries its word;
+   the name rides in its label and title. Pressed, it wears the
+   inverted colours the active board tab wears. One button
+   serves every screen: in the header's cluster on a wide
+   screen, and pinned at the right of the board row on a phone. */
+.schedule-btn {
+  appearance: none;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.schedule-btn svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.schedule-btn.active {
+  background: var(--invert-bg);
+  color: var(--invert-ink);
+  border-color: var(--invert-bg);
+}
+
+/* The columns' own display rule would otherwise beat the hidden
+   attribute app.js sets while the schedule stands open. */
+#columns[hidden] { display: none; }
+
+.schedule-tags { display: flex; gap: 8px; margin: 2px 0 16px; }
+
+.schedule-tag {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.schedule-tag.active {
+  background: var(--invert-bg);
+  color: var(--invert-ink);
+  border-color: var(--invert-bg);
+}
+
+.schedule-group { margin-bottom: 20px; }
+
+.schedule-group-title { font-size: 15px; margin: 0 0 8px; }
+
+.schedule-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  color: var(--ink);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.schedule-row:hover { background: var(--card-hover); }
+
+.schedule-row-title { font-weight: 600; flex: 1 1 auto; }
+
+.schedule-row-meta { color: var(--muted); font-size: 13px; white-space: nowrap; }
+
+.schedule-empty { color: var(--muted); margin: 8px 0; }
+
+/* The schedule's back-to-top button: fixed at the lower right,
+   shown by app.js once the schedule page has scrolled. */
+.back-to-top {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 30;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--invert-bg);
+  color: var(--invert-ink);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+.back-to-top[hidden] { display: none; }
+
+.archived-section {
+  margin-top: 26px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.archived-heading {
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+
+.archived-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.archived-title { font-weight: 600; }
+
+.archived-from { color: var(--muted); font-size: 13px; }
+
+.archived-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.confirm-note { font-size: 14px; margin: 2px 0 8px; }
+
+/* The icon picker: one component everywhere an icon is chosen.
+   A button showing the current icon opens a small panel with a
+   grid of common emojis, a field for any other emoji, and a way
+   back to no icon (or to the default, for boards and columns). */
+.icon-picker {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+.icon-picker-btn {
+  appearance: none;
+  min-width: 48px;
+  min-height: 44px;
+  padding: 6px 10px;
+  font-size: 20px;
+  line-height: 1;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field-bg);
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-picker-btn .icon-picker-plus {
+  font-size: 18px;
+  color: var(--muted);
+}
+
+.icon-picker-panel {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 336px;
+  max-width: 88vw;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  padding: 10px;
+  text-align: left;
+}
+
+/* The big picker's filter field and its scrolling grid area:
+   the full set is a few hundred emoji, so the grids stand in a
+   box of their own that scrolls inside the panel. */
+.icon-search-input {
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--field-bg);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.icon-scroll {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.icon-grid-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  margin: 6px 0 4px;
+}
+
+.icon-no-match { color: var(--muted); font-size: 14px; margin: 8px 0; }
+
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.icon-grid button {
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1.2;
+  padding: 6px 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.icon-grid button:hover { border-color: var(--line); background: var(--copy-bg); }
+
+.icon-custom-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.icon-custom-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 16px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 40px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+.icon-picker-msg {
+  color: var(--danger-ink);
+  font-size: 13px;
+  margin: 6px 0 0;
+}
+
+.icon-picker-clear { margin-top: 8px; }
+
+/* Press-and-hold rename. The buttons give up text selection and
+   the long-press callout so a hold reads as a hold, and while a
+   hold stands the button arms: a ring in its own colour fills
+   in over the half second the press takes to fire, so a person
+   can see it coming and let go in time. */
+.board-tab,
+.filter-btn {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+
+.board-tab.press-arming,
+.filter-btn.press-arming {
+  animation: press-arm 0.5s linear forwards;
+}
+
+@keyframes press-arm {
+  from { box-shadow: inset 0 0 0 0 transparent; }
+  to { box-shadow: inset 0 0 0 3px currentColor; filter: brightness(0.94); }
+}
+
+/* The small editor a long press opens, anchored on the button it
+   belongs to. It holds the name in a field and a Close, and —
+   for a project — a Delete, which first names the cards the
+   project carries and asks once. */
+.press-editor {
+  position: fixed;
+  z-index: 40;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  padding: 12px;
+  text-align: left;
+}
+
+.press-editor-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+/* The icon row in the press-and-hold editor: the word stands
+   over the picker, the way the name's word stands over its
+   field. */
+.press-editor-icon-row { margin-top: 10px; }
+
+.press-editor input {
+  width: 100%;
+  font-size: 16px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 40px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+.press-editor-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.press-editor-delete { margin-left: auto; }
+
+
+

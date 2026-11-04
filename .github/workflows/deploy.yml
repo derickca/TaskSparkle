@@ -1,0 +1,115 @@
+name: Deploy TaskSparkle
+
+# This workflow runs on a self-hosted runner, which bills no
+# GitHub minutes. To run it on GitHub-hosted runners instead,
+# change the runs-on line in the job below to ubuntu-latest.
+#
+# The job's Cloudflare credential is the repository's Actions secrets
+# CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID, handed to the job
+# as environment values for this run only. The live settings file
+# (wrangler.toml) travels as a secret too, WRANGLER_TOML, because it
+# names one deployment's domain, database and people; the job's
+# first step writes it from that secret. No credential rests on the
+# runner machine: when the job ends, nothing remains.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tasksparkle-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, x64]
+    timeout-minutes: 30
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      # actions/checkout is pinned to a commit (the v4 tag's commit
+      # on 2026-10-27) and wrangler to an exact version below, so a
+      # compromised tool release cannot ride a moving tag into a
+      # job that holds the deploy credential.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      # wrangler.toml is not in the repository (see .gitignore): it
+      # names one deployment's domain, database and people. The
+      # repository secret WRANGLER_TOML holds its full text, and
+      # this step writes it for the run when the checkout has none,
+      # before every step below that reads it (the schema apply,
+      # the column sync, the Worker deploy). A checkout that
+      # already has the file keeps its own.
+      - name: Write the live settings file
+        env:
+          WRANGLER_TOML: ${{ secrets.WRANGLER_TOML }}
+        run: |
+          if [ ! -f wrangler.toml ]; then
+            printf '%s' "$WRANGLER_TOML" > wrangler.toml
+          fi
+
+      - name: Syntax-check the JavaScript
+        run: |
+          node --check worker/worker.js
+          node --check worker/core.js
+          node --check worker/auth.js
+          node --check worker/common-passwords.js
+          node --check public/app.js
+          node --check public/boot.js
+          node --check public/sw.js
+          node --check scripts/sync-columns.mjs
+
+      # The app checks its build stamp against the Worker's on
+      # every open and reloads itself once when they disagree.
+      # That only works when a release ships the two stamps equal:
+      # this step fails the deploy when they differ, or when
+      # either file has lost its stamp.
+      - name: Check the build stamps agree
+        run: |
+          WORKER_STAMP=$(grep -o 'var BUILD_ID = "[^"]*"' worker/core.js | head -1)
+          APP_STAMP=$(grep -o 'var BUILD_ID = "[^"]*"' public/app.js | head -1)
+          test -n "$WORKER_STAMP" && test "$WORKER_STAMP" = "$APP_STAMP"
+
+      - name: Apply the database schema
+        run: npx --yes wrangler@4.153.0 d1 execute tasksparkle --remote --file=worker/schema.sql
+
+      # The sign-in tables live in the deployment's second
+      # database when the settings bind one as AUTH_DB (issue
+      # #109): the same schema goes onto it, so the door's
+      # tables stand there before the Worker that reads them
+      # deploys. With no AUTH_DB binding the tables stand in the
+      # main database, applied by the step above, and this step
+      # is a note and nothing more. The auth tables are new with
+      # this change, so creation is the whole job — no column
+      # sync is owed them yet.
+      - name: Apply the schema to the sign-in database, when the settings bind one
+        run: |
+          AUTH_DB_NAME=$(awk '/binding = "AUTH_DB"/{found=1} found && /database_name/{gsub(/"/,"",$3); print $3; exit}' wrangler.toml)
+          if [ -n "$AUTH_DB_NAME" ]; then
+            npx --yes wrangler@4.153.0 d1 execute "$AUTH_DB_NAME" --remote --file=worker/schema.sql
+          else
+            echo "No AUTH_DB binding in the settings; the sign-in tables live in the main database."
+          fi
+
+      # CREATE TABLE IF NOT EXISTS does not change a table the
+      # database already has, so the apply above creates new tables
+      # but never adds a new column to an old one. This step reads
+      # the columns schema.sql declares and adds any the live
+      # database lacks, through the D1 API with the job's own
+      # credential. A column SQLite cannot add in place fails the
+      # deploy here, naming the table and column.
+      - name: Add columns the schema declares but the database lacks
+        env:
+          NODE_USE_ENV_PROXY: "1"
+        run: node scripts/sync-columns.mjs
+
+      - name: Deploy the API Worker
+        run: npx --yes wrangler@4.153.0 deploy
+
+      - name: Deploy the Pages site
+        run: npx --yes wrangler@4.153.0 pages deploy public --project-name=tasksparkle --branch=main

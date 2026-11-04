@@ -1,0 +1,49 @@
+# The app's security headers ride on every page and file the app
+# serves (issue #70). The policy names only the app's own origin:
+# the app loads its own script, styles and icons, talks to its own
+# API and socket, and is framed by nobody. The self-host server
+# sends the same headers from its own code; the two lists are
+# kept alike by hand.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: same-origin
+# The app files must never ride a stale cache. A browser holding an
+# old app.js against a newer API shape stalls on load, so these files
+# revalidate on every load; unchanged files still answer 304.
+/boot.js
+  Cache-Control: no-cache
+/
+  Cache-Control: no-cache
+/index.html
+  Cache-Control: no-cache
+/app.js
+  Cache-Control: no-cache
+/styles.css
+  Cache-Control: no-cache
+# The installable-app files follow the same rule: the manifest, the
+# worker script and the icons revalidate rather than sit in a cache,
+# so a new release is what every open gets. The manifest also names
+# its own content type, the one browsers ask for by name.
+/manifest.webmanifest
+  Cache-Control: no-cache
+  Content-Type: application/manifest+json
+/sw.js
+  Cache-Control: no-cache
+/icons/icon-192.png
+  Cache-Control: no-cache
+/icons/icon-512.png
+  Cache-Control: no-cache
+/icons/icon-maskable-512.png
+  Cache-Control: no-cache
+/icons/icon-180.png
+  Cache-Control: no-cache
+/icons/icon-64.png
+  Cache-Control: no-cache
+/icons/icon.svg
+  Cache-Control: no-cache
+# The wordmark's font follows the same rule, so a new cut of it
+# is what every open gets.
+/fonts/comfortaa-bold.woff2
+  Cache-Control: no-cache

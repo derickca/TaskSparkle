@@ -1,0 +1,30 @@
+# The Worker rig's settings: the real Worker and core, run by
+# wrangler dev against a local database, with the fake Access
+# door from this folder. Copy this file to the checkout root as
+# wrangler.toml for the rig only — never commit it there (the
+# name is gitignored), and never point it at the real database.
+name = "tasksparkle-rig"
+main = "worker/worker.js"
+compatibility_date = "2026-10-26"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tasksparkle-rig"
+database_id = "00000000-0000-4000-8000-000000000001"
+
+# The sign-in store on its own binding (issue #109), so the
+# drill proves the hosted door's split shape: apply the same
+# schema to it as to the boards database.
+[[d1_databases]]
+binding = "AUTH_DB"
+database_name = "tasksparkle-rig-auth"
+database_id = "00000000-0000-4000-8000-000000000002"
+
+[vars]
+OWNER_EMAILS = "drill a,drill b,drill-a@example.test,drill-b@example.test"
+ACCESS_TEAM_DOMAIN = "http://127.0.0.1:8791"
+ACCESS_AUD = "rig-audience"
+BROWSER_HOST = "localhost"
+AGENT_HOST = "127.0.0.1"
+SETUP_CODE = "rig-setup-code"
