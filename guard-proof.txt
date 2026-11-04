@@ -1,0 +1,1 @@
+A scratch file that proves the checks run starts for a pull request from a branch in this repository. It is deleted with the pull request and never merged.
