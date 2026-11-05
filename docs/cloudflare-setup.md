@@ -151,7 +151,7 @@ npx wrangler@4.153.0 pages deploy public --project-name=tasksparkle --branch=mai
 
 10. **Test both doors.**
     - Open `https://<browser host>`.
-    - The setup page stands, because no account exists yet. Give your name, a password of at least 12 characters, and the setup code from step 5. Press Make the first account.
+    - The setup page stands, because no account exists yet. Give your name and the setup code from step 5. Then pick your way in: press Make the first account with a passkey, or set a password of at least 12 characters and press Make the first account.
     - You are signed in as the administrator, and your Personal and Professional boards seed.
     - Set up an agent key with [Use TaskSparkle](using-tasksparkle.md#agent-setup).
     - Have the agent read `https://<agent host>/api/v1/version` with that key.
