@@ -62,6 +62,7 @@ Skip this step only for the by-hand path.
    - Open the fork's Actions tab.
    - Enable workflows. GitHub leaves them off on a new fork.
    - If the fork has no self-hosted runner labelled `self-hosted`, `linux` and `x64`, change the `runs-on` value in both `.github/workflows/deploy.yml` and `.github/workflows/backup.yml` to `ubuntu-latest` in your clone.
+   - Set the repository variable `TASKS_DEPLOY_ENABLED` to `true` (the fork's Settings, then Secrets and variables, then Actions, then Variables). The deploy and backup jobs run only where that variable is set, so a fork that skips this deploys nothing and backs nothing up.
    - Leave the change unpushed until step 9. Push it after the Cloudflare pieces and secrets exist.
 
 ## Cloudflare pieces

@@ -44,6 +44,11 @@ concurrency:
 
 jobs:
   backup:
+    # A deployment copy only: this job runs where the repository
+    # variable TASKS_DEPLOY_ENABLED is set to true. The public source
+    # repository leaves it unset on purpose, so its runs skip here
+    # instead of failing on credentials that do not live here.
+    if: ${{ vars.TASKS_DEPLOY_ENABLED == 'true' }}
     runs-on: [self-hosted, linux, x64]
     timeout-minutes: 30
     env:
