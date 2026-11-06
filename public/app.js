@@ -23,7 +23,7 @@
 // paints (see bootLoad). The deploy fails when the stamps differ,
 // so they can only ever disagree in a browser still holding an
 // older copy of this file — which is the case the reload cures.
-var BUILD_ID = "r2026-11-04-4";
+var BUILD_ID = "r2026-11-06-1";
 
 // Label colours are stored as palette ids. The person picks from this
 // palette in Settings and each card chip paints itself from it. Each
@@ -4229,8 +4229,24 @@ function queueStepPatch(card, step) {
   }
   if (isTempId(step.id)) {
     // The step's create sits ahead of this change in the queue and
-    // is built from the step as it stands when it runs, so the
-    // change rides along with the create.
+    // is built from the step as it stands when it runs, so a change
+    // made before the create runs rides along with it. A change
+    // made while the create's request is in flight misses that
+    // payload: the create has already read the step as it stood,
+    // and the step keeps its temporary id until the answer lands,
+    // so the change would be lost (issue #8). Queue the change
+    // behind the create instead. When its turn comes the create
+    // has landed and the step carries its real id, so the patch
+    // sends the step as it stands then; a change the create did
+    // carry is simply sent again, unchanged. If the step was
+    // removed again before its turn, or its create never landed,
+    // there is nothing to patch.
+    saveQueued(function () {
+      if (!state || state.cards.indexOf(card) === -1) return {};
+      if ((card.steps || []).indexOf(step) === -1) return {};
+      if (isTempId(step.id)) return {};
+      return api("PATCH", "/api/cards/" + encodeURIComponent(realId(card.id)) + "/steps/" + encodeURIComponent(step.id), { text: step.text, done: step.done });
+    }).catch(function () { /* reloadState already ran */ });
     return;
   }
   saveQueued(function () {

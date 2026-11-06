@@ -193,7 +193,7 @@ function countOf(row) {
 // loading line. The deploy checks the two stamps agree and fails
 // when they do not, so a release can never ship them mismatched.
 // Bump both together whenever the app files change.
-var BUILD_ID = "r2026-11-04-4";
+var BUILD_ID = "r2026-11-06-1";
 
 // Every API answer carries two standing headers. Cache-Control:
 // no-store, because state answers hold a person's boards and the
