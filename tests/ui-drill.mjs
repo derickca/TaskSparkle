@@ -535,7 +535,17 @@ await page.waitForSelector("[data-step-row]", { timeout: 10000 });
 await page.check('[data-step-row] input[data-role="step-done"]');
 await page.click("#editor-close");
 await page.waitForSelector("#editor-backdrop[hidden]", { timeout: 10000 }).catch(() => {});
-await page.waitForTimeout(800); // the save queue drains
+// The tick rides the save queue: a fixed dwell stood
+// where this wait stands, and under load the save
+// outlasted it, so the reopen read the step unticked
+// in the editor and in the state alike (issue #7).
+// Wait on the condition the checks below assert —
+// the state itself carrying the step as done.
+await page.waitForFunction(async (title) => {
+  const st = await (await fetch("/api/v1/state")).json();
+  const card = (st.cards || []).find((c) => c.title === title);
+  return !!card && (card.steps || []).length === 1 && card.steps[0].done === true;
+}, TITLE, { timeout: 15000 }).catch(() => {});
 const cardVisible = await page.locator(".card .card-title", { hasText: TITLE }).count();
 check("cards: the new card stands on the board", cardVisible >= 1, "matches: " + cardVisible);
 
@@ -886,10 +896,31 @@ const w3RowHtml = await page.evaluate((id) => {
 check("#135: the empty column's row says removing it asks first",
   (w3ColNote || "").includes("asks first"),
   "note=" + JSON.stringify(w3ColNote) + " row=" + w3RowHtml);
+// The fill above set the row's input, not the app's
+// state: the rename rides its save, and the remove
+// dialog composes its text from the app's state at
+// the click. Under load the click can beat the save's
+// answer, and the dialog then names the column by its
+// first name, "New column" (issue #7). Wait on the
+// condition the dialog will read — the state itself
+// carrying the drill name for this column — and then
+// on the dialog's text standing before it is read.
+await page.waitForFunction(async (id) => {
+  const st = await (await fetch("/api/v1/state")).json();
+  for (const b of st.boards || []) {
+    const col = (b.columns || []).find((c) => c.id === id);
+    if (col) return col.name === "Wave3 Empty";
+  }
+  return false;
+}, w3ColId, { timeout: 10000 }).catch(() => {});
 await page.locator(
   '#settings-columns-list [data-column-row="' + w3ColId + '"] [data-role="column-remove"]'
 ).click();
 await page.waitForSelector("#column-remove-backdrop:not([hidden])", { timeout: 10000 });
+await page.waitForFunction(() => {
+  const t = document.getElementById("column-remove-text");
+  return !!t && t.textContent.includes("Wave3 Empty");
+}, undefined, { timeout: 10000 }).catch(() => {});
 const w3ColText = await page.locator("#column-remove-text").textContent();
 const w3ColDestHidden = await page.locator("#column-remove-dest-row").isHidden();
 const w3ColSubmit = await page.locator("#column-remove-submit").textContent();
@@ -2638,6 +2669,17 @@ await page.waitForFunction(
 const addNote = await page.locator("#account-auth-note").textContent();
 check("#122: adding the password back lands behind the passkey proof",
   (addNote || "").includes("Password added"), (addNote || "").slice(0, 90));
+// The check below reads the section, but the wait above
+// watched the note: both ride the same save's answer,
+// and under load the read can land after the note and
+// before the section's own repaint (issue #7). Wait on
+// the condition the check itself asserts.
+await page.waitForFunction(() => {
+  const btn = document.getElementById("account-password-btn");
+  const rm = document.getElementById("account-password-remove");
+  return !!btn && btn.textContent.includes("Change password") &&
+    !!rm && rm.getClientRects().length > 0;
+}, undefined, { timeout: 10000 }).catch(() => {});
 check("#122: the section stands in its password state again, the drop offered once more",
   (await page.locator("#account-password-btn").innerText()).includes("Change password") &&
     (await page.locator("#account-password-remove").isVisible()), "");
@@ -3335,8 +3377,14 @@ await phone.click("#settings-close").catch(() => {});
   await ipage.check('input[name="name"][value="' + NAME + '"]');
   await ipage.fill('input[name="password"]', PASSWORD);
   await ipage.click('button[type="submit"]');
-  await ipage.waitForSelector("#board-ui:not([hidden])", { timeout: 15000 });
-  check("#113: the password signs in at the HTTP address", true, ipage.url());
+  // This wait takes its answer as a value: a bare wait
+  // throws on a slow door and kills the whole drill
+  // with no counts standing (seen under load, issue
+  // #7). The check below reports the door instead,
+  // with the address it landed on.
+  const httpBoardUp = await ipage.waitForSelector("#board-ui:not([hidden])", { timeout: 15000 })
+    .then(() => true).catch(() => false);
+  check("#113: the password signs in at the HTTP address", httpBoardUp, ipage.url());
   // Issue #124 at the same door: the renamed surface
   // behaves identically where passkeys cannot run — the
   // administrator's list carries the Admin entry, standing
