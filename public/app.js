@@ -23,7 +23,7 @@
 // paints (see bootLoad). The deploy fails when the stamps differ,
 // so they can only ever disagree in a browser still holding an
 // older copy of this file — which is the case the reload cures.
-var BUILD_ID = "r2026-11-06-1";
+var BUILD_ID = "r2026-11-07-2";
 
 // Label colours are stored as palette ids. The person picks from this
 // palette in Settings and each card chip paints itself from it. Each
@@ -1083,7 +1083,16 @@ function api(method, path, body) {
         // own note says why, so it never navigates (issue
         // #110: the navigation read as a click doing nothing).
         if (res.status === 401 && path.indexOf("/api/auth/") !== 0) {
-          window.location.href = "/login";
+          // One exception (issue #14): during the first load,
+          // a caller with no account session gets the public
+          // page at the root instead of the sign-in page, so
+          // the navigation is held and the load's own catch
+          // shows that page. Any later 401 — a sign-in lapsing
+          // mid-use — still goes to the sign-in page, as
+          // before.
+          if (!(initialLoadRunning && callerHasNoAccount)) {
+            window.location.href = "/login";
+          }
         }
         throw err;
       });
@@ -8933,12 +8942,19 @@ function bootLoad() {
 // as before.
 function proceedToBoards() {
   api("GET", "/api/auth/me").then(function (me) {
+    callerHasNoAccount = false;
     if (me && me.linked === false) {
       showUnlinked(me);
       return;
     }
     loadInitial();
   }).catch(function () {
+    // No account session stands behind this caller: a
+    // signed-out visitor, or the transition door's caller,
+    // whose boards the state load still answers. The first
+    // load tells the two apart — boards, or the public page
+    // (issue #14).
+    callerHasNoAccount = true;
     loadInitial();
   });
 }
@@ -9023,6 +9039,15 @@ function renderUnlinkedClaims(me, data) {
 // forever either.
 var LOAD_TIMEOUT_MS = 12000;
 
+// The public page's two facts (issue #14): whether the caller
+// behind this load holds no account session (set by the door
+// check in proceedToBoards), and whether the first state load
+// is still running. Together they decide whether a 401 on
+// that load means "show the public page" instead of "go to
+// the sign-in page" — see the 401 rule in api().
+var callerHasNoAccount = false;
+var initialLoadRunning = false;
+
 // First load. The board UI stays hidden behind a plain loading
 // line until the state lands. A load that fails, or that runs
 // past its limit, trades the loading line for plain words about
@@ -9035,14 +9060,17 @@ function loadInitial() {
   if (errorBox) errorBox.hidden = true;
   if (boardUi) boardUi.hidden = true;
   var settled = false;
+  initialLoadRunning = true;
   var timer = setTimeout(function () {
     if (settled) return;
     settled = true;
+    initialLoadRunning = false;
     showLoadError(null, true);
   }, LOAD_TIMEOUT_MS);
   api("GET", "/api/state").then(function (fresh) {
     if (settled) return;
     settled = true;
+    initialLoadRunning = false;
     clearTimeout(timer);
     adoptState(fresh);
     if (loading) loading.hidden = true;
@@ -9067,9 +9095,40 @@ function loadInitial() {
   }).catch(function (err) {
     if (settled) return;
     settled = true;
+    initialLoadRunning = false;
     clearTimeout(timer);
+    // A 401 for a caller with no account session is a
+    // signed-out visitor arriving: the public page, not the
+    // load error and not the sign-in page (issue #14).
+    if (err && err.status === 401 && callerHasNoAccount) {
+      showLanding();
+      return;
+    }
     showLoadError(err, false);
   });
+}
+
+// The public page (issue #14): the loading line, the error
+// box and the board UI stay hidden, the app's own header
+// steps aside — its buttons belong to the signed-in app —
+// and the landing section in index.html stands in their
+// place. An older cached page may hold no landing section;
+// then the sign-in page is the way forward, as before.
+function showLanding() {
+  var loading = byId("loading-state");
+  if (loading) loading.hidden = true;
+  var errorBox = byId("load-error");
+  if (errorBox) errorBox.hidden = true;
+  var boardUi = byId("board-ui");
+  if (boardUi) boardUi.hidden = true;
+  var landing = byId("landing");
+  if (!landing) {
+    window.location.href = "/login";
+    return;
+  }
+  var topbar = document.querySelector("header.topbar");
+  if (topbar) topbar.hidden = true;
+  landing.hidden = false;
 }
 
 // A failed load, spoken plainly, with the way forward that fits
