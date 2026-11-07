@@ -8927,7 +8927,11 @@ function bootLoad() {
     }
     proceedToBoards();
   }).catch(function () {
-    loadInitial();
+    // The version route answers only a caller the core
+    // resolves, so a signed-out visitor's check fails here.
+    // The sign-in check runs either way: it is the one that
+    // tells a signed-out visitor from an account (issue #14).
+    proceedToBoards();
   });
 }
 
