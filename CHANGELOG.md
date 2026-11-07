@@ -6,6 +6,10 @@ Inside a release, the app stamps every deploy with a build stamp. The stamp is `
 
 ## [Unreleased]
 
+### Added
+
+- A copy can open public sign-up. The sign-up door is a switch the operator sets — open, invite-only or closed — and it stands at invite-only on every copy until it is flipped, so this build changes nobody's sign-in until then. While the switch stands open, the sign-in page carries a Create your account entry, and the sign-up page makes an account by the same two ways as the setup and invite pages: a passkey ceremony, which creates the account only when a credential verifies, or a password. A door-made account gets its own boards, like any other account, and invites work exactly as before in every state of the switch. Two guards can stand on creation, each a setting of the deployment: a country list the creation is read against, and a bot check (Cloudflare Turnstile) verified before any account row is written. Neither ever guards sign-in. Creations keep their own pace — five per source address per hour — apart from the sign-in throttle. Build r2026-11-07-1.
+
 ## [1.0.0] - 2026-11-04
 
 TaskSparkle is a personal kanban board: boards, columns, cards, labels and projects for one person's work, with agent keys so an AI agent can hold a card's next step alongside you. It runs as one small app — host it on Cloudflare, or run it on your own machine. This is the first public release; everything in this release is what the app carries at launch.

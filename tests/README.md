@@ -32,7 +32,7 @@ The budget is under a minute end to end. The run prints its own elapsed time as 
 - The harness writes a throwaway self-host config into a scratch folder.
 - It starts the server on port 8793 against that config.
 - It runs the API drill in self-host mode.
-- It then runs the server drill.
+- It then runs the server drill and the door drill.
 - It deletes the scratch folder after the run.
 
 `npm run test:ui` adds the UI drill against the same instance. You can also pass `--ui` to the harness itself. The UI drill needs the Playwright setup in the UI drill section below.
@@ -235,6 +235,28 @@ The drill spawns its servers with the Node that runs it. Run it under the oldest
 
 ```
 node tests/server-drill.mjs
+```
+
+## Door drill
+
+The door drill is `door-drill.mjs`. It drills the sign-up door in both homes' shapes.
+
+In self-host mode it starts its own throwaway instances, as the server drill does:
+
+- One plain instance proves the door at rest and at work with nothing configured: the switch stands at invite-only (the sign-in page carries no creation entry, the sign-up page refuses in plain words, a creation press makes no account, and an invite still creates); flipped open, the password way and the passkey ceremony both create, landing each account on its own seeded boards; flipped closed, the door refuses in the closed words and invites still create; and the creation pace refuses the attempt past five in an hour from one address.
+- One gated instance carries the country list and the bot check in its config, the check answered by a stub verifier the drill itself runs: a creation read as outside the list is refused, Canada and the United States create, no token and a wrong token both refuse before any account stands, a failed check spends the pace like a landed creation, and an account made under the gate signs in from a refused country — sign-in is never gated.
+
+```
+node tests/door-drill.mjs
+```
+
+In Worker mode it walks the same door on a fresh Worker rig, where the rig's own settings stand the gate and the check the hosted way — the gate covering Canada and the United States, the check answered by the certs server's stub verifier, which passes only the token `pass-token`. The rig must stand fresh: the drill makes the first account itself, through the setup page. The switch is flipped the operator's way, with wrangler against the rig's local auth database, so the run needs the rig folder:
+
+```
+node tests/rig/rig.mjs start --dir <scratch> --source <this checkout>
+node tests/door-drill.mjs --mode worker --base https://localhost:8792 \
+  --setup-code rig-setup-code --rig-dir <scratch>
+node tests/rig/rig.mjs stop --dir <scratch>
 ```
 
 ## UI drill

@@ -114,7 +114,11 @@ Each person has an account. The account links to that person's boards and to no 
 
 The first account made on a copy becomes the administrator. The setup path closes as soon as that account stands.
 
-Every later person joins by invite. An administrator makes a one-use invite link in Settings, then Admin. Looking at an invite does not spend it. The invite lasts seven days. A fresh invite for the same name retires that name's earlier unused invites.
+Later people join by invite, or through the sign-up door when the copy's operator has opened it. An administrator makes a one-use invite link in Settings, then Admin. Looking at an invite does not spend it. The invite lasts seven days. A fresh invite for the same name retires that name's earlier unused invites.
+
+The door is a switch the operator sets: open, invite-only or closed. Invite-only is the default on every copy. While the switch stands at invite-only or closed, the public sign-up page refuses in plain words and invites work exactly as they do with no door at all. While it stands open, the sign-in page carries a Create your account entry, and the sign-up page makes an account by the same two ways as every other creation page: a passkey ceremony, which creates the account only when a credential verifies, or a password. A door-made account gets its own boards, like any other account.
+
+Creation can carry two guards, each a setting of the deployment rather than of the home. A country list names the countries creation is open to, read from the country the deployment's own edge reports for the request; a creation from outside the list is refused, and no list means no gate. A bot check can stand on creation, verified before any account row is written; no keys configured means no check. The gate and the check guard creation only. Signing in is never gated. Creations also keep their own pace: a handful per source address per hour, counted apart from the sign-in throttle.
 
 The administrator can invite people and make another person an administrator. The administrator can send reset and recovery links. The administrator can sign a person out everywhere, remove a named passkey and remove a person.
 
@@ -134,7 +138,7 @@ The device remembers the view last used. Enrolling a passkey makes the passkey v
 
 An account can hold a password alone, a password and passkeys, or a passkey alone. A password needs at least 12 characters. The product refuses passwords people use most and refuses a password equal to the account name.
 
-A new account chooses its first way in on the setup or invite page. The page stands the passkey way first at a secure address. A passkey account is created only when its ceremony verifies. It starts with no password.
+A new account chooses its first way in on the setup, invite or sign-up page. The page stands the passkey way first at a secure address. A passkey account is created only when its ceremony verifies. It starts with no password.
 
 Security changes ask for a fresh proof from the last ten minutes. The first passkey can be enrolled after a fresh password proof. Once a passkey stands, enrolling another passkey takes a passkey proof.
 

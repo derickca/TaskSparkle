@@ -35,14 +35,17 @@ workers_dev = false
 # page call that matches no route falls through to the static site
 # and fails. /login/* carries the passkey calls the sign-in page
 # makes under /login; /setup/* carries the passkey calls the setup
-# page makes under /setup; /invite-code is the paste-a-code form's
-# own address, which /invite/* does not cover.
+# page makes under /setup; /signup and /signup/* carry the
+# sign-up page and its passkey calls; /invite-code is the
+# paste-a-code form's own address, which /invite/* does not cover.
 routes = [
   { pattern = "tasksparkle.your-domain.com/api/*", zone_name = "your-domain.com" },
   { pattern = "tasksparkle.your-domain.com/login", zone_name = "your-domain.com" },
   { pattern = "tasksparkle.your-domain.com/login/*", zone_name = "your-domain.com" },
   { pattern = "tasksparkle.your-domain.com/setup", zone_name = "your-domain.com" },
   { pattern = "tasksparkle.your-domain.com/setup/*", zone_name = "your-domain.com" },
+  { pattern = "tasksparkle.your-domain.com/signup", zone_name = "your-domain.com" },
+  { pattern = "tasksparkle.your-domain.com/signup/*", zone_name = "your-domain.com" },
   { pattern = "tasksparkle.your-domain.com/invite/*", zone_name = "your-domain.com" },
   { pattern = "tasksparkle.your-domain.com/invite-code", zone_name = "your-domain.com" },
   { pattern = "tasksparkle.your-domain.com/logout", zone_name = "your-domain.com" },
@@ -102,6 +105,20 @@ AGENT_HOST = "tasksparkle-api.your-domain.com"
 # address is how a key's owner row was named before accounts
 # existed; the claim step in the app joins the two up.
 OWNER_EMAILS = "you@example.com"
+# The sign-up door's country gate: the countries account
+# creation is open to, as a comma list of country codes.
+# While the var is unset the gate covers Canada and the
+# United States; set it empty ("") to turn the gate off, or
+# name your own list. The gate reads the country Cloudflare
+# reports for the request and refuses creation only — sign-in
+# is never gated.
+# SIGNUP_COUNTRIES = "CA,US"
+# The bot check (Cloudflare Turnstile) on account creation:
+# its public site key. The matching secret is NOT a var: set
+# it with `wrangler secret put TURNSTILE_SECRET_KEY`, never
+# written in this file. With both keys set, creation waits
+# for the check; with either unset, no check runs.
+# TURNSTILE_SITE_KEY = "your-turnstile-site-key"
 # The setup code is NOT a var: it is a secret, set with
 # `wrangler secret put SETUP_CODE`, never written in this file.
 # It is a long random string (at least 22 characters) that the

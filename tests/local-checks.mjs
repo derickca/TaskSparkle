@@ -4,7 +4,8 @@
 // and what the pull request checks run in GitHub.
 //
 //     node tests/local-checks.mjs          the API drill (self-host
-//                                          mode) and the server drill
+//                                          mode), the server drill
+//                                          and the door drill
 //     node tests/local-checks.mjs --ui     the same, plus the UI drill
 //                                          (needs the Playwright setup
 //                                          in tests/README.md)
@@ -419,6 +420,7 @@ try {
 
     stopServer();
     ok = run("Server drill", [join(HERE, "server-drill.mjs")]) && ok;
+    ok = run("Door drill, self-host mode", [join(HERE, "door-drill.mjs")]) && ok;
   }
 } finally {
   stopServer();

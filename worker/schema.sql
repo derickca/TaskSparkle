@@ -281,11 +281,23 @@ CREATE TABLE IF NOT EXISTS auth_throttle (
   PRIMARY KEY (scope, key)
 );
 
--- One-row bookkeeping for the auth store (today: the cleanup
--- sweep's last-run stamp).
+-- One-row bookkeeping for the auth store: the cleanup sweep's
+-- last-run stamp, and the sign-up door's switch row — key
+-- 'door', 0 or no row for invite-only (the default), 1 for
+-- open, 2 for closed.
 CREATE TABLE IF NOT EXISTS auth_meta (
   key TEXT PRIMARY KEY,
   value INTEGER NOT NULL
+);
+
+-- The door's own pace, apart from the sign-in throttle: how
+-- many account creations one source address has set in motion
+-- inside the current hour. A row is dead once its window has
+-- passed; the auth sweep reaps it like the throttle's rows.
+CREATE TABLE IF NOT EXISTS signup_attempts (
+  source TEXT PRIMARY KEY,
+  window_start INTEGER NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS idx_passkeys_account ON passkeys (account_key);

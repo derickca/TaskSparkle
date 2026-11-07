@@ -55,7 +55,7 @@ The Cloudflare side has a local run: `wrangler dev` gives a live local copy for 
 
 ## Sign-in and keys
 
-Both ways of running use the same sign-in. It is passkey-first: the sign-in page opens on the passkey, and a password is one tap away as the fallback. The first account is made on the copy's setup page, and that person is the administrator. Everyone after that arrives by a one-use invite link the administrator sends from Settings, then Admin.
+Both ways of running use the same sign-in. It is passkey-first: the sign-in page opens on the passkey, and a password is one tap away as the fallback. The first account is made on the copy's setup page, and that person is the administrator. Everyone after that arrives by a one-use invite link the administrator sends from Settings, then Admin — or through the sign-up door, on a copy whose operator has opened it.
 
 On Cloudflare, people and agents use two addresses. On a home copy, both use one address. Either way, an agent reaches the API with a personal key. A key reaches only its owner's boards. The server stores only a key hash. The full key shows once, when made.
 

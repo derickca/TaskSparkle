@@ -28,3 +28,12 @@ ACCESS_AUD = "rig-audience"
 BROWSER_HOST = "localhost"
 AGENT_HOST = "127.0.0.1"
 SETUP_CODE = "rig-setup-code"
+# The door, in the rig's shape: the country gate covers
+# Canada and the United States, and the bot check stands
+# configured against the rig's own stub verifier (the certs
+# server's /siteverify, which passes only the token
+# "pass-token" under the secret below).
+SIGNUP_COUNTRIES = "CA,US"
+TURNSTILE_SITE_KEY = "rig-site-key"
+TURNSTILE_SECRET_KEY = "rig-secret-key"
+TURNSTILE_VERIFY_URL = "http://127.0.0.1:8791/siteverify"

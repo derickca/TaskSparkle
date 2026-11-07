@@ -108,11 +108,14 @@ The app runs its own sign-in — there is nothing to set up in Zero Trust, and n
 
 7. **Fill in the settings file.**
    - Copy `wrangler.toml.example` to `wrangler.toml`.
-   - Put your two hosts in the routes. The browser host needs its sign-in routes as well as its `/api/*` route — `/login`, `/login/*`, `/setup`, `/invite/*`, `/invite-code` and `/logout` — because the Worker serves those pages itself. Leave them out and nobody can sign in.
+   - Put your two hosts in the routes. The browser host needs its sign-in routes as well as its `/api/*` route — `/login`, `/login/*`, `/setup`, `/setup/*`, `/signup`, `/signup/*`, `/invite/*`, `/invite-code` and `/logout` — because the Worker serves those pages itself. Leave them out and nobody can sign in.
    - Put the same hosts in the `BROWSER_HOST` and `AGENT_HOST` values.
    - Add your database ID.
    - If you made the second database in step 3, uncomment its block so it binds as `AUTH_DB`.
    - Add `OWNER_EMAILS`: your own email address. It has one job, only until your first account stands: an agent key made for you keeps working before any account exists, so an agent is never locked out of a fresh copy. After that, keys answer to accounts and the list governs nothing.
+   - Settle the sign-up door's guards (the door itself is in [Who gets in](#who-gets-in)):
+     - `SIGNUP_COUNTRIES` names the countries account creation is open to, as a comma list of country codes. Left unset, the gate covers Canada and the United States. Set it to your own list, or set it empty (`""`) for no gate. The gate reads the country Cloudflare reports for the request, and it refuses creation only — sign-in is never gated.
+     - `TURNSTILE_SITE_KEY` is a Cloudflare Turnstile widget's public site key, standing a bot check on account creation. Make the widget in the dashboard, under Turnstile, for your browser host. Its matching secret is set as a Worker secret in step 8, never here. With both keys set, creation waits for the check; with either unset, no check runs.
    - Check the route zone names against your domain.
    - `wrangler.toml` is in `.gitignore`, because it names your deployment. Never commit it.
 
@@ -125,7 +128,7 @@ The app runs its own sign-in — there is nothing to set up in Zero Trust, and n
 
    For the by-hand path, skip these secrets. Run the three commands in step 9 whenever you deploy.
 
-   Either way, the setup code goes on the Worker itself as a secret — never in `wrangler.toml`, which is a settings file, not a secret store. After the first deploy in step 9, run `npx wrangler@4.153.0 secret put SETUP_CODE` and paste the code from step 5. For the GitHub path, run it from your clone once the first deploy has made the Worker.
+   Either way, the setup code goes on the Worker itself as a secret — never in `wrangler.toml`, which is a settings file, not a secret store. After the first deploy in step 9, run `npx wrangler@4.153.0 secret put SETUP_CODE` and paste the code from step 5. For the GitHub path, run it from your clone once the first deploy has made the Worker. If you set a Turnstile site key in step 7, its matching secret goes on the same way: `npx wrangler@4.153.0 secret put TURNSTILE_SECRET_KEY`.
 
 ## Deploy
 
@@ -162,6 +165,8 @@ npx wrangler@4.153.0 pages deploy public --project-name=tasksparkle --branch=mai
 ## Who gets in
 
 Accounts are the whole membership rule. The first account is made on the setup page, behind the setup code, and its person is the administrator. Everyone after that is invited from inside the app, in Settings, then Admin: the invite link sets their name and password, and their boards seed as their own. Nobody can see anyone else's boards.
+
+A copy can also open public sign-up — the sign-up door — so anyone who reaches the sign-in page can make their own account. The door's switch stands at invite-only until you flip it; flipping it is one stored value, given in [Run the service](operations.md#the-sign-up-door). While the switch stands open, the sign-in page carries a Create your account entry, and the sign-up page makes an account by the same two ways as an invite — a password, or a passkey — landing the person on their own boards. The guards from step 7 can stand on creation: the country gate, and the bot check when its two keys are set. Neither ever stands on sign-in: an account made under the gate signs in from anywhere.
 
 Removing a person is the administrator's act on the same page, and it ends everything of theirs at once — boards, keys, sessions and passkeys. An account's own sign-in is never visible to anyone else: not the password, not the passkeys.
 

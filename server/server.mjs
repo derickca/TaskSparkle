@@ -450,6 +450,40 @@ const authConfig = {
   publicBase: inviteBase(),
 };
 
+// The door's optional settings, from this copy's own
+// config: the country list creation is open to (none stands
+// by default at home — no gate), and the bot check's keys
+// (neither stands by default — no check). Both are the
+// operator's own choices for their own copy. The country is
+// read from the cf-ipcountry header, which means something
+// only when a front door the operator runs sets it — the
+// Cloudflare shape; on a plain home network nothing sets
+// it, and a configured gate then refuses, which is the safe
+// side for a setting the operator turned on themselves.
+const signupCountries = Array.isArray(config.signupCountries)
+  ? config.signupCountries
+      .map((c) => String(c).trim().toUpperCase())
+      .filter((c) => !!c)
+  : null;
+
+async function verifyTurnstileHome(token, source) {
+  if (!config.turnstileSecretKey) return false;
+  try {
+    const form = new URLSearchParams();
+    form.set("secret", String(config.turnstileSecretKey));
+    form.set("response", String(token));
+    if (source) form.set("remoteip", String(source));
+    const res = await fetch(
+      config.turnstileVerifyUrl ||
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      { method: "POST", body: form });
+    const data = await res.json();
+    return !!(data && data.success);
+  } catch (e) {
+    return false;
+  }
+}
+
 // The sign-in pages, from the shared code, in this copy's
 // shape: the pick list of names stands (a home copy is reached
 // by the household), and no setup code is asked — the house
@@ -464,6 +498,10 @@ const authPages = createAuthHandlers({
     sourceOf: authConfig.sourceOf,
     sourceCapMs: authConfig.sourceCapMs,
     cookieSecure: () => false,
+    signupCountries: signupCountries && signupCountries.length ? signupCountries : null,
+    countryOf: (request) => request.headers.get("cf-ipcountry") || null,
+    turnstileSiteKey: config.turnstileSiteKey ? String(config.turnstileSiteKey) : null,
+    turnstileVerify: verifyTurnstileHome,
     },
 });
 
@@ -649,6 +687,7 @@ const server = createServer(async (req, res) => {
     // the shared markup; locally it lands on the same handler.
     if (pathname === "/login" || pathname.startsWith("/login/") ||
         pathname === "/setup" || pathname.startsWith("/setup/") ||
+        pathname === "/signup" || pathname.startsWith("/signup/") ||
         pathname === "/invite-code" ||
         pathname === "/logout" || pathname === "/cdn-cgi/access/logout" ||
         pathname.startsWith("/invite/")) {

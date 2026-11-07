@@ -1482,6 +1482,64 @@ export async function clearThrottle(authDb, source, accountKey) {
   }
 }
 
+// --- The door ---
+// The sign-up door's switch stands in the auth store's own
+// bookkeeping (auth_meta, key 'door'), read on every door
+// request, so the operator flips it with one stored value
+// and no redeploy: 1 open, 2 closed, and 0 — or no row at
+// all — invite-only, the default on every copy. Landing the
+// door changes nobody's behaviour until the switch is
+// deliberately flipped.
+
+export var DOOR_INVITE_ONLY = 0;
+export var DOOR_OPEN = 1;
+export var DOOR_CLOSED = 2;
+
+export async function doorState(authDb) {
+  var row = await authDb.prepare(
+    "SELECT value FROM auth_meta WHERE key = 'door'"
+  ).first();
+  var value = row ? Number(row.value) : DOOR_INVITE_ONLY;
+  return value === DOOR_OPEN || value === DOOR_CLOSED ? value : DOOR_INVITE_ONLY;
+}
+
+// The door's own pace: at most a handful of creations set in
+// motion per source address per hour, counted apart from
+// the sign-in throttle, so a creation rush never locks
+// anyone out of signing in and sign-in failures never close
+// the door. The count spends once the gates have passed and
+// the attempt is real — before the bot check, so a failed
+// bot check still costs the address its pace.
+
+export var SIGNUP_WINDOW_MS = 60 * 60 * 1000;
+export var SIGNUP_MAX_PER_WINDOW = 5;
+
+export async function signupAttemptCount(authDb, source) {
+  var row = await authDb.prepare(
+    "SELECT * FROM signup_attempts WHERE source = ?"
+  ).bind(source).first();
+  if (!row) return 0;
+  if (nowMs() - Number(row.window_start) >= SIGNUP_WINDOW_MS) return 0;
+  return Number(row.attempts) || 0;
+}
+
+export async function noteSignupAttempt(authDb, source) {
+  var stamp = nowMs();
+  var row = await authDb.prepare(
+    "SELECT * FROM signup_attempts WHERE source = ?"
+  ).bind(source).first();
+  if (!row || stamp - Number(row.window_start) >= SIGNUP_WINDOW_MS) {
+    await authDb.prepare(
+      "INSERT INTO signup_attempts (source, window_start, attempts) VALUES (?, ?, 1) " +
+      "ON CONFLICT(source) DO UPDATE SET window_start = excluded.window_start, attempts = 1"
+    ).bind(source, stamp).run();
+    return;
+  }
+  await authDb.prepare(
+    "UPDATE signup_attempts SET attempts = attempts + 1 WHERE source = ?"
+  ).bind(source).run();
+}
+
 // --- The cleanup sweep ---
 // Expired challenge, throttle and session rows are deleted on
 // encounter where a lookup meets its own; the rest are kept
@@ -1505,6 +1563,7 @@ export async function sweepAuth(authDb) {
     ["auth_challenges", "expires"],
     ["sessions", "expires_at"],
     ["auth_throttle", "locked_until"],
+    ["signup_attempts", "window_start"],
   ];
   for (var i = 0; i < tables.length && budget > 0; i++) {
     // Throttle rows whose lock has passed and whose failure
@@ -1517,10 +1576,14 @@ export async function sweepAuth(authDb) {
     var where = tables[i][0] === "auth_throttle"
       ? "locked_until > 0 AND locked_until < ?"
       : tables[i][1] + " < ?";
+    // A creation-count row is dead once its hour has fully
+    // passed, so its sweep binds the stamp an hour back.
+    var bindStamp = tables[i][0] === "signup_attempts"
+      ? stamp - SIGNUP_WINDOW_MS : stamp;
     var result = await authDb.prepare(
       "DELETE FROM " + tables[i][0] + " WHERE rowid IN " +
       "(SELECT rowid FROM " + tables[i][0] + " WHERE " + where + " LIMIT ?)"
-    ).bind(stamp, budget).run();
+    ).bind(bindStamp, budget).run();
     budget -= Number((result && result.meta && result.meta.changes) || 0);
   }
   return true;
@@ -1821,7 +1884,7 @@ function secureAddress(url) {
     host === "127.0.0.1" || host === "::1";
 }
 
-function loginPageHtml(cfg, error, names, rememberedName, secure, view, attemptedName) {
+function loginPageHtml(cfg, error, names, rememberedName, secure, view, attemptedName, doorOpen) {
   var messages = {
     "1": "That name and password did not match. Check them and try again.",
     locked: "Too many tries. Wait a little, then try again.",
@@ -1912,6 +1975,12 @@ function loginPageHtml(cfg, error, names, rememberedName, secure, view, attempte
     '    <label class="remember"><input type="checkbox" id="remember-name" name="remember" value="1" checked> Remember my name on this device</label>',
     doors,
     "  </form>",
+    // The door's entry stands only while the door stands
+    // open: at the default the page is what it has always
+    // been, word for word.
+    doorOpen
+      ? '  <p class="switch">New to TaskSparkle? <a href="/signup">Create your account</a></p>'
+      : "",
     // At an ordinary HTTP address, Derick's settled words
     // stand under the form (amendment A.8), displacing the
     // #113 stand-in line on this page only.
@@ -2358,6 +2427,196 @@ export function inviteRefusedHtml() {
   return pageHtml("Invite — TaskSparkle", body);
 }
 
+// The country gate's sentence, built from this copy's own
+// list: the ruled words on the hosted copy, and the true
+// words on any other list.
+function signupCountryLine(cfg) {
+  var names = (cfg.signupCountries || []).map(function (code) {
+    if (code === "CA") return "Canada";
+    if (code === "US") return "the United States";
+    return code;
+  });
+  var list = names.length > 1
+    ? names.slice(0, -1).join(", ") + " and " + names[names.length - 1]
+    : (names[0] || "");
+  return "Sign-up is open to " + list + " for now.";
+}
+
+// The sign-up page: the door's own spend page, in the spend
+// pages' shape — the passkey way first with equal standing
+// at a secure address, the password way standing beside it,
+// and the bot check's widget inside the form where the
+// deployment configured one. Nothing on the page promises
+// anything the service does not do.
+export function signupPageHtml(cfg, error, secure) {
+  var messages = {
+    // The password refusals name their actual reason (issue
+    // #147): the shared keyed lines, word for word.
+    pwmismatch: PASSWORD_REFUSAL_MESSAGES.pwmismatch,
+    pwlength: PASSWORD_REFUSAL_MESSAGES.pwlength,
+    pwcommon: PASSWORD_REFUSAL_MESSAGES.pwcommon,
+    pwname: PASSWORD_REFUSAL_MESSAGES.pwname,
+    name: "That name is not available. Pick another name and try again.",
+    bot: "The bot check did not pass. Try again.",
+    toomany: "Too many sign-ups from this address. Wait an hour, then try again.",
+    locked: "Too many tries. Wait a little, then try again.",
+  };
+  var sub = cfg.hosted
+    ? "Make your account on this copy of TaskSparkle."
+    : "This copy of TaskSparkle runs on a machine in your home. Make your account.";
+  var botCheck = cfg.turnstileSiteKey
+    ? '    <div class="cf-turnstile" data-sitekey="' +
+      escapeHtml(cfg.turnstileSiteKey) + '"></div>'
+    : "";
+  var body = [
+    "<h1>TaskSparkle</h1>",
+    '<p class="sub">' + escapeHtml(sub) + "</p>",
+    "<p>You get your own boards, and no one else's boards are shared with you.</p>",
+    messages[error] ? '<p class="error">' + messages[error] + "</p>" : "",
+    '<form method="post" action="/signup" id="spend-form">',
+    '    <label class="field">Your name — the name you will sign in with',
+    '      <input type="text" id="spend-name" name="name" required maxlength="120" autocomplete="username">',
+    "    </label>",
+    secure ? spendPasskeyBlock("Use a passkey") : "",
+    '    <div id="spend-password">',
+    '    <label class="field">A password — at least ' + MIN_PASSWORD_LENGTH + " characters",
+    '      <input type="password" name="password" required autocomplete="new-password">',
+    "    </label>",
+    '    <label class="field">The same password again',
+    '      <input type="password" name="confirm" required autocomplete="new-password">',
+    "    </label>",
+    "    </div>",
+    botCheck,
+    '    <button type="submit" id="spend-submit">Make my account</button>',
+    "  </form>",
+    secure ? "" : '  <p class="note" id="passkey-off-note">' + PASSKEY_OFF_LINE + "</p>",
+    cfg.turnstileSiteKey
+      ? '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>'
+      : "",
+    secure ? signupScript() : "",
+  ].join("\n");
+  return pageHtml("Create your account — TaskSparkle", body);
+}
+
+// The door's refusal page, while the switch stands at
+// invite-only or closed: plain words, and the invite path
+// named, because invites keep working exactly as they do.
+export function signupRefusedHtml(closed) {
+  var body = [
+    "<h1>TaskSparkle</h1>",
+    closed
+      ? "<p>Sign-up is closed on this copy.</p>"
+      : "<p>Sign-up is not open on this copy.</p>",
+    closed
+      ? "<p>No new accounts are being made here right now. If you were sent an invite, it still works — open its link, or paste its code in the box on the sign-in page.</p>"
+      : "<p>New accounts here are made by invite. If you were sent an invite, open its link, or paste its code in the box on the sign-in page.</p>",
+    '<p><a href="/login">Back to sign in</a></p>',
+  ].join("\n");
+  return pageHtml("Create your account — TaskSparkle", body);
+}
+
+// The country gate's refusal page: sign-in stands open from
+// anywhere; only creation is gated.
+export function signupCountryHtml(cfg) {
+  var body = [
+    "<h1>TaskSparkle</h1>",
+    "<p>" + escapeHtml(signupCountryLine(cfg)) + "</p>",
+    "<p>This address reads as outside them, so an account cannot be made from here. If you already have an account, you can sign in from anywhere.</p>",
+    '<p><a href="/login">Back to sign in</a></p>',
+  ].join("\n");
+  return pageHtml("Create your account — TaskSparkle", body);
+}
+
+// The sign-up page's ceremony script: the spend script's
+// shape, carrying the name and — where the widget stands —
+// the bot check's answer token to the options call. A
+// refusal from the server is shown in the server's own
+// words; a spent bot-check token is refreshed for the next
+// press.
+function signupScript() {
+  return [
+    "<script>",
+    "(function () {",
+    "  if (!window.PublicKeyCredential || !window.isSecureContext) return;",
+    "  var button = document.getElementById('spend-passkey-button');",
+    "  var errorBox = document.getElementById('spend-error');",
+    "  if (!button || !errorBox) return;",
+    "  function b64uToBytes(text) {",
+    "    var b64 = text.replace(/-/g, '+').replace(/_/g, '/');",
+    "    while (b64.length % 4) b64 += '=';",
+    "    var bin = atob(b64);",
+    "    var bytes = new Uint8Array(bin.length);",
+    "    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);",
+    "    return bytes;",
+    "  }",
+    "  function bytesToB64u(bytes) {",
+    "    var bin = '';",
+    "    var view = new Uint8Array(bytes);",
+    "    for (var i = 0; i < view.length; i++) bin += String.fromCharCode(view[i]);",
+    "    return btoa(bin).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');",
+    "  }",
+    "  function refusedWith(data) {",
+    "    var err = new Error('refused');",
+    "    err.server = data && data.error ? data.error : null;",
+    "    return err;",
+    "  }",
+    "  function answered(res) {",
+    "    return res.json().catch(function () { return null; }).then(function (data) {",
+    "      if (!res.ok) throw refusedWith(data);",
+    "      return data;",
+    "    });",
+    "  }",
+    "  button.addEventListener('click', function () {",
+    "    errorBox.hidden = true;",
+    "    var nameEl = document.getElementById('spend-name');",
+    "    if (nameEl && !nameEl.value.trim()) {",
+    "      errorBox.textContent = 'Add your name first.';",
+    "      errorBox.hidden = false;",
+    "      return;",
+    "    }",
+    "    var fields = { name: nameEl ? nameEl.value : '' };",
+    "    var tokenEl = document.querySelector('input[name=\"cf-turnstile-response\"]');",
+    "    if (tokenEl) fields.turnstile = tokenEl.value;",
+    "    fetch('/signup/passkey/options', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) })",
+    "      .then(answered)",
+    "      .then(function (options) {",
+    "        return navigator.credentials.create({ publicKey: {",
+    "          challenge: b64uToBytes(options.challenge),",
+    "          rp: options.rp,",
+    "          user: { id: b64uToBytes(options.user.id), name: options.user.name, displayName: options.user.displayName || options.user.name },",
+    "          pubKeyCredParams: options.pubKeyCredParams,",
+    "          authenticatorSelection: options.authenticatorSelection,",
+    "          attestation: options.attestation || 'none',",
+    "          timeout: options.timeout || 300000,",
+    "          excludeCredentials: (options.excludeCredentials || []).map(function (c) {",
+    "            return { id: b64uToBytes(c.id), type: c.type };",
+    "          }),",
+    "        } });",
+    "      })",
+    "      .then(function (cred) {",
+    "        var body = { response: {",
+    "          id: cred.id, rawId: bytesToB64u(cred.rawId), type: cred.type,",
+    "          response: {",
+    "            clientDataJSON: bytesToB64u(cred.response.clientDataJSON),",
+    "            attestationObject: bytesToB64u(cred.response.attestationObject),",
+    "            transports: cred.response.getTransports ? cred.response.getTransports() : [],",
+    "          },",
+    "        } };",
+    "        return fetch('/signup/passkey/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });",
+    "      })",
+    "      .then(answered)",
+    "      .then(function () { window.location = '/'; })",
+    "      .catch(function (err) {",
+    "        if (window.turnstile) { try { window.turnstile.reset(); } catch (e) {} }",
+    "        errorBox.textContent = (err && err.server) || 'That passkey could not be enrolled. Try again, or use the other way.';",
+    "        errorBox.hidden = false;",
+    "      });",
+    "  });",
+    "})();",
+    "</script>",
+  ].join("\n");
+}
+
 // --- The page handlers ----------------------------------------------------------------
 //
 // Builds the handler for the sign-in, setup, invite and logout
@@ -2381,6 +2640,19 @@ export function inviteRefusedHtml() {
 //   home (fifteen minutes hosted, one minute at home).
 // - cfg.cookieSecure(request): whether the session cookie
 //   carries Secure for this request.
+// - cfg.turnstileSiteKey / cfg.turnstileVerify(token, source):
+//   the bot check on account creation. Both stand only where
+//   the deployment configured the check — the widget's public
+//   key, and the server-side verification the deployment's
+//   secret answers. Where the key stands, creation waits for
+//   the verifier's yes and fails closed without it; where
+//   neither stands, no check runs at all.
+// - cfg.signupCountries / cfg.countryOf(request): the
+//   country gate on creation. The list names the countries
+//   creation is open to; no list, no gate. countryOf reads
+//   the request's country as the deployment's own edge
+//   reports it. The gate refuses creation only — sign-in is
+//   never gated.
 //
 // The handler takes and returns web-standard Request and
 // Response objects, like the core's, and answers null for any
@@ -2401,15 +2673,28 @@ function authRedirect(location, headers) {
   return new Response(null, { status: 302, headers: all });
 }
 
-function authHtml(html) {
+function authHtml(html, turnstile) {
+  var policy =
+    "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; " +
+    "font-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
+  if (turnstile) {
+    // The bot check's widget stands on the sign-up page
+    // alone: its script, its frame and its answer calls are
+    // let through in that page's answers, and nowhere else.
+    policy =
+      "default-src 'none'; style-src 'unsafe-inline'; " +
+      "script-src 'unsafe-inline' https://challenges.cloudflare.com; " +
+      "font-src 'self'; img-src 'self'; " +
+      "connect-src 'self' https://challenges.cloudflare.com; " +
+      "frame-src https://challenges.cloudflare.com; " +
+      "form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
+  }
   return new Response(html, {
     status: 200,
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "no-cache",
-      "content-security-policy":
-        "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; " +
-        "font-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+      "content-security-policy": policy,
       "x-content-type-options": "nosniff",
       "x-frame-options": "DENY",
       "referrer-policy": "same-origin",
@@ -3000,6 +3285,204 @@ export function createAuthHandlers(deps) {
     return beginSession(authRedirect("/"), finalKey, "invite", request);
   }
 
+  // --- The door's handlers ---
+  // The public creation path. Every guard runs before any
+  // account row is written: the switch, the country gate,
+  // the creation pace, and — where the deployment configured
+  // one — the bot check. The two ways in are the spend
+  // pages' own: the password form, and the ceremony, which
+  // creates the account only when a credential verifies.
+
+  // Answers null when a creation may proceed, or the
+  // refusal kind: "setup" while no account stands (the first
+  // account is the setup page's, never the door's), "door"
+  // while the switch is not open, "country" while this
+  // copy's country list stands and the request's country is
+  // not on it, "toomany" while the source stands locked or
+  // over the hour's creation cap.
+  async function signupGate(request, source) {
+    if ((await countAccounts(authDb)) === 0) return "setup";
+    if ((await doorState(authDb)) !== DOOR_OPEN) return "door";
+    if (cfg.signupCountries && cfg.signupCountries.length) {
+      var country = cfg.countryOf ? cfg.countryOf(request) : null;
+      if (!country ||
+          cfg.signupCountries.indexOf(String(country).toUpperCase()) === -1) {
+        return "country";
+      }
+    }
+    if (await throttleLocked(authDb, source, null)) return "toomany";
+    if ((await signupAttemptCount(authDb, source)) >= SIGNUP_MAX_PER_WINDOW) {
+      return "toomany";
+    }
+    return null;
+  }
+
+  // The bot check, where the deployment configured one: no
+  // site key stands configured, no check runs. Where one
+  // stands, a missing token, a missing verifier or a failed
+  // verification all refuse — the check fails closed.
+  async function turnstilePassed(token, source) {
+    if (!cfg.turnstileSiteKey) return true;
+    if (!token || !cfg.turnstileVerify) return false;
+    try {
+      return !!(await cfg.turnstileVerify(String(token), source));
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async function handleSignupGet(request, url) {
+    var standing = await sessionFromRequest(authDb, request);
+    if (standing) return authRedirect("/");
+    var gate = await signupGate(request, cfg.sourceOf(request));
+    if (gate === "setup") return authRedirect("/login");
+    if (gate === "door") {
+      return authHtml(signupRefusedHtml(
+        (await doorState(authDb)) === DOOR_CLOSED));
+    }
+    if (gate === "country") return authHtml(signupCountryHtml(cfg));
+    return authHtml(
+      signupPageHtml(cfg, url.searchParams.get("error") || "", secureAddress(url)),
+      !!cfg.turnstileSiteKey);
+  }
+
+  async function handleSignupPost(request) {
+    var source = cfg.sourceOf(request);
+    var form = new URLSearchParams(await request.text());
+    var gate = await signupGate(request, source);
+    if (gate === "setup") return authRedirect("/login");
+    if (gate === "door" || gate === "country") return authRedirect("/signup");
+    if (gate === "toomany") return authRedirect("/signup?error=toomany");
+    await noteSignupAttempt(authDb, source);
+    if (!(await turnstilePassed(form.get("cf-turnstile-response"), source))) {
+      return authRedirect("/signup?error=bot");
+    }
+    var display = String(form.get("name") || "").trim();
+    if (nameProblem(display)) return authRedirect("/signup?error=name");
+    if (await getAccount(authDb, nameKey(display))) {
+      return authRedirect("/signup?error=name");
+    }
+    var password = String(form.get("password") || "");
+    var confirm = String(form.get("confirm") || "");
+    var refusalKey = passwordRefusalKey(password, confirm, display);
+    if (refusalKey) return authRedirect("/signup?error=" + refusalKey);
+    var hash = await hashPassword(password);
+    var created;
+    try {
+      created = await createAccount(authDb, {
+        key: nameKey(display), name: display, passwordHash: hash, admin: false,
+      });
+    } catch (e) {
+      // Another creation took the name in the same moment.
+      return authRedirect("/signup?error=name");
+    }
+    await writeAudit(authDb, created, "account-created", created, "sign-up page");
+    await ensureAdminStanding(authDb);
+    await clearThrottle(authDb, source, created.key);
+    await sweepAuth(authDb);
+    return beginSession(authRedirect("/"), created.key, "signup", request);
+  }
+
+  async function handleSignupPasskeyOptions(request) {
+    var source = cfg.sourceOf(request);
+    var refused = function (msg, status) {
+      return authJson({ error: msg }, status || 400);
+    };
+    var gate = await signupGate(request, source);
+    if (gate === "setup") return refused("The first account is made on the setup page.");
+    if (gate === "door") return refused("Sign-up is not open on this copy.");
+    if (gate === "country") return refused(signupCountryLine(cfg));
+    if (gate === "toomany") {
+      return refused("Too many sign-ups from this address. Wait an hour, then try again.", 429);
+    }
+    await noteSignupAttempt(authDb, source);
+    var body = null;
+    try { body = await request.json(); } catch (e) { body = null; }
+    if (!(await turnstilePassed(body && body.turnstile, source))) {
+      return refused("The bot check did not pass. Try again.");
+    }
+    var display = String((body && body.name) || "").trim();
+    if (nameProblem(display)) {
+      return refused("That name cannot be used. Pick another name and try again.");
+    }
+    if (await getAccount(authDb, nameKey(display))) {
+      return refused("That name is not available. Pick another name and try again.");
+    }
+    var handle = b64uEncode(randomBytes(32));
+    var issued = await issueChallenge(authDb, "spend", null, {
+      signup: true, name: display, userHandle: handle,
+    });
+    var url = new URL(request.url);
+    return authJson(spendOptionsJson(issued.challengeB64u, url, handle, display));
+  }
+
+  async function handleSignupPasskeyVerify(request) {
+    var source = cfg.sourceOf(request);
+    var refused = function (msg, status) {
+      return authJson({ error: msg }, status || 400);
+    };
+    var body = null;
+    try { body = await request.json(); } catch (e) { body = null; }
+    if (!body || !body.response) return refused("That passkey could not be enrolled.");
+    var challengeB64u = ceremonyChallenge(body);
+    var found = challengeB64u
+      ? await findChallenge(authDb, challengeB64u, "spend", null) : null;
+    if (!found || !found.payload || !found.payload.signup) {
+      return refused("That passkey could not be enrolled.");
+    }
+    // The switch and the gate are read again at the write:
+    // a switch flipped, or a country refused, since the
+    // options were issued stops the creation here, before
+    // any account row stands.
+    if ((await doorState(authDb)) !== DOOR_OPEN) {
+      return refused("Sign-up is not open on this copy.");
+    }
+    if (cfg.signupCountries && cfg.signupCountries.length) {
+      var country = cfg.countryOf ? cfg.countryOf(request) : null;
+      if (!country ||
+          cfg.signupCountries.indexOf(String(country).toUpperCase()) === -1) {
+        return refused(signupCountryLine(cfg));
+      }
+    }
+    var url = new URL(request.url);
+    var registered;
+    try {
+      registered = await verifyRegistration(body.response, {
+        challengeB64u: challengeB64u, origin: url.origin, rpId: url.hostname,
+      });
+    } catch (e) {
+      return refused("That passkey could not be enrolled: " + e.message);
+    }
+    if (await getPasskey(authDb, registered.credentialId)) {
+      return refused("That passkey already stands on an account.");
+    }
+    if (!(await spendChallenge(authDb, challengeB64u, "spend", null))) {
+      return refused("That passkey could not be enrolled.");
+    }
+    // The passkey-born account: created only now, under the
+    // handle and name the pending record carries, at NULL.
+    var created;
+    try {
+      created = await createAccount(authDb, {
+        key: nameKey(found.payload.name), name: found.payload.name,
+        passwordHash: null, admin: false, userHandle: found.payload.userHandle,
+      });
+    } catch (e) {
+      return refused("That name is not available. Pick another name and try again.");
+    }
+    await addPasskey(authDb, {
+      credentialId: registered.credentialId, accountKey: created.key,
+      coseBytes: registered.coseBytes, signCount: registered.signCount,
+      transports: registered.transports, backedUp: registered.backedUp,
+      nickname: "", rpHome: url.hostname,
+    });
+    await writeAudit(authDb, created, "account-created", created, "sign-up page, passkey");
+    await ensureAdminStanding(authDb);
+    await clearThrottle(authDb, source, created.key);
+    await sweepAuth(authDb);
+    return beginEnrolledSession(authJson({ ok: true }), created.key, "signup", request);
+  }
+
   async function handlePasskeyOptions(request) {
     var source = cfg.sourceOf(request);
     // Refused with zero writes while the source stands locked:
@@ -3095,7 +3578,8 @@ export function createAuthHandlers(deps) {
         var attemptedName = attemptedNameFromRequest(request);
         var loginAnswer = authHtml(loginPageHtml(cfg, url.searchParams.get("error") || "",
           names, rememberedNameFromRequest(request), secureAddress(url),
-          rememberedViewFromRequest(request), attemptedName));
+          rememberedViewFromRequest(request), attemptedName,
+          (await doorState(authDb)) === DOOR_OPEN));
         if (attemptedName) {
           loginAnswer.headers.append("Set-Cookie",
             expiredAttemptCookieValue(cfg.cookieSecure(request)));
@@ -3126,6 +3610,16 @@ export function createAuthHandlers(deps) {
     }
     if (path === "/setup/passkey/verify" && method === "POST") {
       return handleSetupPasskeyVerify(request);
+    }
+    if (path === "/signup") {
+      if (method === "POST") return handleSignupPost(request);
+      if (method === "GET") return handleSignupGet(request, url);
+    }
+    if (path === "/signup/passkey/options" && method === "POST") {
+      return handleSignupPasskeyOptions(request);
+    }
+    if (path === "/signup/passkey/verify" && method === "POST") {
+      return handleSignupPasskeyVerify(request);
     }
     var inviteCeremony = /^\/invite\/([^/]+)\/passkey\/(options|verify)$/.exec(path);
     if (inviteCeremony && method === "POST") {

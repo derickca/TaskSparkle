@@ -8,7 +8,7 @@ A password is something you type. A passkey is something your device holds — a
 
 The passkey stands first. The sign-in page opens on it, and the password is one tap away. An account works with a password alone, with both, or with a passkey alone. Nothing about your boards, your cards or your agent keys changes with the choice, and no one else — not even the administrator — can make the choice for you.
 
-A new account picks its first way in on the page that creates it: the setup page and the invite page stand both ways open, the passkey way first, and either one creates the account. An account that starts with a passkey holds no password at all, and can add one later whenever it wants.
+A new account picks its first way in on the page that creates it: the setup page, the invite page and the sign-up page stand both ways open, the passkey way first, and either one creates the account. An account that starts with a passkey holds no password at all, and can add one later whenever it wants.
 
 ## The sign-in page
 
@@ -16,7 +16,7 @@ At a secure address the sign-in page opens on the passkey: your name, and the pa
 
 The switch trades which way stands first, never what is possible. The password is one tap away on every sign-in, whatever your account holds. And a passkey your browser offers through the name field works in either view.
 
-The device remembers which view you last used and opens there next time. A new device opens on the passkey view. Enrolling a passkey — on the setup or invite page, or later in Account — makes the passkey that device's view from then on, until you switch it yourself.
+The device remembers which view you last used and opens there next time. A new device opens on the passkey view. Enrolling a passkey — on the setup, invite or sign-up page, or later in Account — makes the passkey that device's view from then on, until you switch it yourself.
 
 ## Adding a passkey
 

@@ -12,13 +12,30 @@ On a self-hosted copy there is no export workflow, because there is nothing to e
 
 Zero on the Cloudflare free tier at personal scale: the app, the site, the database, the live updates and the backup bucket all fit inside the free plan's allowances for a board one or two people use daily. Nothing in the setup asks for a card. A self-hosted copy costs the electricity of a machine you already run.
 
+## The sign-up door
+
+A copy can open public sign-up: anyone who reaches the sign-in page can make their own account, with their own boards. The door is a switch with three states — open, invite-only and closed — and it stands at invite-only until the operator flips it. Flipping it is one stored value in the sign-in bookkeeping, read on every visit to the sign-up page: no redeploy, no restart, and the change takes effect on the next visit.
+
+The value stands in the `auth_meta` table under the key `door`: `1` is open, `2` is closed, and `0` — or no row at all — is invite-only. One statement sets it:
+
+```sql
+INSERT INTO auth_meta (key, value) VALUES ('door', 1)
+ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+```
+
+On Cloudflare, run it against the database that holds the sign-in tables — the separate auth database where the deployment has one, the main database where it does not — with `wrangler d1 execute <that database> --remote --command "<the statement>"`, or from the database's own console in the dashboard. On a self-hosted copy, run it against the `tasksparkle.sqlite` file in the server's data folder with any SQLite tool.
+
+While the switch stands at invite-only or closed, the sign-up page refuses in plain words. Invites work in every state, exactly as they do with the door unopened. The first account is never the door's: while no account stands, the setup page owns creation, whatever the switch says.
+
+Two guards can stand on creation, each set where the deployment's own settings live — the Cloudflare settings in [Cloudflare setup](cloudflare-setup.md), the home config in [Self-hosting TaskSparkle](self-hosting.md). A country list names the countries creation is open to; a creation read as coming from outside the list is refused, and sign-in is never gated. A bot check (Cloudflare Turnstile) can stand on creation, verified before any account row is written. Creations also keep their own pace — five per source address per hour — apart from the sign-in throttle, so a creation rush never locks anyone out of signing in.
+
 ## Repo files
 
 ### App and server
 
 - `public/` holds everything the browser loads: `app.js` (the front end: rendering, the editor, settings and the API data layer), `index.html`, `styles.css`, `sw.js`, the manifest and the icons
 - `worker/core.js` holds the whole API: every route, the caller checks, the seeding and the directions. It runs in both homes and takes its ties to the world as adapters: the database, the sign-in store and live updates
-- `worker/auth.js` holds the one sign-in both homes share: accounts, passwords and passkeys, invites, sessions, the throttle, the audit log, and the sign-in, setup and invite pages themselves
+- `worker/auth.js` holds the one sign-in both homes share: accounts, passwords and passkeys, invites, sessions, the throttle, the audit log, and the sign-in, setup, invite and sign-up pages themselves
 - `worker/worker.js` holds the Cloudflare entry around the core: the plain-HTTP redirect, the hosted door's page routes and the OwnerPush Durable Object the core's push adapter speaks to
 - `server/` holds the self-host server. `server.mjs` is the local entry around the same core: the static app, the shared sign-in pages and the recovery commands. `d1-adapter.mjs` is the D1 shape over a local SQLite file, and `push-hub.mjs` is the socket hub that stands in for the Durable Object. `config.example.json` is the config template; the real `config.json` is gitignored
 ### Guides

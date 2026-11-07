@@ -26,6 +26,8 @@ Two habits back that up. Every password must be at least 12 characters. Sign-in 
 
      **Settle this address before anyone adds a passkey.** A passkey is made for one exact address: change the address later and every passkey stops working, and each person must make a new one.
    - `agentHost` — the name and port agents use to reach this machine, printed in the directions the API serves and in the app's Set Up Agent text. Use the machine's network name and the port, like `your-machine.local:8080`. If your agents run on the machine itself, `localhost:8080` is fine.
+   - `signupCountries` — optional. A list of country codes, like `["CA", "US"]`, naming the countries account creation is open to when the sign-up door is open (next sections). The country is read from the `CF-IPCountry` header, which only a front door you run — a Cloudflare tunnel or proxy in front of this copy — can set truthfully; on a plain home network nothing sets it, a configured list then refuses every creation, and most home copies want this left out entirely: no list, no gate.
+   - `turnstileSiteKey` and `turnstileSecretKey` — optional. A Cloudflare Turnstile widget's keys, standing a bot check on account creation: the site key is the widget's public key, the secret key its secret. Set both and creation waits for the check; leave either out and no check runs. The secret sits in this config, so keep the config file itself private, like the data file.
 
    Older configs may still carry a `sessionSecret` field. Sessions are server-side rows in the data file now — the server mints and revokes them itself — so the field is ignored and can be deleted.
 
@@ -61,6 +63,10 @@ The administrator is the person who can invite everyone else, from inside the ap
 4. The person opens the link. Looking is safe: chat apps fetch links on their own to build previews, and merely opening the page uses nothing up. The page shows the name the invite carries, in a field the person can adjust — the name they settle is the name on the sign-in list from then on. They type their own password twice and press **Set password**. At a secure address the page stands the passkey way open first as well, and an account that starts that way holds no password. Either way, the press is what spends the link, and it lands them signed in, with their own boards seeded.
 
 If the link arrives broken, as links in chat sometimes do, the sign-in page has an "Have an invite?" box that takes the bare code from the end of the link instead and leads to the same page. The full code also stands in the invite dialog, under the link, when it is made from the command line (see Recovery).
+
+### Opening sign-up
+
+A copy can also let anyone who reaches it make their own account. That is the sign-up door, and it is shut in the way you would want at home: the switch stands at invite-only until you flip it, and flipping it is one stored value in the data file — [Run the service](operations.md#the-sign-up-door) gives the statement. While the switch stands open, the sign-in page carries a **Create your account** entry and the sign-up page makes an account by the same two ways as an invite — a password, or a passkey at a secure address — landing the person signed in with their own boards seeded. While it stands at invite-only or closed, the sign-up page refuses in plain words and invites work exactly as above. The country list and bot check in the config above can guard creation while the door stands open; neither ever guards signing in.
 
 ### Signing in
 

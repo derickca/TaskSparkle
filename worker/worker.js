@@ -102,6 +102,41 @@ async function verifyAccessToken(token, env) {
   }
 }
 
+// The door's country gate, from the deployment's own
+// setting: a comma list in SIGNUP_COUNTRIES. The hosted
+// service's ruled list stands when no setting stands; an
+// empty setting turns the gate off.
+function signupCountriesOf(env) {
+  var raw = env && env.SIGNUP_COUNTRIES;
+  if (raw == null) return ["CA", "US"];
+  var list = String(raw).split(",").map(function (s) {
+    return s.trim().toUpperCase();
+  }).filter(function (s) { return !!s; });
+  return list.length ? list : null;
+}
+
+// The bot check's server-side verification, answered by
+// Cloudflare's own endpoint with the deployment's secret.
+// The endpoint's address is a setting only so a test rig can
+// stand in for it; no deployment needs to set it.
+async function verifyTurnstile(env, token, source) {
+  if (!env || !env.TURNSTILE_SECRET_KEY) return false;
+  try {
+    var form = new URLSearchParams();
+    form.set("secret", String(env.TURNSTILE_SECRET_KEY));
+    form.set("response", String(token));
+    if (source) form.set("remoteip", String(source));
+    var res = await fetch(
+      env.TURNSTILE_VERIFY_URL ||
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      { method: "POST", body: form });
+    var data = await res.json();
+    return !!(data && data.success);
+  } catch (e) {
+    return false;
+  }
+}
+
 // Tells the owner's push object that a new version exists, so it can
 // pass the number to the owner's open browsers. Best effort by
 // design: the version itself is the truth, held in the database,
@@ -161,7 +196,21 @@ export default {
             return req.headers.get("CF-Connecting-IP") || "unknown";
           },
           sourceCapMs: 15 * 60 * 1000,
-          cookieSecure: function () { return true; }
+          cookieSecure: function () { return true; },
+          // The door's gate and bot check read the edge's
+          // own facts: the country the edge reports for the
+          // request, and the Turnstile keys the deployment
+          // holds (the site key a public setting, the secret
+          // a secret; both unset, no check runs).
+          signupCountries: signupCountriesOf(env),
+          countryOf: function (req) {
+            return req.headers.get("CF-IPCountry") || null;
+          },
+          turnstileSiteKey: env && env.TURNSTILE_SITE_KEY
+            ? String(env.TURNSTILE_SITE_KEY) : null,
+          turnstileVerify: function (token, source) {
+            return verifyTurnstile(env, token, source);
+          }
         }
       });
       var pageAnswer = await authPages(request);
