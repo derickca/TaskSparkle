@@ -33,7 +33,7 @@ import { fileURLToPath } from "node:url";
 import { createApiHandler } from "../worker/core.js";
 import {
   createAuthHandlers, getAccount, countAccounts, mintInvite,
-  eraseAccountCredentials, ensureAdminStanding, sessionFromRequest,
+  eraseAccountCredentials, ensureAdminStanding,
   nameKey, nameProblem, newAccountId, randomBytes, b64uEncode,
 } from "../worker/auth.js";
 import { openDatabase } from "./d1-adapter.mjs";
@@ -709,15 +709,14 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // Page loads: the app itself. Without a session the door is
-    // the sign-in page; the files around the app (its script,
-    // styles, icons) carry no one's data and are served openly,
-    // as the manifest and icons are on Cloudflare — the API above
-    // is the gate that matters.
-    if (pathname === "/" || pathname === "/index.html") {
-      const webReq = toWebRequest(req, null);
-      if (!(await sessionFromRequest(db, webReq))) { redirect(res, "/login"); return; }
-    }
+    // Page loads: the app itself, served openly like the files
+    // around it (its script, styles, icons) — the API above is
+    // the gate that matters, as it is on Cloudflare, where the
+    // root is a Pages file no Worker route covers. The app
+    // decides what a load shows: boards for a signed-in
+    // account, the public page for a signed-out visitor
+    // (issue #16 — a server-side bounce here meant the public
+    // page could never show on a self-host copy).
     serveStatic(req, res, pathname);
   } catch (err) {
     if (err && err.code === "BODY_TOO_LARGE") {
