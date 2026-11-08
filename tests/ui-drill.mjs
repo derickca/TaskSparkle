@@ -513,6 +513,11 @@ await page.waitForFunction(
 check("#22: the public page shows no Feedback entry on a copy with no target set",
   (await page.locator('a[href="/feedback"]:visible').count()) === 0 &&
   (await page.locator("[data-feedback-link]").count()) === 0);
+// The live service's Terms page is not the open source
+// repo's to carry (issue #28): no page in it names a Terms
+// entry at all — the markup itself is gone, not hidden.
+check("#28: the public page carries no Terms entry",
+  (await page.locator('a[href="/terms"]').count()) === 0);
 await page.goto(BASE + "/help", { waitUntil: "domcontentloaded" });
 await page.waitForFunction(
   () => document.querySelectorAll("[data-feedback-link]").length === 0,
@@ -520,10 +525,24 @@ await page.waitForFunction(
 check("#22: the Help page and its topic list show no Feedback entry either",
   (await page.locator('a[href="/feedback"]:visible').count()) === 0 &&
   (await page.locator("[data-feedback-link]").count()) === 0);
+check("#28: the Help page carries no Terms entry either",
+  (await page.locator('a[href="/terms"]').count()) === 0);
+check("#28: and its topics are the repo's own — Signing in stands, the service's topics are gone",
+  (await page.locator('a[href="/help/signing-in"]').count()) >= 1 &&
+  (await page.locator('a[href="/help/boards-and-cards"]').count()) >= 1 &&
+  (await page.locator('a[href="/help/agents-and-keys"]').count()) >= 1 &&
+  (await page.locator('a[href="/help/joining"]').count()) === 0 &&
+  (await page.locator('a[href="/help/emailed-link"]').count()) === 0 &&
+  (await page.locator('a[href="/help/passkeys"]').count()) === 0 &&
+  (await page.locator('a[href="/help/getting-back-in"]').count()) === 0);
 const fbPageResp = await page.goto(BASE + "/feedback", { waitUntil: "domcontentloaded" }).catch(() => null);
 check("#22: the Feedback page's address answers not found on such a copy",
   !!fbPageResp && fbPageResp.status() === 404,
   fbPageResp ? "status " + fbPageResp.status() : "no response");
+const termsResp = await page.goto(BASE + "/terms", { waitUntil: "domcontentloaded" }).catch(() => null);
+check("#28: the Terms page's address answers not found on a copy of the repo",
+  !!termsResp && termsResp.status() === 404,
+  termsResp ? "status " + termsResp.status() : "no response");
 await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
 await page.waitForSelector("#landing:not([hidden])", { timeout: 10000 }).catch(() => {});
 await page.click('#landing .landing-cta a[href="/login"]');

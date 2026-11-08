@@ -1626,7 +1626,24 @@ try {
         postOff.status === 404, "status " + postOff.status);
       check("#22: while the rest of the copy stands as usual",
         (await getStatus("http://127.0.0.1:" + portFbOff + "/")) === 200 &&
-          (await getStatus("http://127.0.0.1:" + portFbOff + "/terms")) === 200);
+          (await getStatus("http://127.0.0.1:" + portFbOff + "/help")) === 200);
+      // The live service's own pages are not the open source
+      // repo's to carry (issue #28): no Terms page stands in
+      // it and no setting brings one back, and the Help holds
+      // no topic describing one service's sign-in — what
+      // stands is the repo's own help, Signing in included.
+      check("#28: the Terms page's addresses answer not found, in both spellings",
+        (await getStatus("http://127.0.0.1:" + portFbOff + "/terms")) === 404 &&
+          (await getStatus("http://127.0.0.1:" + portFbOff + "/terms.html")) === 404);
+      check("#28: and the removed service sign-in topics answer not found",
+        (await getStatus("http://127.0.0.1:" + portFbOff + "/help/joining")) === 404 &&
+          (await getStatus("http://127.0.0.1:" + portFbOff + "/help/emailed-link")) === 404 &&
+          (await getStatus("http://127.0.0.1:" + portFbOff + "/help/passkeys")) === 404 &&
+          (await getStatus("http://127.0.0.1:" + portFbOff + "/help/getting-back-in")) === 404);
+      check("#28: while the repo's own Help topics stand",
+        (await getStatus("http://127.0.0.1:" + portFbOff + "/help/signing-in")) === 200 &&
+          (await getStatus("http://127.0.0.1:" + portFbOff + "/help/boards-and-cards")) === 200 &&
+          (await getStatus("http://127.0.0.1:" + portFbOff + "/help/agents-and-keys")) === 200);
     } finally {
       await stopServer(srvFbOff);
     }

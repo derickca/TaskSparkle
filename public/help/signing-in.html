@@ -3,9 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Getting back in — TaskSparkle</title>
-<meta name="description" content="Shut out of TaskSparkle? The emailed link brings you back, whatever happened to your passkey.">
-
+<title>Signing in — TaskSparkle</title>
+<meta name="description" content="How an account starts on a copy of TaskSparkle: the setup page, invites and signing in with a name and a passkey or a password.">
 <script src="/boot.js"></script>
 <link rel="stylesheet" href="/styles.css">
 <link rel="manifest" href="/manifest.webmanifest">
@@ -25,27 +24,31 @@
     </a>
     <nav class="site-links" aria-label="Site">
       <a class="site-link" href="/help" aria-label="Help"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.6"/><path d="M6.2 6.2l3.4 3.4M17.8 6.2l-3.4 3.4M6.2 17.8l3.4-3.4M17.8 17.8l-3.4-3.4"/></svg><span class="site-link-word">Help</span></a>
-      <a class="site-link" href="/terms" aria-label="Terms"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3h7L18 7.5V21H6.5z"/><path d="M13.5 3v4.5H18"/><path d="M9.5 12.5h5M9.5 16h5"/></svg><span class="site-link-word">Terms</span></a>
       <a class="site-link" href="/feedback" aria-label="Feedback" data-feedback-link hidden><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 4.5h15V15H10l-5.5 4.5z"/><path d="M8 9h8M8 12h5"/></svg><span class="site-link-word">Feedback</span></a>
       <a class="btn btn-primary" href="/login">Sign in or join</a>
     </nav>
   </header>
 
   <main>
-    <h1>Getting back in</h1>
-    <p class="static-sub">Being shut out is a short problem, not a lost account.</p>
+    <h1>Signing in</h1>
+    <p class="static-sub">How an account starts, and how you get back in.</p>
 
-    <h2>The way back</h2>
-    <p>On the sign-in page, ask for a link. It goes to the email address on your account. Tap it and you are signed in — whatever happened to your passkey, your device or your browser. Once you are in, add a fresh passkey for the device in your hand.</p>
+    <h2>Your account</h2>
+    <p>The first account is made on the setup page a new copy shows while nobody has one, and that person is the administrator. On a copy hosted for other people, the setup page also asks for the one-time setup code, so a stranger who finds a brand-new copy cannot take the first account. Everyone after the first arrives by invite: an administrator sends a link from Settings, then Admin, and following it makes the account. An invite works once and lasts seven days, and an expired invite is replaced by a fresh one.</p>
 
-    <h2>Why email is the proof</h2>
-    <p>The link can only be read by someone who can open that inbox, so the service treats tapping it as proof the account is yours. That is why your account stands or falls with that address: if you can no longer read the inbox on your account, there is no other way in. It is the same rule that keeps everyone else out of your boards.</p>
+    <h2>The ways in</h2>
+    <p>Each person signs in with their own name — with a passkey, with a password, or with a passkey alone. The two ways stand equal, and an account can hold either or both; an account that starts with a passkey holds no password at all. Signing in is passkey-first: at a secure address the page opens on the passkey, a small switch below it — "Use a password instead" — trades to the password form, and the device remembers which view you last used. You can add a passkey on the page that makes your account, or later in Settings, then Account.</p>
+
+    <h2>A secure address</h2>
+    <p>Passkeys need a secure address: HTTPS, or a localhost address. At an ordinary HTTP address there are no passkey acts and no switch: the password form stands alone, and the page says the site is not encrypted. Passkeys already made still list on the Account page at such an address, and can be removed there.</p>
+
+    <h2>Getting back in</h2>
+    <p>Forgot the password, or lost every passkey? The administrator sends a fresh link from Settings, then Admin. Spending it sets a new password or enrols a new passkey, and signs out every other sign-in. A reset never removes a passkey on its own: a passkey comes off only by a named act — removing it yourself in Account, an administrator removing it, or the start-fresh choice on the link itself.</p>
   </main>
 
   <footer class="site-foot">
     <nav class="site-links" aria-label="Footer">
       <a class="site-link" href="/help" aria-label="Help"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.6"/><path d="M6.2 6.2l3.4 3.4M17.8 6.2l-3.4 3.4M6.2 17.8l3.4-3.4M17.8 17.8l-3.4-3.4"/></svg><span class="site-link-word">Help</span></a>
-      <a class="site-link" href="/terms" aria-label="Terms"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3h7L18 7.5V21H6.5z"/><path d="M13.5 3v4.5H18"/><path d="M9.5 12.5h5M9.5 16h5"/></svg><span class="site-link-word">Terms</span></a>
       <a class="site-link" href="/feedback" aria-label="Feedback" data-feedback-link hidden><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 4.5h15V15H10l-5.5 4.5z"/><path d="M8 9h8M8 12h5"/></svg><span class="site-link-word">Feedback</span></a>
     </nav>
     <p class="site-foot-line">Rather run it yourself? TaskSparkle is <a href="https://github.com/derickca/TaskSparkle">open source</a>.</p>

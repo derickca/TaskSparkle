@@ -605,7 +605,7 @@ const NO_CACHE = new Set([
   // words is what every open gets. The Help topics stand
   // under /help/ and are covered by the prefix check where
   // this set is read.
-  "/feedback.js", "/terms", "/terms.html", "/help", "/help.html",
+  "/feedback.js", "/help", "/help.html",
   "/feedback", "/feedback.html", "/site.js",
 ]);
 
@@ -640,7 +640,7 @@ function serveStatic(req, res, pathname) {
   let info;
   try { info = statSync(file); } catch (e) { info = null; }
   if ((!info || !info.isFile()) && !extname(rel)) {
-    // A page's pretty path: /terms stands for /terms.html, the
+    // A page's pretty path: /help stands for /help.html, the
     // way the Cloudflare copy answers — its _headers rules name
     // both forms for the same reason. The same guard applies
     // to the candidate as to the path itself.
