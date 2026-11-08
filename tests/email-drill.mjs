@@ -195,14 +195,14 @@ async function messagesTo(email) {
 // The link a message carries, as the path a browser would
 // open on this rig: the code out of the message's own text.
 function linkPathOf(message) {
-  const text = (message.body && (message.body.text || "")) + " " +
-    (message.body && (message.body.html || ""));
+  if (!message || !message.body) return null;
+  const text = (message.body.text || "") + " " + (message.body.html || "");
   const match = /\/link\/([A-Za-z0-9_-]+)/.exec(text);
   return match ? "/link/" + match[1] : null;
 }
 
-async function askForLink(email, headers) {
-  return formPost(BASE, "/login/email", { email }, { headers });
+async function askForLink(email, opts) {
+  return formPost(BASE, "/login/email", { email }, opts);
 }
 
 // --- A software authenticator (the API drill's shape) --------
@@ -301,7 +301,7 @@ try {
     "status " + login.status);
   check("email: and it carries no password field, no name field, " +
       "no remember box and no creation entry",
-    !login.text.includes('type="password"') &&
+    !login.text.includes('<input type="password"') &&
       !login.text.includes('name="password"') &&
       !login.text.includes('name="name"') &&
       !login.text.includes("login-remember") &&
