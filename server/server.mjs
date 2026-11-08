@@ -605,16 +605,13 @@ const NO_CACHE = new Set([
 
 // The app's security headers (issue #70), the same set
 // public/_headers declares on Cloudflare — the two lists are
-// kept alike by hand. The policy names the app's own origin —
-// its own script, styles and icons, its own API and socket,
-// and no framing by anyone — and one guest: the shared
-// feedback service stands in connect-src, because the
-// Feedback page's form posts to it (issue #20).
+// kept alike by hand. The policy names only the app's own
+// origin: its own script, styles and icons, its own API and
+// socket, and no framing by anyone.
 const SECURITY_HEADERS = {
   "Content-Security-Policy":
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; " +
-    "connect-src 'self' https://feedback.certifiable.media; manifest-src 'self'; worker-src 'self'; " +
-    "base-uri 'self'; form-action 'self'; " +
+    "connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; " +
     "frame-ancestors 'none'",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
@@ -623,6 +620,19 @@ const SECURITY_HEADERS = {
 // The sign-in pages carry their own plainer policy, set by
 // the shared handlers that serve them (worker/auth.js) — the
 // set above is the app's alone.
+
+// The Feedback page's own set (issue #14): its form posts to
+// the shared feedback service, so its policy names that one
+// address in connect-src and is otherwise the app's set —
+// the same exception public/_headers declares for the page
+// on Cloudflare.
+const FEEDBACK_HEADERS = {
+  ...SECURITY_HEADERS,
+  "Content-Security-Policy":
+    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; " +
+    "connect-src 'self' https://feedback.certifiable.media; manifest-src 'self'; worker-src 'self'; " +
+    "base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+};
 
 function serveStatic(req, res, pathname) {
   const rel = pathname === "/" ? "/index.html" : pathname;
@@ -648,7 +658,7 @@ function serveStatic(req, res, pathname) {
   if (!info || !info.isFile()) { res.writeHead(404); res.end("Not found."); return; }
   const headers = {
     "Content-Type": CONTENT_TYPES[extname(file).toLowerCase()] || "application/octet-stream",
-    ...SECURITY_HEADERS,
+    ...(file.endsWith("feedback.html") ? FEEDBACK_HEADERS : SECURITY_HEADERS),
   };
   if (NO_CACHE.has(rel) || rel.startsWith("/help/")) headers["Cache-Control"] = "no-cache";
   res.writeHead(200, headers);
