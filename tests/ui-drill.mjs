@@ -497,14 +497,8 @@ page.on("response", (resp) => {
   }
 });
 await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
-await page.waitForSelector("#landing:not([hidden])", { timeout: 10000 }).catch(() => {});
-check("sign-in: a signed-out visitor gets the public page",
-  (await page.locator("#landing:not([hidden])").count()) === 1 && !page.url().includes("/login"),
-  page.url());
-await page.screenshot({ path: join(OUT, "landing-1280.png") });
-await page.click('#landing .landing-cta a[href="/login"]');
 await page.waitForURL(/\/login/, { timeout: 10000 }).catch(() => {});
-check("sign-in: the public page's button lands on the sign-in page", page.url().includes("/login"), page.url());
+check("sign-in: the front door lands on the sign-in page", page.url().includes("/login"), page.url());
 await page.screenshot({ path: join(OUT, "login-1280.png") });
 await page.check('input[name="name"][value="' + NAME + '"]');
 await showPasswordView(page);
@@ -2889,9 +2883,6 @@ check("#70: the app page carries the security headers",
 const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });
 await phone.goto(BASE + "/logout", { waitUntil: "domcontentloaded" }).catch(() => {});
 await phone.goto(BASE + "/", { waitUntil: "domcontentloaded" });
-await phone.waitForSelector("#landing:not([hidden])", { timeout: 10000 }).catch(() => {});
-await phone.screenshot({ path: join(OUT, "landing-390.png") });
-await phone.click('#landing .landing-cta a[href="/login"]');
 await phone.waitForURL(/\/login/, { timeout: 10000 }).catch(() => {});
 await phone.screenshot({ path: join(OUT, "login-390.png") });
 await phone.check('input[name="name"][value="' + NAME + '"]');
@@ -3157,8 +3148,6 @@ await phone.click("#settings-close").catch(() => {});
   });
   const side = await ctx.newPage();
   await side.goto(BASE + "/", { waitUntil: "domcontentloaded" });
-  await side.waitForSelector("#landing:not([hidden])", { timeout: 10000 }).catch(() => {});
-  await side.click('#landing .landing-cta a[href="/login"]');
   await side.waitForURL(/\/login/, { timeout: 10000 }).catch(() => {});
   await side.check('input[name="name"][value="' + NAME + '"]');
   await showPasswordView(side);

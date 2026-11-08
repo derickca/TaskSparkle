@@ -47,38 +47,3 @@
 # is what every open gets.
 /fonts/comfortaa-bold.woff2
   Cache-Control: no-cache
-# The public pages (issue #14) follow the same rule: the front
-# page's script and the standalone Terms, Help and Feedback
-# pages revalidate on every load, so a change to the words is
-# what every open gets. Each page is named in both its forms —
-# the .html path and the pretty path — because the rules match
-# the final address after the redirect.
-/feedback.js
-  Cache-Control: no-cache
-/terms
-  Cache-Control: no-cache
-/terms.html
-  Cache-Control: no-cache
-/help
-  Cache-Control: no-cache
-/help.html
-  Cache-Control: no-cache
-/help/*
-  Cache-Control: no-cache
-# The Feedback page alone talks past its own origin: its form
-# posts to the shared feedback service, so its policy names
-# that one address in connect-src and is otherwise the app's
-# own. The set stands whole on the page's two paths, as the
-# app's set stands on /*.
-/feedback
-  Cache-Control: no-cache
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self' https://feedback.certifiable.media; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
-  X-Content-Type-Options: nosniff
-  X-Frame-Options: DENY
-  Referrer-Policy: same-origin
-/feedback.html
-  Cache-Control: no-cache
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self' https://feedback.certifiable.media; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
-  X-Content-Type-Options: nosniff
-  X-Frame-Options: DENY
-  Referrer-Policy: same-origin

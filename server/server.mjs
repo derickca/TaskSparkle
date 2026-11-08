@@ -33,7 +33,7 @@ import { fileURLToPath } from "node:url";
 import { createApiHandler } from "../worker/core.js";
 import {
   createAuthHandlers, getAccount, countAccounts, mintInvite,
-  eraseAccountCredentials, ensureAdminStanding,
+  eraseAccountCredentials, ensureAdminStanding, sessionFromRequest,
   nameKey, nameProblem, newAccountId, randomBytes, b64uEncode,
 } from "../worker/auth.js";
 import { openDatabase } from "./d1-adapter.mjs";
@@ -594,13 +594,6 @@ const NO_CACHE = new Set([
   "/", "/index.html", "/boot.js", "/app.js", "/styles.css", "/manifest.webmanifest", "/sw.js",
   "/icons/icon-192.png", "/icons/icon-512.png", "/icons/icon-maskable-512.png", "/icons/icon-180.png",
   "/icons/icon-64.png", "/icons/icon.svg", "/fonts/comfortaa-bold.woff2",
-  // The public pages (issue #14) and the feedback page's
-  // script revalidate the same way, so a change to their
-  // words is what every open gets. The Help topics stand
-  // under /help/ and are covered by the prefix check where
-  // this set is read.
-  "/feedback.js", "/terms", "/terms.html", "/help", "/help.html",
-  "/feedback", "/feedback.html",
 ]);
 
 // The app's security headers (issue #70), the same set
@@ -621,46 +614,20 @@ const SECURITY_HEADERS = {
 // the shared handlers that serve them (worker/auth.js) — the
 // set above is the app's alone.
 
-// The Feedback page's own set (issue #14): its form posts to
-// the shared feedback service, so its policy names that one
-// address in connect-src and is otherwise the app's set —
-// the same exception public/_headers declares for the page
-// on Cloudflare.
-const FEEDBACK_HEADERS = {
-  ...SECURITY_HEADERS,
-  "Content-Security-Policy":
-    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; " +
-    "connect-src 'self' https://feedback.certifiable.media; manifest-src 'self'; worker-src 'self'; " +
-    "base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
-};
-
 function serveStatic(req, res, pathname) {
   const rel = pathname === "/" ? "/index.html" : pathname;
-  let file = resolve(PUBLIC_DIR, "." + rel);
+  const file = resolve(PUBLIC_DIR, "." + rel);
   if (file !== PUBLIC_DIR && !file.startsWith(PUBLIC_DIR + sep)) {
     res.writeHead(404); res.end("Not found."); return;
   }
   let info;
-  try { info = statSync(file); } catch (e) { info = null; }
-  if ((!info || !info.isFile()) && !extname(rel)) {
-    // A page's pretty path: /terms stands for /terms.html, the
-    // way the Cloudflare copy answers — its _headers rules name
-    // both forms for the same reason. The same guard applies
-    // to the candidate as to the path itself.
-    const alt = resolve(PUBLIC_DIR, "." + rel + ".html");
-    if (alt.startsWith(PUBLIC_DIR + sep)) {
-      try {
-        const altInfo = statSync(alt);
-        if (altInfo.isFile()) { file = alt; info = altInfo; }
-      } catch (e) { /* no page by that name */ }
-    }
-  }
-  if (!info || !info.isFile()) { res.writeHead(404); res.end("Not found."); return; }
+  try { info = statSync(file); } catch (e) { res.writeHead(404); res.end("Not found."); return; }
+  if (!info.isFile()) { res.writeHead(404); res.end("Not found."); return; }
   const headers = {
     "Content-Type": CONTENT_TYPES[extname(file).toLowerCase()] || "application/octet-stream",
-    ...(file.endsWith("feedback.html") ? FEEDBACK_HEADERS : SECURITY_HEADERS),
+    ...SECURITY_HEADERS,
   };
-  if (NO_CACHE.has(rel) || rel.startsWith("/help/")) headers["Cache-Control"] = "no-cache";
+  if (NO_CACHE.has(rel)) headers["Cache-Control"] = "no-cache";
   res.writeHead(200, headers);
   res.end(readFileSync(file));
 }
@@ -709,14 +676,15 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // Page loads: the app itself, served openly like the files
-    // around it (its script, styles, icons) — the API above is
-    // the gate that matters, as it is on Cloudflare, where the
-    // root is a Pages file no Worker route covers. The app
-    // decides what a load shows: boards for a signed-in
-    // account, the public page for a signed-out visitor
-    // (issue #16 — a server-side bounce here meant the public
-    // page could never show on a self-host copy).
+    // Page loads: the app itself. Without a session the door is
+    // the sign-in page; the files around the app (its script,
+    // styles, icons) carry no one's data and are served openly,
+    // as the manifest and icons are on Cloudflare — the API above
+    // is the gate that matters.
+    if (pathname === "/" || pathname === "/index.html") {
+      const webReq = toWebRequest(req, null);
+      if (!(await sessionFromRequest(db, webReq))) { redirect(res, "/login"); return; }
+    }
     serveStatic(req, res, pathname);
   } catch (err) {
     if (err && err.code === "BODY_TOO_LARGE") {
