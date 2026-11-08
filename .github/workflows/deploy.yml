@@ -47,8 +47,8 @@ jobs:
       # names one deployment's domain, database and people. The
       # repository secret WRANGLER_TOML holds its full text, and
       # this step writes it for the run when the checkout has none,
-      # before every step below that reads it (the schema apply,
-      # the column sync, the Worker deploy). A checkout that
+      # before every step below that reads it (the column sync,
+      # the schema apply, the Worker deploy). A checkout that
       # already has the file keeps its own.
       - name: Write the live settings file
         env:
@@ -80,6 +80,24 @@ jobs:
           APP_STAMP=$(grep -o 'var BUILD_ID = "[^"]*"' public/app.js | head -1)
           test -n "$WORKER_STAMP" && test "$WORKER_STAMP" = "$APP_STAMP"
 
+      # The column sync runs BEFORE the schema apply below.
+      # CREATE TABLE IF NOT EXISTS does not change a table the
+      # database already has, so the apply creates new tables but
+      # never adds a new column to an old one — and an index the
+      # schema puts on a new column fails the apply outright when
+      # the column is not standing yet. This step reads the
+      # columns schema.sql declares and adds any the live
+      # database lacks, through the D1 API with the job's own
+      # credential, so the apply that follows finds every column
+      # standing. A table the database lacks outright is skipped
+      # here: the apply creates it whole. A column SQLite cannot
+      # add in place fails the deploy here, naming the table
+      # and column.
+      - name: Add columns the schema declares but the database lacks
+        env:
+          NODE_USE_ENV_PROXY: "1"
+        run: node scripts/sync-columns.mjs
+
       - name: Apply the database schema
         run: npx --yes wrangler@4.153.0 d1 execute tasksparkle --remote --file=worker/schema.sql
 
@@ -100,18 +118,6 @@ jobs:
           else
             echo "No AUTH_DB binding in the settings; the sign-in tables live in the main database."
           fi
-
-      # CREATE TABLE IF NOT EXISTS does not change a table the
-      # database already has, so the apply above creates new tables
-      # but never adds a new column to an old one. This step reads
-      # the columns schema.sql declares and adds any the live
-      # database lacks, through the D1 API with the job's own
-      # credential. A column SQLite cannot add in place fails the
-      # deploy here, naming the table and column.
-      - name: Add columns the schema declares but the database lacks
-        env:
-          NODE_USE_ENV_PROXY: "1"
-        run: node scripts/sync-columns.mjs
 
       - name: Deploy the API Worker
         run: npx --yes wrangler@4.153.0 deploy

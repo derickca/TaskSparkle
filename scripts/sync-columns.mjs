@@ -11,9 +11,12 @@
 // ALTER TABLE ADD COLUMN, using the type and default exactly as
 // schema.sql declares them.
 //
-// It runs in the deploy job after schema.sql is applied (which
-// creates any table that is missing outright) and before the
-// Worker deploy. Adding only what is missing makes it idempotent:
+// It runs in the deploy job before schema.sql is applied, so a
+// column the schema's indexes name already stands when the apply
+// runs, and before the Worker deploy. A table the database lacks
+// outright is skipped here: the apply right after creates it
+// whole, columns and all. Adding only what is missing makes it
+// idempotent:
 // a run where nothing is missing changes nothing and says so, and
 // re-running is always safe.
 //
@@ -239,7 +242,8 @@ async function main() {
       fail(`reading the live columns of ${table} failed: ${err.message}`);
     }
     if (!liveRows.length) {
-      fail(`table ${table} is declared in schema.sql but does not exist in the database; the schema apply step should have created it`);
+      console.log(`Table ${table} is not in the database yet; the schema apply creates it whole, so there is nothing to sync.`);
+      continue;
     }
     const liveNames = new Set(liveRows.map((row) => row.name));
     for (const column of columns) {
