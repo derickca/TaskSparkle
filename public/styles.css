@@ -2864,16 +2864,13 @@ textarea.copy-field { resize: vertical; }
    They share one heading and one footer — the brand at the
    left, then Help, Terms and Feedback, each an icon and a
    word, and the sign-in button. Below the phone width the
-   links stand as icons alone, their names on their labels.
-   The sizes follow the reference heading's measures
-   (issue #25): the brand mark at 34px, the links' tap
-   targets at 44px with 20px glyphs, and the button at
-   16px type with 10px by 19px padding and a 44px floor. */
+   links stand as icons alone, their names on their labels. */
 .site-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  padding: 11px 2px;
+  padding: 10px 2px 14px;
 }
 
 .site-brand {
@@ -2887,30 +2884,24 @@ textarea.copy-field { resize: vertical; }
   font-size: 21px;
 }
 
-.site-brand img { display: block; border-radius: 7px; width: 34px; height: 34px; }
+.site-brand img { display: block; border-radius: 7px; }
 
 .site-links {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
 }
 
 .site-link {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
   color: var(--ink);
   text-decoration: none;
   font-size: 15px;
-  min-width: 44px;
-  height: 44px;
-  padding: 0 12px;
+  padding: 8px 9px;
   border-radius: 8px;
 }
-
-.site-link svg { width: 20px; height: 20px; flex: none; }
 
 .site-link:hover { background: var(--column-bg); }
 
@@ -2920,15 +2911,11 @@ textarea.copy-field { resize: vertical; }
    from beating the hidden attribute in the meantime. */
 .site-link[hidden] { display: none; }
 
-.site-head .btn {
+.site-links .btn {
   display: inline-flex;
   align-items: center;
   text-decoration: none;
-  font-size: 16px;
-  font-weight: 800;
-  padding: 10px 19px;
-  min-height: 44px;
-  white-space: nowrap;
+  margin-left: 6px;
 }
 
 .site-foot {
@@ -2950,15 +2937,13 @@ textarea.copy-field { resize: vertical; }
 /* The front page's own pieces. */
 .landing-hero { text-align: center; padding: 26px 8px 6px; }
 
-/* The hero opens with the page's one heading: the line
-   itself, at the reference heading's fluid size (issue
-   #25). The brand stands in the heading bar only — the
-   hero does not repeat it as a giant wordmark. */
+.landing-wordmark {
+  font-size: 40px;
+  margin: 0 0 8px;
+}
+
 .landing-line {
-  font-family: var(--font-display, var(--font));
-  font-weight: 700;
-  font-size: clamp(1.55rem, 1.15rem + 2.2vw, 1.9rem);
-  line-height: 1.25;
+  font-size: 19px;
   color: var(--ink);
   max-width: 34em;
   margin: 0 auto 18px;
@@ -2970,10 +2955,9 @@ textarea.copy-field { resize: vertical; }
   display: inline-flex;
   align-items: center;
   text-decoration: none;
-  font-size: 16px;
-  font-weight: 800;
-  padding: 14px 19px;
-  min-height: 44px;
+  font-size: 17px;
+  padding: 12px 26px;
+  min-height: 52px;
 }
 
 .landing-note { color: var(--muted); margin: 0; }
@@ -3118,24 +3102,14 @@ textarea.copy-field { resize: vertical; }
 
 /* On a phone the heading's links stand as icons alone, so
    the heading stays light; their names ride on their
-   aria-labels. The measures follow the reference heading
-   at this width (issue #25): the brand shrinks (26px mark,
-   15px word) and the tap targets stay 44px. Where the row
-   cannot hold the brand, the links and the button, the
-   links take their own row under the brand and the button
-   — a placed row, not a squeeze. On the front page the
-   heading's button steps aside at this width instead:
-   the hero's button is the page's one "Sign in or join",
-   the way the reference home page keeps its way in in the
-   body of the page. */
-@media (max-width: 640px) {
+   aria-labels. The button keeps its words. */
+@media (max-width: 560px) {
   .site-link-word { display: none; }
-  .site-link { padding: 0; }
-  .site-brand { order: 1; font-size: 15px; gap: 6px; }
-  .site-brand img { width: 26px; height: 26px; }
-  .site-head { flex-wrap: wrap; row-gap: 8px; padding-top: 7px; padding-bottom: 7px; }
-  .site-head .btn { order: 2; font-size: 15px; }
-  .site-links { order: 3; flex-basis: 100%; margin-left: 0; }
-  #landing .site-head .btn { display: none; }
-  #landing .site-links { order: 2; flex-basis: auto; margin-left: auto; }
+  .site-link { padding: 9px 8px; }
+  /* The heading's button keeps its words on one line; the
+     heading wraps instead of squeezing it (issue #18). */
+  .site-head { flex-wrap: wrap; row-gap: 6px; }
+  .site-head .btn { white-space: nowrap; }
+  .landing-wordmark { font-size: 32px; }
+  .landing-line { font-size: 17px; }
 }
