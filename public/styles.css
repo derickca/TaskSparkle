@@ -3014,7 +3014,7 @@ textarea.copy-field { resize: vertical; }
 
 .static-wrap li { margin-bottom: 7px; }
 
-.static-wrap a { color: var(--accent); }
+.static-wrap a:not(.btn) { color: var(--accent); }
 
 .static-updated { color: var(--muted); font-size: 14px; margin-top: 34px; }
 
@@ -3092,6 +3092,10 @@ textarea.copy-field { resize: vertical; }
 @media (max-width: 560px) {
   .site-link-word { display: none; }
   .site-link { padding: 9px 8px; }
+  /* The heading's button keeps its words on one line; the
+     heading wraps instead of squeezing it (issue #18). */
+  .site-head { flex-wrap: wrap; row-gap: 6px; }
+  .site-head .btn { white-space: nowrap; }
   .landing-wordmark { font-size: 32px; }
   .landing-line { font-size: 17px; }
 }
