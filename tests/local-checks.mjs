@@ -48,7 +48,7 @@
 // exit status is nonzero when any drill fails.
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -216,6 +216,230 @@ function cssVarOf(block, name) {
   console.log("Standard theme hairlines: " +
     readings.map((r) => r.label + " " + r.ratio.toFixed(2) + ":1").join(", ") +
     " — both clear 3:1 (issue #142).");
+}
+
+// The account pages' palette, boot script and heading
+// drawings are copies of the site's own (public/styles.css,
+// public/boot.js, the site pages' heading), standing inline
+// in worker/auth.js because those pages' policy allows no
+// stylesheet or script file but their own inline ones. The
+// three checks below hold the copies equal to their
+// originals, so a change to a palette, the settling rules
+// or a glyph that misses the copy fails here rather than
+// reaching a visitor as pages whose colours or heading
+// changed between the site's pages and the sign-in page.
+function jsStringLiterals(text, from, to) {
+  const span = text.slice(text.indexOf(from), text.indexOf(to, text.indexOf(from)));
+  return [...span.matchAll(/"((?:[^"\\]|\\.)*)"/g)]
+    .map((m) => m[1].replace(/\\"/g, "\"").replace(/\\\\/g, "\\")).join("\n");
+}
+function paletteBlocksOf(css) {
+  css = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  const ok = /^:root(\[data-theme="dark"\]|\[data-look="[a-z]+"\](\[data-theme="dark"\])?)?$/;
+  const blocks = {};
+  for (const m of css.matchAll(/(:root[^{]*)\{([^}]*)\}/g)) {
+    const sel = m[1].slice(m[1].lastIndexOf(":root")).trim();
+    if (!ok.test(sel) || blocks[sel]) continue;
+    const vars = {};
+    for (const vm of m[2].matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) vars[vm[1]] = vm[2].trim();
+    const scheme = m[2].match(/color-scheme:\s*(\w+)/);
+    blocks[sel] = { scheme: scheme ? scheme[1] : "", vars };
+  }
+  return blocks;
+}
+{
+  const auth = readFileSync(join(ROOT, "worker", "auth.js"), "utf8");
+  const pageStyle = jsStringLiterals(auth, "var PAGE_STYLE = [", "].join(");
+  const css = readFileSync(join(ROOT, "public", "styles.css"), "utf8");
+  const used = ["--bg", "--column-bg", "--ink", "--accent", "--accent-ink",
+    "--field-bg", "--danger-bg", "--danger-ink", "--danger-border",
+    "--font", "--font-display"];
+  const fromCss = paletteBlocksOf(css);
+  const fromPages = paletteBlocksOf(pageStyle);
+  const drift = [];
+  for (const sel of new Set([...Object.keys(fromCss), ...Object.keys(fromPages)])) {
+    const a = fromCss[sel]; const b = fromPages[sel];
+    if (!a || !b) { drift.push(sel + " stands in only one of the two"); continue; }
+    if (a.scheme !== b.scheme) drift.push(sel + " colour scheme " + a.scheme + " vs " + b.scheme);
+    for (const v of used) {
+      if ((a.vars[v] || "") !== (b.vars[v] || "")) {
+        drift.push(sel + " " + v + ": " + (a.vars[v] || "unset") + " vs " + (b.vars[v] || "unset"));
+      }
+    }
+  }
+  if (drift.length) {
+    console.error("The account pages' palette copy has drifted from " +
+      "public/styles.css: " + drift.join("; ") + ". The sign-in pages " +
+      "would paint in different colours from the site's pages. Bring " +
+      "worker/auth.js's PAGE_STYLE palette back in line.");
+    process.exit(1);
+  }
+  console.log("Account pages' palette: the copy in worker/auth.js matches " +
+    "public/styles.css across all " + Object.keys(fromCss).length +
+    " look and theme blocks.");
+}
+{
+  const auth = readFileSync(join(ROOT, "worker", "auth.js"), "utf8");
+  const pageBoot = jsStringLiterals(auth, "var PAGE_BOOT = [", "].join(");
+  const boot = readFileSync(join(ROOT, "public", "boot.js"), "utf8");
+  const looksOf = (t) => {
+    const m = t.match(/var looks = \[([^\]]*)\]/);
+    return m ? [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]).sort() : [];
+  };
+  const facts = [
+    ["the device store's key", "tasksparkle-device"],
+    ["the mirror store's key", "tasksparkle-mirror"],
+    ["the theme attribute", "data-theme"],
+    ["the theme mode attribute", "data-theme-mode"],
+    ["the look attribute", "data-look"],
+  ];
+  const drift = [];
+  for (const [label, needle] of facts) {
+    if (!boot.includes(needle) || !pageBoot.includes(needle)) {
+      drift.push(label + " (" + needle + ") stands in only one of the two");
+    }
+  }
+  if (JSON.stringify(looksOf(boot)) !== JSON.stringify(looksOf(pageBoot))) {
+    drift.push("the look lists differ: " + looksOf(boot).join(", ") +
+      " vs " + looksOf(pageBoot).join(", "));
+  }
+  if (drift.length) {
+    console.error("The account pages' settling script has drifted from " +
+      "public/boot.js: " + drift.join("; ") + ". The two must settle a " +
+      "visitor's stored theme and look the same way.");
+    process.exit(1);
+  }
+  console.log("Account pages' settling script: the copy in worker/auth.js " +
+    "reads the same stores and settles the same looks as public/boot.js.");
+}
+{
+  // The glyph originals stand with the site's pages, which a
+  // deployment's layer carries; a tree without them has no
+  // original to compare against, and the deployment tree's
+  // own run of this check holds the copies equal there.
+  const termsPath = join(ROOT, "public", "terms.html");
+  if (!existsSync(termsPath)) {
+    console.log("Account pages' heading drawings: no site pages stand " +
+      "in this tree to compare against — the check runs in the tree " +
+      "that carries them.");
+  } else {
+  const auth = readFileSync(join(ROOT, "worker", "auth.js"), "utf8");
+  const glyphSpan = auth.slice(auth.indexOf("var HEAD_GLYPHS = {"),
+    auth.indexOf("};", auth.indexOf("var HEAD_GLYPHS = {")));
+  const terms = readFileSync(termsPath, "utf8");
+  const icon = readFileSync(join(ROOT, "public", "icons", "icon.svg"), "utf8");
+  const svgOf = (html, label) => {
+    const m = html.match(new RegExp("aria-label=\\\"" + label + "\\\"[^>]*><svg[^>]*>[\\s\\S]*?</svg>"));
+    return m ? m[0].slice(m[0].indexOf("<svg")) : "";
+  };
+  const glyphOf = (name) => {
+    const m = glyphSpan.match(new RegExp(name + ": \"((?:[^\"\\\\]|\\\\.)*)\""));
+    return m ? m[1].replace(/\\"/g, "\"").replace(/\\\\/g, "\\") : "";
+  };
+  const drift = [];
+  for (const [name, label] of [["terms", "Terms"], ["feedback", "Feedback"], ["help", "Help"]]) {
+    if (!glyphOf(name) || glyphOf(name) !== svgOf(terms, label)) {
+      drift.push("the " + label + " glyph differs from the site pages'");
+    }
+  }
+  const brandOf = () => {
+    const span = jsStringLiterals(auth, "var BRAND_MARK =", ";");
+    const m = span.match(/<svg[\s\S]*<\/svg>/);
+    return m ? m[0] : "";
+  };
+  const squash = (s) => s.replace(/\s+/g, " ").replace(/> </g, "><").trim();
+  const innerOf = (svg) => {
+    const open = svg.indexOf(">");
+    return open === -1 ? "" : squash(svg.slice(open + 1, svg.lastIndexOf("</svg>")));
+  };
+  if (!brandOf() || innerOf(brandOf()) !== innerOf(icon)) {
+    drift.push("the brand mark differs from public/icons/icon.svg");
+  }
+  if (drift.length) {
+    console.error("The account pages' heading drawings have drifted: " +
+      drift.join("; ") + ". Bring worker/auth.js's BRAND_MARK and " +
+      "HEAD_GLYPHS back in line with the site pages.");
+    process.exit(1);
+  }
+  console.log("Account pages' heading drawings: the brand mark and the " +
+    "three glyphs in worker/auth.js match the site pages' own.");
+  }
+}
+{
+  // The heading's measures: the account pages' inline copy of
+  // the heading's rules must give the heading the same box the
+  // site stylesheet gives it — same padding, gaps, sizes and
+  // phone rules — or the heading would stand in a different
+  // place on the sign-in page than on the site's pages. The
+  // rendered walks measure the boxes themselves; this check
+  // holds the rules that produce them equal at the source.
+  const auth = readFileSync(join(ROOT, "worker", "auth.js"), "utf8");
+  const pageStyle = jsStringLiterals(auth, "var PAGE_STYLE = [", "].join(");
+  const css = readFileSync(join(ROOT, "public", "styles.css"), "utf8");
+  if (!css.includes(".site-head {")) {
+    console.log("Account pages' heading rules: the site stylesheet in " +
+      "this tree carries no site heading to compare against — the " +
+      "check runs in the tree that carries it.");
+  } else {
+  const rulesOf = (text) => {
+    text = text.replace(/\/\*[\s\S]*?\*\//g, "");
+    const rules = {};
+    for (const m of text.matchAll(/([^{}@]+)\{([^{}]*)\}/g)) {
+      const decls = {};
+      for (const d of m[2].matchAll(/([\w-]+)\s*:\s*([^;]+);/g)) decls[d[1]] = d[2].trim();
+      for (const sel of m[1].split(",").map((s) => s.trim()).filter(Boolean)) {
+        rules[sel] = { ...(rules[sel] || {}), ...decls };
+      }
+    }
+    return rules;
+  };
+  const tailOf = (text) => text.slice(text.lastIndexOf("@media (max-width: 640px)"));
+  const pairs = [
+    [".site-head", ["display", "align-items", "gap", "padding"]],
+    [".site-brand", ["display", "align-items", "gap", "color",
+      "text-decoration", "font-family", "font-weight", "font-size"]],
+    [".site-links", ["display", "align-items", "gap", "margin-left"]],
+    [".site-link", ["display", "align-items", "justify-content", "gap",
+      "color", "text-decoration", "font-size", "min-width", "height",
+      "padding", "border-radius"]],
+    [".site-head .site-link", ["min-width", "height", "padding"]],
+    [".site-head .site-link svg", ["width", "height", "flex"]],
+    [".site-link:hover", ["background"]],
+  ];
+  const phonePairs = [
+    [".site-link", ["padding"]],
+    [".site-brand", ["order", "font-size", "gap"]],
+    [".site-head", ["flex-wrap", "row-gap", "padding-top", "padding-bottom"]],
+    [".site-links", ["order", "flex-basis", "margin-left"]],
+  ];
+  const drift = [];
+  const compare = (aRules, bRules, selA, selB, props, where) => {
+    for (const p of props) {
+      const a = aRules[selA] && aRules[selA][p];
+      const b = bRules[selB] && bRules[selB][p];
+      if ((a || "") !== (b || "")) {
+        drift.push(where + " " + selA + " " + p + ": " + (a || "unset") + " vs " + (b || "unset"));
+      }
+    }
+  };
+  const cssRules = rulesOf(css); const pageRules = rulesOf(pageStyle);
+  for (const [sel, props] of pairs) compare(cssRules, pageRules, sel, sel, props, "heading");
+  compare(cssRules, pageRules, ".site-brand img", ".site-brand svg",
+    ["display", "border-radius", "width", "height"], "heading");
+  const cssPhone = rulesOf(tailOf(css)); const pagePhone = rulesOf(tailOf(pageStyle));
+  for (const [sel, props] of phonePairs) compare(cssPhone, pagePhone, sel, sel, props, "phone heading");
+  compare(cssPhone, pagePhone, ".site-brand img", ".site-brand svg",
+    ["width", "height"], "phone heading");
+  if (drift.length) {
+    console.error("The account pages' heading rules have drifted from " +
+      "public/styles.css: " + drift.join("; ") + ". The heading would " +
+      "stand in a different box on the sign-in pages than on the site's " +
+      "pages. Bring worker/auth.js's PAGE_STYLE heading rules back in line.");
+    process.exit(1);
+  }
+  console.log("Account pages' heading rules: the measures in worker/auth.js " +
+    "match public/styles.css, phone rules included.");
+  }
 }
 
 let server = null;

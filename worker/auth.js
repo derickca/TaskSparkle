@@ -1563,11 +1563,65 @@ export async function eraseAccountCredentials(authDb, accountKey) {
 // exactly as the design directs.
 
 var PAGE_STYLE = [
-  ":root { color-scheme: light dark; }",
-  "body { font-family: system-ui, -apple-system, \"Segoe UI\", sans-serif;",
-  "  margin: 0; min-height: 100vh; display: grid; place-items: center;",
-  "  background: Canvas; color: CanvasText; }",
-  "main { width: min(22rem, calc(100vw - 3rem)); padding: 1.5rem 0 3rem; }",
+  /* The palette: the colours the site's pages paint with,
+     look by look, light and dark, copied from
+     public/styles.css for the variables these pages use.
+     These pages' policy allows no stylesheet but this
+     inline one, so the palette stands here; the local
+     checks hold the two copies equal, variable by
+     variable, so they cannot drift apart. PAGE_BOOT below
+     settles the visitor's stored look and theme on <html>
+     before the page paints, exactly as public/boot.js
+     does for the site's pages, so a visitor's colours
+     never change between the site's pages and these. */
+  ":root { color-scheme: light; --bg: #f4f5f2; --column-bg: #e9ebe6; --ink: #191c19; --accent: #1f5c3d; --accent-ink: #ffffff; --field-bg: #ffffff; --danger-bg: #fbe3e0; --danger-ink: #7d1f14; --danger-border: #e3b3ad; --font: -apple-system, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; --font-display: -apple-system, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; }",
+  ":root[data-theme=\"dark\"] { color-scheme: dark; --bg: #131512; --column-bg: #262b26; --ink: #eceee9; --field-bg: #262b26; --danger-bg: #3d1f1b; --danger-ink: #f0a49c; --danger-border: #7a4038; }",
+  ":root[data-look=\"comic\"] { color-scheme: light; --bg: #fff3c4; --column-bg: #ffe08a; --ink: #232323; --accent: #2050c8; --accent-ink: #ffffff; --field-bg: #ffffff; --danger-bg: #ffd9d2; --danger-ink: #8f1306; --danger-border: #e8a396; --font: \"Comic Sans MS\", \"Comic Neue\", \"Chalkboard SE\", \"Segoe UI\", sans-serif; --font-display: \"Comic Sans MS\", \"Comic Neue\", \"Chalkboard SE\", \"Segoe UI\", sans-serif; }",
+  ":root[data-look=\"comic\"][data-theme=\"dark\"] { color-scheme: dark; --bg: #1d1b2e; --column-bg: #332f52; --ink: #fdf6d8; --accent: #ffd23e; --accent-ink: #231f00; --field-bg: #332f52; --danger-bg: #47201c; --danger-ink: #ffb3a7; --danger-border: #7a4038; }",
+  ":root[data-look=\"console\"] { color-scheme: light; --bg: #f2f5ec; --column-bg: #e2ead3; --ink: #0d2812; --accent: #0e7a2f; --accent-ink: #ffffff; --field-bg: #fbfdf7; --danger-bg: #f9dcd6; --danger-ink: #8f1306; --danger-border: #dfa89e; --font: ui-monospace, \"Cascadia Mono\", Consolas, Menlo, monospace; --font-display: ui-monospace, \"Cascadia Mono\", Consolas, Menlo, monospace; }",
+  ":root[data-look=\"console\"][data-theme=\"dark\"] { color-scheme: dark; --bg: #000000; --column-bg: #101a0e; --ink: #4ae36a; --accent: #33e05c; --accent-ink: #001703; --field-bg: #0d150c; --danger-bg: #2e0f0c; --danger-ink: #ffab9e; --danger-border: #5e2a24; }",
+  ":root[data-look=\"pretty\"] { color-scheme: light; --bg: #fdf0f6; --column-bg: #fbdff0; --ink: #472236; --accent: #b02a63; --accent-ink: #ffffff; --field-bg: #ffffff; --danger-bg: #fbdcd6; --danger-ink: #8f1306; --danger-border: #e2a396; --font: -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif; --font-display: Georgia, \"Times New Roman\", serif; }",
+  ":root[data-look=\"pretty\"][data-theme=\"dark\"] { color-scheme: dark; --bg: #221219; --column-bg: #3a2230; --ink: #f9e4ef; --accent: #e58bb5; --accent-ink: #33101f; --field-bg: #3a2230; --danger-bg: #47201c; --danger-ink: #ffb3a7; --danger-border: #7a4038; }",
+  ":root[data-look=\"artistic\"] { color-scheme: light; --bg: #f5efe3; --column-bg: #eadfc8; --ink: #2e2620; --accent: #a52f14; --accent-ink: #ffffff; --field-bg: #fffdf6; --danger-bg: #f6d9d2; --danger-ink: #8f1306; --danger-border: #e0a08f; --font: -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif; --font-display: Georgia, \"Times New Roman\", serif; }",
+  ":root[data-look=\"artistic\"][data-theme=\"dark\"] { color-scheme: dark; --bg: #171310; --column-bg: #2d241b; --ink: #f0e7d6; --accent: #e2703a; --accent-ink: #2a1200; --field-bg: #2d241b; --danger-bg: #47201c; --danger-ink: #ffb3a7; --danger-border: #7a4038; }",
+  ":root[data-look=\"sunset\"] { color-scheme: light; --bg: #fdeedd; --column-bg: #f9dcbc; --ink: #42202b; --accent: #bc380f; --accent-ink: #ffffff; --field-bg: #fffaf2; --danger-bg: #f8d5ce; --danger-ink: #8f1306; --danger-border: #e5a08e; --font: -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif; --font-display: \"Trebuchet MS\", \"Segoe UI\", Verdana, sans-serif; }",
+  ":root[data-look=\"sunset\"][data-theme=\"dark\"] { color-scheme: dark; --bg: #1e1226; --column-bg: #382142; --ink: #ffe9d4; --accent: #ff8c42; --accent-ink: #38160a; --field-bg: #382142; --danger-bg: #47201c; --danger-ink: #ffb3a7; --danger-border: #7a4038; }",
+  ":root[data-look=\"forest\"] { color-scheme: light; --bg: #edf4e2; --column-bg: #dae7c8; --ink: #1e2b16; --accent: #2e6b30; --accent-ink: #ffffff; --field-bg: #fbfdf5; --danger-bg: #f6d9d2; --danger-ink: #8f1306; --danger-border: #e0a08f; --font: -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif; --font-display: Georgia, \"Times New Roman\", serif; }",
+  ":root[data-look=\"forest\"][data-theme=\"dark\"] { color-scheme: dark; --bg: #0c1710; --column-bg: #1b2f21; --ink: #e7f3de; --accent: #69a85e; --accent-ink: #0d2108; --field-bg: #1b2f21; --danger-bg: #47201c; --danger-ink: #ffb3a7; --danger-border: #7a4038; }",
+  ":root[data-look=\"midnight\"] { color-scheme: light; --bg: #e7edfc; --column-bg: #d3defa; --ink: #16213d; --accent: #2b4acb; --accent-ink: #ffffff; --field-bg: #fbfcff; --danger-bg: #f6d9d2; --danger-ink: #8f1306; --danger-border: #e0a08f; --font: -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif; --font-display: \"Avenir Next\", \"Segoe UI\", Roboto, sans-serif; }",
+  ":root[data-look=\"midnight\"][data-theme=\"dark\"] { color-scheme: dark; --bg: #050914; --column-bg: #111c36; --ink: #e3ebff; --accent: #7aa2ff; --accent-ink: #0a1430; --field-bg: #111c36; --danger-bg: #2e0f0c; --danger-ink: #ffab9e; --danger-border: #5e2a24; }",
+  "body { font-family: var(--font);",
+  "  margin: 0; min-height: 100vh; display: flex; flex-direction: column;",
+  "  background: var(--bg); color: var(--ink); }",
+  /* The heading's column: the same box the site's pages
+     give their heading — the reading column (46em wide,
+     14px of side padding), centred, flush to the top of
+     the page. The heading's own rules below are the site
+     stylesheet's, copied the same way as the palette. */
+  ".head-wrap { width: 100%; max-width: 46em; margin: 0 auto;",
+  "  padding: 0 14px; box-sizing: border-box; }",
+  ".site-head, .site-head * { box-sizing: border-box; }",
+  ".site-head { display: flex; align-items: center; gap: 12px; padding: 11px 2px; }",
+  ".site-brand { display: inline-flex; align-items: center; gap: 9px;",
+  "  color: var(--ink); text-decoration: none;",
+  "  font-family: var(--font-display, var(--font)); font-weight: 700; font-size: 21px; }",
+  ".site-brand svg { display: block; border-radius: 7px; width: 34px; height: 34px; }",
+  ".site-links { display: flex; align-items: center; gap: 6px; margin-left: auto; }",
+  ".site-link { display: inline-flex; align-items: center; justify-content: center;",
+  "  gap: 6px; color: var(--ink); text-decoration: none; font-size: 15px;",
+  "  min-width: 44px; height: 44px; padding: 0 12px; border-radius: 8px; }",
+  ".site-head .site-link { min-width: 52px; height: 52px; padding: 4px; }",
+  ".site-head .site-link svg { width: 44px; height: 44px; flex: none; }",
+  ".site-link:hover { background: var(--column-bg); }",
+  ".site-link[hidden] { display: none; }",
+  "@media (max-width: 640px) {",
+  "  .site-link { padding: 0; }",
+  "  .site-brand { order: 1; font-size: 15px; gap: 6px; }",
+  "  .site-brand svg { width: 26px; height: 26px; }",
+  "  .site-head { flex-wrap: wrap; row-gap: 8px; padding-top: 7px; padding-bottom: 7px; }",
+  "  .site-links { order: 2; flex-basis: auto; margin-left: auto; }",
+  "}",
+  "main { width: min(22rem, calc(100vw - 3rem)); padding: 1.5rem 0 3rem; margin: auto; }",
   /* The wordmark: the name at the top of these pages is set in
      Comfortaa Bold, the brand's face, from the same subset the
      app shell loads (only the letters of "TaskSparkle"; its
@@ -1583,22 +1637,23 @@ var PAGE_STYLE = [
   "fieldset.names { border: 0; padding: 0; margin: 0 0 1rem; }",
   "fieldset.names legend { font-weight: 600; margin-bottom: 0.5rem; }",
   "label.person { display: block; padding: 0.55rem 0.8rem; margin-bottom: 0.4rem;",
-  "  border: 1px solid color-mix(in srgb, CanvasText 30%, transparent);",
+  "  border: 1px solid color-mix(in srgb, var(--ink) 30%, transparent);",
   "  border-radius: 0.5rem; cursor: pointer; font-size: 1rem; }",
   "label.person input { margin-right: 0.5rem; }",
   "input[type=\"text\"], input[type=\"password\"] {",
   "  display: block; width: 100%; box-sizing: border-box; margin-top: 0.4rem;",
   "  padding: 0.65rem 0.8rem; font-size: 1rem; border-radius: 0.5rem;",
-  "  border: 1px solid color-mix(in srgb, CanvasText 35%, transparent);",
-  "  background: Canvas; color: CanvasText; font-weight: 400; }",
+  "  border: 1px solid color-mix(in srgb, var(--ink) 35%, transparent);",
+  "  background: var(--field-bg); color: var(--ink); font-weight: 400; }",
   "button { width: 100%; padding: 0.75rem; font-size: 1rem; font-weight: 600;",
   "  border-radius: 0.6rem; border: 0; cursor: pointer;",
-  "  background: #4c7a4c; color: #fff; }",
+  "  background: var(--accent); color: var(--accent-ink); }",
   "button.secondary { background: transparent; color: inherit;",
-  "  border: 1px solid color-mix(in srgb, CanvasText 40%, transparent); }",
-  "p.error { border: 1px solid #b3261e; color: #b3261e; border-radius: 0.5rem;",
+  "  border: 1px solid color-mix(in srgb, var(--ink) 40%, transparent); }",
+  "p.error { border: 1px solid var(--danger-border); color: var(--danger-ink);",
+  "  background: var(--danger-bg); border-radius: 0.5rem;",
   "  padding: 0.6rem 0.8rem; margin: 0 0 1rem; }",
-  "form.invite { margin-top: 2.25rem; border-top: 1px solid color-mix(in srgb, CanvasText 25%, transparent); padding-top: 1.25rem; }",
+  "form.invite { margin-top: 2.25rem; border-top: 1px solid color-mix(in srgb, var(--ink) 25%, transparent); padding-top: 1.25rem; }",
   "p.note { margin: 1rem 0 0; font-size: 0.9rem; opacity: 0.75; }",
   "#passkey-area { margin: 0 0 1rem; }",
   "#passkey-area p.error { margin: 1rem 0 0; }",
@@ -1611,20 +1666,125 @@ var PAGE_STYLE = [
   "p.switch a { color: inherit; }",
 ].join("\n");
 
+/* The settling script: a copy of public/boot.js standing
+   inline, because these pages' policy allows no script
+   file but their own inline ones. It reads the device's
+   stored theme and look and sets them on <html> before
+   the page paints, so these pages wear the visitor's own
+   colours — the same the site's pages wear. The local
+   checks hold this copy and boot.js to the same storage
+   keys, the same look list and the same attributes, so
+   the two cannot drift apart. */
+var PAGE_BOOT = [
+  "<script>",
+  "(function () {",
+  "  var mode = \"system\";",
+  "  var look = \"standard\";",
+  "  try {",
+  "    var devRaw = localStorage.getItem(\"tasksparkle-device\");",
+  "    if (devRaw) {",
+  "      var dev = JSON.parse(devRaw);",
+  "      if (dev && dev.theme) mode = dev.theme;",
+  "      if (dev && dev.look) look = dev.look;",
+  "    }",
+  "    if (mode === \"system\") {",
+  "      var raw = localStorage.getItem(\"tasksparkle-mirror\");",
+  "      if (raw) {",
+  "        var mirror = JSON.parse(raw);",
+  "        if (mirror && mirror.theme) mode = mirror.theme;",
+  "      }",
+  "    }",
+  "  } catch (e) { /* A broken store falls back to System. */ }",
+  "  if (mode !== \"system\" && mode !== \"light\" && mode !== \"dark\") mode = \"system\";",
+  "  var dark = mode === \"dark\" ||",
+  "    (mode !== \"light\" && window.matchMedia(\"(prefers-color-scheme: dark)\").matches);",
+  "  document.documentElement.setAttribute(\"data-theme\", dark ? \"dark\" : \"light\");",
+  "  document.documentElement.setAttribute(\"data-theme-mode\", mode);",
+  "  var looks = [\"standard\", \"comic\", \"console\", \"pretty\", \"artistic\", \"sunset\", \"forest\", \"midnight\"];",
+  "  if (looks.indexOf(look) === -1) look = \"standard\";",
+  "  document.documentElement.setAttribute(\"data-look\", look);",
+  "})();",
+  "</script>",
+].join("\n");
+
+/* The heading these pages open with: the site's heading —
+   the brand, then Terms, Feedback and Help as the 44px
+   glyphs in that order — standing in the reading column
+   at the top of the page, in the same box the site's
+   pages give it. A deployment that names its site's
+   address (cfg.siteBase — the deployment's own layer
+   passes it; the hosted service is the copy that does)
+   gets the full heading, its links absolute to that
+   address so they land on the site from either host
+   these pages render on. A copy that names no site
+   address gets the brand alone: nothing on these pages
+   names a site the copy does not have. The brand mark is
+   the icon file's own drawing standing inline, so the
+   heading stands whole even on a host where no asset
+   route answers for the icon file. The glyph drawings
+   are the site pages' own; the local checks hold them
+   equal so the copies cannot drift. */
+var BRAND_MARK = "<svg viewBox=\"0 0 124 124\" width=\"34\" height=\"34\" aria-hidden=\"true\" focusable=\"false\">" +
+  "<rect x=\"1.5\" y=\"1.5\" width=\"121\" height=\"121\" rx=\"29\" fill=\"#372F8F\" stroke=\"#00EEB9\" stroke-width=\"3\"/>" +
+  "<polygon fill=\"#00EEB9\" points=\"62,14 70.6,52.4 105,62 70.6,71.6 62,110 53.4,71.6 19,62 53.4,52.4\"/>" +
+  "<circle cx=\"62\" cy=\"62\" r=\"5\" fill=\"#FFFFFF\"/></svg>";
+var HEAD_GLYPHS = {
+  terms: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 6.2C10.3 4.95 7.7 4.45 4.8 4.9v11.6c2.9-.45 5.5.05 7.2 1.3\"/><path d=\"M12 6.2c1.7-1.25 4.3-1.75 7.2-1.3v11.6c-2.9-.45-5.5.05-7.2 1.3\"/><path d=\"M12 6.2v11.6\"/></svg>",
+  feedback: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4.5 4.5h15V15H10l-5.5 4.5z\"/><path d=\"M8 9h8M8 12h5\"/></svg>",
+  help: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8.5\"/><path d=\"M9.7 9.4c.2-1.3 1.15-2.1 2.3-2.1 1.25 0 2.3.9 2.3 2.05 0 1.6-2.3 1.9-2.3 3.35v.55\"/><path d=\"M12 16.6h.01\"/></svg>",
+};
+
+/* The Feedback entry's settling, the site pages' own
+   rule: the entry stands hidden until the copy itself
+   says whether it takes feedback, and comes away when
+   it does not, so the heading settles to the same shape
+   on every page. */
+var HEAD_SETTLE = [
+  "<script>",
+  "(function () {",
+  "  var link = document.querySelector(\"[data-feedback-link]\");",
+  "  if (!link) return;",
+  "  fetch('/api/site', { headers: { 'Accept': 'application/json' } })",
+  "    .then(function (res) { return res.ok ? res.json() : null; })",
+  "    .then(function (site) {",
+  "      if (site && site.feedback) link.hidden = false;",
+  "      else link.remove();",
+  "    })",
+  "    .catch(function () { link.remove(); });",
+  "})();",
+  "</script>",
+].join("\n");
+
+function pageHead(cfg) {
+  var base = cfg && cfg.siteBase ? String(cfg.siteBase).replace(/\/+$/, "") : "";
+  var brand = "<a class=\"site-brand\" href=\"" + (base ? base + "/" : "/") + "\">" +
+    BRAND_MARK + "<span>TaskSparkle</span></a>";
+  if (!base) {
+    return "<div class=\"head-wrap\"><header class=\"site-head\">" + brand + "</header></div>";
+  }
+  var links = "<nav class=\"site-links\" aria-label=\"Site\">" +
+    "<a class=\"site-link\" href=\"" + base + "/terms\" aria-label=\"Terms\">" + HEAD_GLYPHS.terms + "</a>" +
+    "<a class=\"site-link\" href=\"" + base + "/feedback\" aria-label=\"Feedback\" data-feedback-link hidden>" + HEAD_GLYPHS.feedback + "</a>" +
+    "<a class=\"site-link\" href=\"" + base + "/help\" aria-label=\"Help\">" + HEAD_GLYPHS.help + "</a></nav>";
+  return "<div class=\"head-wrap\"><header class=\"site-head\">" + brand + links +
+    "</header></div>\n" + HEAD_SETTLE;
+}
+
 export function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 }
 
-function pageHtml(title, body) {
+function pageHtml(title, body, cfg) {
   return "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n" +
     "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n" +
     "<title>" + escapeHtml(title) + "</title>\n" +
     "<link rel=\"icon\" type=\"image/svg+xml\" href=\"/icons/icon.svg\">\n" +
     "<link rel=\"icon\" type=\"image/png\" sizes=\"64x64\" href=\"/icons/icon-64.png\">\n" +
+    PAGE_BOOT + "\n" +
     "<style>\n" + PAGE_STYLE + "\n</style>\n" +
-    "</head>\n<body>\n<main>\n" + body + "\n</main>\n</body>\n</html>\n";
+    "</head>\n<body>\n" + pageHead(cfg) + "\n<main>\n" + body + "\n</main>\n</body>\n</html>\n";
 }
 
 // The sign-in page's script: the remembered name's untick,
@@ -1922,7 +2082,7 @@ function loginPageHtml(cfg, error, names, rememberedName, secure, view, attempte
     inviteCodeForm(),
     LOGIN_SCRIPT,
   ].join("\n");
-  return pageHtml("Sign in — TaskSparkle", body);
+  return pageHtml("Sign in — TaskSparkle", body, cfg);
 }
 
 // The spend pages' script (issue #122, amendment A.6): the
@@ -2197,7 +2357,7 @@ export function setupPageHtml(cfg, error, secure) {
     inviteCodeForm(),
     secure ? spendScript("/setup/passkey/options", "/setup/passkey/verify") : "",
   ].join("\n");
-  return pageHtml("Set up — TaskSparkle", body);
+  return pageHtml("Set up — TaskSparkle", body, cfg);
 }
 
 // The invite page. It names whose invite this is, so a link
@@ -2294,7 +2454,7 @@ export function invitePageHtml(cfg, row, code, isReset, error, secure) {
     !isReset && secure ? spendScript(optionsUrl, verifyUrl) : "",
     isReset && secure ? spendResetScript(optionsUrl, verifyUrl) : "",
   ].join("\n");
-  return pageHtml("Set your password — TaskSparkle", body);
+  return pageHtml("Set your password — TaskSparkle", body, cfg);
 }
 
 // The recovery page: an invite spent on an account that
@@ -2344,18 +2504,18 @@ export function recoveryPageHtml(cfg, row, code, error, secure) {
       "the account. Looking at this page does not use it up.</p>",
     secure ? spendScript(optionsUrl, verifyUrl) : "",
   ].join("\n");
-  return pageHtml("Enrol a passkey — TaskSparkle", body);
+  return pageHtml("Enrol a passkey — TaskSparkle", body, cfg);
 }
 
 // One refusal page for spent, expired and unknown codes alike.
-export function inviteRefusedHtml() {
+export function inviteRefusedHtml(cfg) {
   var body = [
     "<h1>TaskSparkle</h1>",
     "<p>This invite link does not work.</p>",
     "<p>It may already have been used, or it may have expired. Ask the person who runs this copy for a fresh invite — a fresh link is also how a forgotten password gets replaced.</p>",
     '<p><a href="/login">Back to sign in</a></p>',
   ].join("\n");
-  return pageHtml("Invite — TaskSparkle", body);
+  return pageHtml("Invite — TaskSparkle", body, cfg);
 }
 
 // --- The page handlers ----------------------------------------------------------------
@@ -3142,7 +3302,7 @@ export function createAuthHandlers(deps) {
       if (method === "POST") return handleRedeem(request, code);
       if (method === "GET") {
         var row = await findInvite(authDb, code);
-        if (!inviteUsable(row)) return authHtml(inviteRefusedHtml());
+        if (!inviteUsable(row)) return authHtml(inviteRefusedHtml(cfg));
         var target = await getAccount(authDb, row.key);
         var secure = secureAddress(url);
         // The page follows the account's own shape (A.6): a
