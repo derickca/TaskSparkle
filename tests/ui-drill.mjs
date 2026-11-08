@@ -1715,6 +1715,8 @@ check("#97: the card for the archived walk stands archived",
 await page.reload({ waitUntil: "domcontentloaded" });
 await page.waitForSelector("#board-ui:not([hidden])", { timeout: 15000 });
 await page.waitForSelector("#archived-section:not([hidden])", { timeout: 10000 });
+await page.click("#archived-toggle");
+await page.waitForSelector("[data-archived-card=\"" + archMade.card.id + "\"]", { timeout: 10000 });
 const archRow = page.locator("[data-archived-card=\"" + archMade.card.id + "\"]");
 await archRow.locator('[data-role="archived-delete"]').click();
 await page.waitForSelector("#card-delete-backdrop:not([hidden])", { timeout: 10000 });

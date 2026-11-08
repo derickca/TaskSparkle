@@ -166,9 +166,11 @@
          every archived card stands here with a way back to the
          column it came from and a Delete that asks first. The
          section shows itself only while the board holds archived
-         cards. -->
+         cards, and stands closed: its heading line names the
+         count, tapped to open the list and tapped again to
+         close it. -->
     <section class="archived-section" id="archived-section" aria-label="Archived cards" hidden>
-      <h2 class="archived-heading">Archived</h2>
+      <h2 class="archived-heading"><button type="button" class="archived-toggle" id="archived-toggle" aria-expanded="false">Archived</button></h2>
       <div id="archived-list"></div>
     </section>
 
