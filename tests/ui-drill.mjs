@@ -3833,8 +3833,11 @@ if (HOSTED) {
     }
 
     // The ask, in the browser: the answer is the
-    // check-your-inbox page, in its settled words.
-    await hpage.fill("#login-name", "ui-joiner@example.test");
+    // check-your-inbox page, in its settled words. The
+    // joiner's address is unique to this run, so the walk
+    // stands on a kept rig as well as a fresh one.
+    const joinerEmail = "ui-joiner-" + Date.now() + "@example.test";
+    await hpage.fill("#login-name", joinerEmail);
     await hpage.click('button[type="submit"]');
     await hpage.waitForURL(HOSTED + "/login/sent", { timeout: 15000 }).catch(() => {});
     check("email hosted: the ask lands on the check-your-inbox page",
@@ -3848,11 +3851,11 @@ if (HOSTED) {
       // edge adds: the message lands in the capture, and its
       // link opens in the browser.
       await formPostHttps("/login/email",
-        { email: "ui-joiner@example.test" }, { "CF-IPCountry": "CA" });
+        { email: joinerEmail }, { "CF-IPCountry": "CA" });
       let linkPath = null;
       for (let i = 0; i < 20 && !linkPath; i++) {
         const all = await capturedMessages(8795);
-        const mine = all.filter((m) => m.body && m.body.to === "ui-joiner@example.test");
+        const mine = all.filter((m) => m.body && m.body.to === joinerEmail);
         const text = mine.length ? String(mine[mine.length - 1].body.text || "") : "";
         const match = /\/link\/([A-Za-z0-9_-]+)/.exec(text);
         if (match) linkPath = "/link/" + match[1];
