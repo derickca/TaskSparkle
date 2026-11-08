@@ -4,6 +4,9 @@
 # The README's screenshots are product pictures of a staged
 # example board with sample cards: they ship too.
 !docs/screenshots/*.png
+# The front page's board picture is the same staged example
+# board, served as a site file: it ships too.
+!public/images/*.png
 node_modules/
 .wrangler/
 # One deployment's live settings name that deployment's domain,

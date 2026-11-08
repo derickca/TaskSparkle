@@ -2858,3 +2858,240 @@ textarea.copy-field { resize: vertical; }
 
 
 
+
+/* The public pages (issue #14): the signed-out front page at
+   the root and the standalone Terms, Help and Feedback pages.
+   They share one heading and one footer — the brand at the
+   left, then Help, Terms and Feedback, each an icon and a
+   word, and the sign-in button. Below the phone width the
+   links stand as icons alone, their names on their labels. */
+.site-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 2px 14px;
+}
+
+.site-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink);
+  text-decoration: none;
+  font-family: var(--font-display, var(--font));
+  font-weight: 700;
+  font-size: 21px;
+}
+
+.site-brand img { display: block; border-radius: 7px; }
+
+.site-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.site-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 15px;
+  padding: 8px 9px;
+  border-radius: 8px;
+}
+
+.site-link:hover { background: var(--column-bg); }
+
+.site-links .btn {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  margin-left: 6px;
+}
+
+.site-foot {
+  border-top: 1px solid var(--line);
+  margin-top: 40px;
+  padding: 16px 2px 8px;
+}
+
+.site-foot .site-links { padding: 0; }
+
+.site-foot-line {
+  color: var(--muted);
+  font-size: 14px;
+  margin: 10px 0 0;
+}
+
+.site-foot-line a { color: var(--accent); }
+
+/* The front page's own pieces. */
+.landing-hero { text-align: center; padding: 26px 8px 6px; }
+
+.landing-wordmark {
+  font-size: 40px;
+  margin: 0 0 8px;
+}
+
+.landing-line {
+  font-size: 19px;
+  color: var(--ink);
+  max-width: 34em;
+  margin: 0 auto 18px;
+}
+
+.landing-cta { margin: 0 0 10px; }
+
+.btn-big {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  font-size: 17px;
+  padding: 12px 26px;
+  min-height: 52px;
+}
+
+.landing-note { color: var(--muted); margin: 0; }
+
+.landing-shot {
+  margin: 26px auto 6px;
+  max-width: 980px;
+}
+
+.landing-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.landing-points {
+  max-width: 44em;
+  margin: 22px auto 0;
+  font-size: 16.5px;
+}
+
+.landing-points p { margin: 0 0 10px; }
+
+.landing-join {
+  max-width: 44em;
+  margin: 24px auto 0;
+}
+
+.landing-join h3 { margin: 0 0 6px; font-size: 19px; }
+.landing-join p { margin: 0; }
+
+/* The standalone pages: one column of reading, the same
+   heading and footer as the front page. */
+.static-wrap {
+  max-width: 46em;
+  margin: 0 auto;
+  padding: 0 14px 40px;
+}
+
+.static-wrap h1 { font-size: 30px; margin: 10px 0 6px; }
+
+.static-sub { color: var(--muted); font-size: 16.5px; margin: 0 0 18px; }
+
+.draft-line {
+  background: var(--warn-bg);
+  color: var(--warn-ink);
+  border: 1px solid var(--warn-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 14.5px;
+}
+
+.static-wrap h2 { font-size: 20px; margin: 26px 0 8px; }
+
+.static-wrap p, .static-wrap li { font-size: 16px; }
+
+.static-wrap ul { padding-left: 22px; }
+
+.static-wrap li { margin-bottom: 7px; }
+
+.static-wrap a { color: var(--accent); }
+
+.static-updated { color: var(--muted); font-size: 14px; margin-top: 34px; }
+
+/* Help: the topic list and the short answers. */
+.help-topics { margin-top: 6px; }
+
+.help-topic { margin: 0 0 16px; }
+
+.help-topic h2 { margin: 0 0 2px; font-size: 19px; }
+
+.help-topic p { margin: 0; color: var(--muted); }
+
+.faq-group {
+  font-weight: 700;
+  font-family: var(--font-display, var(--font));
+  margin: 30px 0 4px;
+  font-size: 17px;
+}
+
+.faq-item h3 { font-size: 17px; margin: 18px 0 4px; }
+
+.faq-item p { margin: 0 0 6px; }
+
+/* The feedback form: the shared service's shape — a kind, a
+   note with its count, and two optional fields. */
+.feedback-form label {
+  display: block;
+  font-weight: 600;
+  margin: 18px 0 6px;
+}
+
+.feedback-form textarea,
+.feedback-form input[type="text"] {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  font-size: 16px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+.kind-pick { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.kind-pick label {
+  display: inline-flex;
+  margin: 0;
+  font-weight: 400;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  background: var(--panel);
+}
+
+.kind-pick input { margin-right: 7px; }
+
+.feedback-count { color: var(--muted); font-size: 13.5px; margin: 5px 0 0; }
+
+.feedback-status { min-height: 1.4em; font-weight: 600; }
+
+.honeypot {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+/* On a phone the heading's links stand as icons alone, so
+   the heading stays light; their names ride on their
+   aria-labels. The button keeps its words. */
+@media (max-width: 560px) {
+  .site-link-word { display: none; }
+  .site-link { padding: 9px 8px; }
+  .landing-wordmark { font-size: 32px; }
+  .landing-line { font-size: 17px; }
+}

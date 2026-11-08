@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feedback — TaskSparkle</title>
+<meta name="description" content="Tell TaskSparkle what works, what does not, and what is missing.">
+
+<script src="/boot.js"></script>
+<link rel="stylesheet" href="/styles.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1f5c3d">
+<link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+<link rel="icon" type="image/png" sizes="64x64" href="/icons/icon-64.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png">
+<link rel="apple-touch-icon" href="/icons/icon-180.png">
+</head>
+<body>
+<div class="static-wrap">
+  <header class="site-head">
+    <a class="site-brand" href="/">
+      <img src="/icons/icon.svg" alt="" width="30" height="30">
+      <span>TaskSparkle</span>
+    </a>
+    <nav class="site-links" aria-label="Site">
+      <a class="site-link" href="/help" aria-label="Help"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.6"/><path d="M6.2 6.2l3.4 3.4M17.8 6.2l-3.4 3.4M6.2 17.8l3.4-3.4M17.8 17.8l-3.4-3.4"/></svg><span class="site-link-word">Help</span></a>
+      <a class="site-link" href="/terms" aria-label="Terms"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3h7L18 7.5V21H6.5z"/><path d="M13.5 3v4.5H18"/><path d="M9.5 12.5h5M9.5 16h5"/></svg><span class="site-link-word">Terms</span></a>
+      <a class="site-link" href="/feedback" aria-label="Feedback"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 4.5h15V15H10l-5.5 4.5z"/><path d="M8 9h8M8 12h5"/></svg><span class="site-link-word">Feedback</span></a>
+      <a class="btn btn-primary" href="/login">Sign in or join</a>
+    </nav>
+  </header>
+
+  <main>
+    <h1>Feedback</h1>
+    <p class="static-sub">Tell us what works, what does not, and what is missing. A short note is plenty.</p>
+
+    <form class="feedback-form" id="feedback-form" novalidate>
+      <p class="static-sub" style="margin-bottom:0">What kind of feedback is this?</p>
+      <div class="kind-pick" role="radiogroup" aria-label="What kind of feedback is this?">
+        <label><input type="radio" name="kind" value="love" checked>Something I love</label>
+        <label><input type="radio" name="kind" value="improve">Something to improve</label>
+        <label><input type="radio" name="kind" value="other">Something else</label>
+      </div>
+
+      <label for="fb-note">Your note</label>
+      <textarea id="fb-note" name="fb_message" rows="5" maxlength="10000" required placeholder="What would you like us to know?"></textarea>
+      <p class="feedback-count" id="fb-count">0 of 10,000 characters</p>
+
+      <label for="fb-pagelink">Page link (optional)</label>
+      <input id="fb-pagelink" name="fb_pagelink" type="text" maxlength="300" placeholder="Which page is this about? Paste a link if you have one.">
+
+      <label for="fb-name">Your name (optional)</label>
+      <input id="fb-name" name="fb_name" type="text" maxlength="120" autocomplete="name">
+
+      <input class="honeypot" name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+      <p><button type="submit" class="btn btn-primary" id="fb-send" disabled>Send feedback</button></p>
+      <p class="feedback-status" id="fb-status" role="status"></p>
+      <p>Feedback goes to the TaskSparkle operator's private inbox, is kept up to six months, and only TaskSparkle reads it.</p>
+    </form>
+    <script src="/feedback.js"></script>
+  </main>
+
+  <footer class="site-foot">
+    <nav class="site-links" aria-label="Footer">
+      <a class="site-link" href="/help" aria-label="Help"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.6"/><path d="M6.2 6.2l3.4 3.4M17.8 6.2l-3.4 3.4M6.2 17.8l3.4-3.4M17.8 17.8l-3.4-3.4"/></svg><span class="site-link-word">Help</span></a>
+      <a class="site-link" href="/terms" aria-label="Terms"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3h7L18 7.5V21H6.5z"/><path d="M13.5 3v4.5H18"/><path d="M9.5 12.5h5M9.5 16h5"/></svg><span class="site-link-word">Terms</span></a>
+      <a class="site-link" href="/feedback" aria-label="Feedback"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 4.5h15V15H10l-5.5 4.5z"/><path d="M8 9h8M8 12h5"/></svg><span class="site-link-word">Feedback</span></a>
+    </nav>
+    <p class="site-foot-line">Rather run it yourself? TaskSparkle is <a href="https://github.com/derickca/TaskSparkle">open source</a>.</p>
+  </footer>
+</div>
+</body>
+</html>
