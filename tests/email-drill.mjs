@@ -598,9 +598,15 @@ try {
       leakUnknown.headers.location === leakKnown.headers.location &&
       leakGated.headers.location === leakKnown.headers.location);
 
-  // The invites stand untouched by all of it.
+  // The invites stand untouched by all of it. The minting
+  // session is a fresh password sign-in: the operator's
+  // setup session was revoked by their own link spend along
+  // the way, as the model says it must be.
+  const adminAgain = jar();
+  adminAgain.absorb(await formPost(BASE, "/login",
+    { name: "Email Admin", password: PW }));
   const minted = await jsonPost(BASE, "/api/auth/invites",
-    { name: "Invited Person" }, { jar: admin });
+    { name: "Invited Person" }, { jar: adminAgain });
   const inviteJar = jar();
   inviteJar.absorb(await formPost(BASE, "/invite/" + (minted.json && minted.json.code),
     { name: "Invited Person", password: PW, confirm: PW }));
