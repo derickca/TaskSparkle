@@ -871,14 +871,41 @@ export async function countAdmins(authDb) {
 export async function createAccount(authDb, fields) {
   var stamp = nowMs();
   await authDb.prepare(
-    "INSERT INTO accounts (key, id, name, password_hash, admin, owner_id, user_handle, created_at) " +
-    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+    "INSERT INTO accounts (key, id, name, password_hash, admin, owner_id, user_handle, created_at, email) " +
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
   ).bind(
     fields.key, newAccountId(), fields.name, fields.passwordHash || null,
     fields.admin ? 1 : 0, fields.ownerId || null,
-    fields.userHandle || b64uEncode(randomBytes(32)), stamp
+    fields.userHandle || b64uEncode(randomBytes(32)), stamp,
+    fields.email ? emailKey(fields.email) : null
   ).run();
   return getAccount(authDb, fields.key);
+}
+
+// --- Email addresses ---
+// The hosted copy's sign-in turns on one address per
+// account, carried on the account row. An address is folded
+// the one way — trimmed and lowered — everywhere it is read
+// or written, so the fold is the comparison. emailProblem
+// judges the shape an address must have to be written at
+// all: the loose shape of an address, nothing stricter —
+// the proof an address is real is never its spelling but
+// the link round-trip it answers.
+
+export function emailKey(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+export function emailProblem(email) {
+  var folded = emailKey(email);
+  if (!folded || folded.length > 254) return true;
+  return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(folded);
+}
+
+export async function getAccountByEmail(authDb, email) {
+  var folded = emailKey(email);
+  if (!folded) return null;
+  return authDb.prepare("SELECT * FROM accounts WHERE email = ?").bind(folded).first();
 }
 
 // While accounts stand, one of them is the administrator: if
@@ -964,6 +991,125 @@ export async function unspendInvite(authDb, code) {
   var codeHash = await sha256Hex(code);
   await authDb.prepare("UPDATE invites SET used_at = NULL WHERE code_hash = ?")
     .bind(codeHash).run();
+}
+
+// --- Emailed sign-in links ---
+// The hosted copy's way in: a person asks for a link, the
+// service emails it, and spending it signs them in — or, when
+// no account stands for the address, makes the account, so
+// joining and signing in are one act and recovery is the same
+// act again. A link rests only as the SHA-256 hash of a
+// 24-byte random code, carries the folded address it was sent
+// to, and lives fifteen minutes. One live link per address:
+// minting a fresh one retires the address's earlier unused
+// ones, as a fresh invite retires a name's.
+
+export var EMAIL_LINK_MS = 15 * 60 * 1000; // fifteen minutes
+
+export async function mintEmailLink(authDb, email) {
+  var folded = emailKey(email);
+  var code = b64uEncode(randomBytes(24));
+  var codeHash = await sha256Hex(code);
+  var stamp = nowMs();
+  await authDb.prepare("DELETE FROM email_links WHERE email = ? AND used_at IS NULL")
+    .bind(folded).run();
+  await authDb.prepare(
+    "INSERT INTO email_links (code_hash, email, created, expires, used_at) VALUES (?, ?, ?, ?, NULL)"
+  ).bind(codeHash, folded, stamp, stamp + EMAIL_LINK_MS).run();
+  return { code: code, codeHash: codeHash, email: folded, expires: stamp + EMAIL_LINK_MS };
+}
+
+export async function findEmailLink(authDb, code) {
+  if (!code) return null;
+  var codeHash = await sha256Hex(code);
+  return authDb.prepare("SELECT * FROM email_links WHERE code_hash = ?")
+    .bind(codeHash).first();
+}
+
+export function emailLinkUsable(row) {
+  return !!row && !row.used_at && Number(row.expires) > nowMs();
+}
+
+// Spends the link in one conditional update, the invite
+// discipline: a second press cannot also win.
+export async function spendEmailLink(authDb, code) {
+  var codeHash = await sha256Hex(code);
+  var result = await authDb.prepare(
+    "UPDATE email_links SET used_at = ? WHERE code_hash = ? AND used_at IS NULL AND expires > ?"
+  ).bind(nowMs(), codeHash, nowMs()).run();
+  return !!(result && result.meta && Number(result.meta.changes) === 1);
+}
+
+// Hands a spend back when the act it guarded failed after
+// the mark was taken: the link stands unspent again.
+export async function unspendEmailLink(authDb, code) {
+  var codeHash = await sha256Hex(code);
+  await authDb.prepare("UPDATE email_links SET used_at = NULL WHERE code_hash = ?")
+    .bind(codeHash).run();
+}
+
+// --- The link requests' pace ---
+// Link requests are counted apart from the sign-in throttle,
+// in the creation pace's window shape: a count per watched
+// key inside its own window, spent by the request itself. A
+// source address may ask sixty times in an hour; one email
+// address may be asked for five times in an hour and ten
+// times in a day, so no inbox can be flooded through this
+// page — not from one address, and not from many at once.
+// The passkey stays the standing way in all the while; the
+// link is the way back, and its pace is priced for that.
+
+export var LINK_SOURCE_MAX = 60;
+export var LINK_EMAIL_HOUR_MAX = 5;
+export var LINK_EMAIL_DAY_MAX = 10;
+export var LINK_HOUR_MS = 60 * 60 * 1000;
+export var LINK_DAY_MS = 24 * 60 * 60 * 1000;
+
+async function linkRequestCount(authDb, key, windowMs) {
+  var row = await authDb.prepare(
+    "SELECT * FROM link_requests WHERE key = ?"
+  ).bind(key).first();
+  if (!row) return 0;
+  if (nowMs() - Number(row.window_start) >= windowMs) return 0;
+  return Number(row.attempts) || 0;
+}
+
+async function noteLinkRequestKey(authDb, key, windowMs) {
+  var stamp = nowMs();
+  var row = await authDb.prepare(
+    "SELECT * FROM link_requests WHERE key = ?"
+  ).bind(key).first();
+  if (!row || stamp - Number(row.window_start) >= windowMs) {
+    await authDb.prepare(
+      "INSERT INTO link_requests (key, window_start, attempts) VALUES (?, ?, 1) " +
+      "ON CONFLICT(key) DO UPDATE SET window_start = excluded.window_start, attempts = 1"
+    ).bind(key, stamp).run();
+    return;
+  }
+  await authDb.prepare(
+    "UPDATE link_requests SET attempts = attempts + 1 WHERE key = ?"
+  ).bind(key).run();
+}
+
+// True when any of the request's three counts already stands
+// at its cap: the ask is answered the same and nothing sends.
+export async function linkPaceCapped(authDb, source, email) {
+  if ((await linkRequestCount(authDb, "src:" + source, LINK_HOUR_MS)) >= LINK_SOURCE_MAX) {
+    return true;
+  }
+  if ((await linkRequestCount(authDb, "em:" + email, LINK_HOUR_MS)) >= LINK_EMAIL_HOUR_MAX) {
+    return true;
+  }
+  if ((await linkRequestCount(authDb, "emd:" + email, LINK_DAY_MS)) >= LINK_EMAIL_DAY_MAX) {
+    return true;
+  }
+  return false;
+}
+
+export async function noteLinkRequest(authDb, source, email) {
+  await noteLinkRequestKey(authDb, "src:" + source, LINK_HOUR_MS);
+  await noteLinkRequestKey(authDb, "em:" + email, LINK_HOUR_MS);
+  await noteLinkRequestKey(authDb, "emd:" + email, LINK_DAY_MS);
 }
 
 // --- Passkeys ---
@@ -1482,6 +1628,55 @@ export async function clearThrottle(authDb, source, accountKey) {
   }
 }
 
+// --- The joining switch and its gates ---
+// Whether a stranger may join stands in the auth store's own
+// bookkeeping (auth_meta, key 'door'), read on every request
+// that could lead to an account, so the operator flips it
+// with one stored value and no redeploy: 1 open, 2 closed,
+// and 0 — or no row at all — invite-only, the default on
+// every copy. The switch governs joining only: signing in is
+// never gated by it, and invites keep working in every state,
+// exactly as they always have.
+
+export var DOOR_INVITE_ONLY = 0;
+export var DOOR_OPEN = 1;
+export var DOOR_CLOSED = 2;
+
+export async function doorState(authDb) {
+  var row = await authDb.prepare(
+    "SELECT value FROM auth_meta WHERE key = 'door'"
+  ).first();
+  var value = row ? Number(row.value) : DOOR_INVITE_ONLY;
+  return value === DOOR_OPEN || value === DOOR_CLOSED ? value : DOOR_INVITE_ONLY;
+}
+
+// The country gate, read from the deployment's own seam
+// (cfg.signupCountries names the countries joining is open
+// to; cfg.countryOf reads the request's country as the
+// deployment's edge reports it). No list stands, no gate
+// stands. The gate judges joining only — never sign-in.
+export function countryAllowed(cfg, request) {
+  if (!cfg.signupCountries || !cfg.signupCountries.length) return true;
+  var country = cfg.countryOf ? cfg.countryOf(request) : null;
+  if (!country) return false;
+  return cfg.signupCountries.indexOf(String(country).toUpperCase()) !== -1;
+}
+
+// The country gate's sentence, built from this copy's own
+// list: the ruled words on the hosted copy, and the true
+// words on any other list.
+export function countryLine(cfg) {
+  var names = (cfg.signupCountries || []).map(function (code) {
+    if (code === "CA") return "Canada";
+    if (code === "US") return "the United States";
+    return code;
+  });
+  var list = names.length > 1
+    ? names.slice(0, -1).join(", ") + " and " + names[names.length - 1]
+    : (names[0] || "");
+  return "Joining is open to " + list + " for now.";
+}
+
 // --- The cleanup sweep ---
 // Expired challenge, throttle and session rows are deleted on
 // encounter where a lookup meets its own; the rest are kept
@@ -1505,6 +1700,8 @@ export async function sweepAuth(authDb) {
     ["auth_challenges", "expires"],
     ["sessions", "expires_at"],
     ["auth_throttle", "locked_until"],
+    ["email_links", "expires"],
+    ["link_requests", "window_start"],
   ];
   for (var i = 0; i < tables.length && budget > 0; i++) {
     // Throttle rows whose lock has passed and whose failure
@@ -1517,10 +1714,15 @@ export async function sweepAuth(authDb) {
     var where = tables[i][0] === "auth_throttle"
       ? "locked_until > 0 AND locked_until < ?"
       : tables[i][1] + " < ?";
+    // A link-pace row is dead once its longest window — the
+    // email's day — has fully passed, so its sweep binds the
+    // stamp a day back.
+    var bindStamp = tables[i][0] === "link_requests"
+      ? stamp - LINK_DAY_MS : stamp;
     var result = await authDb.prepare(
       "DELETE FROM " + tables[i][0] + " WHERE rowid IN " +
       "(SELECT rowid FROM " + tables[i][0] + " WHERE " + where + " LIMIT ?)"
-    ).bind(stamp, budget).run();
+    ).bind(bindStamp, budget).run();
     budget -= Number((result && result.meta && result.meta.changes) || 0);
   }
   return true;
@@ -2358,6 +2560,257 @@ export function inviteRefusedHtml() {
   return pageHtml("Invite — TaskSparkle", body);
 }
 
+// --- The hosted sign-in pages ---
+// The hosted copy's sign-in page, in the words Derick settled
+// for it: one page for joining and coming back, an emailed
+// link as the way through it, and a passkey for the device
+// that holds one. No name is typed and no password is asked
+// for — the address is the only thing a person types, and it
+// is a claim the link itself proves, never a thing the page
+// trusts. The script below is the sign-in script's own shape
+// cut to this page: the passkey button, and the conditional
+// offer armed in the email field (it carries the same
+// autocomplete the name field carried), so a device holding
+// a passkey offers it before anything is typed.
+
+export function hostedLoginPageHtml(cfg, error) {
+  var messages = {
+    locked: "Too many tries. Wait a little, then try again.",
+    taken: "The first account already stands. Sign in above, and the " +
+      "administrator can invite you from Settings, then Admin.",
+  };
+  var body = [
+    "<h1>TaskSparkle</h1>",
+    '<p class="sub">New here or coming back, it\'s the same page. No password, ever.</p>',
+    messages[error] ? '<p class="error">' + messages[error] + "</p>" : "",
+    '<form method="post" action="/login/email" id="login-form">',
+    '    <label class="field">Your email address',
+    '      <input type="email" id="login-name" name="email" required maxlength="254" autocomplete="username webauthn">',
+    "    </label>",
+    '    <button type="submit">Email me a link</button>',
+    "  </form>",
+    '  <p class="note">Tap it and we\'ll email you a link. The link signs you in — it works once, and it expires in 15 minutes.</p>',
+    '  <div id="passkey-area" hidden>',
+    '    <p class="switch">Been here on this device before?</p>',
+    '    <button type="button" id="passkey-button">Sign in with a passkey</button>',
+    '    <p class="note">One tap. Nothing to type.</p>',
+    '    <p class="error" id="passkey-error" hidden></p>',
+    "  </div>",
+    hostedLoginScript(),
+  ].join("\n");
+  return pageHtml("Sign in or join — TaskSparkle", body);
+}
+
+function hostedLoginScript() {
+  return [
+    "<script>",
+    "(function () {",
+    "  var form = document.getElementById('login-form');",
+    "  if (!window.PublicKeyCredential || !window.isSecureContext) return;",
+    "  var area = document.getElementById('passkey-area');",
+    "  var button = document.getElementById('passkey-button');",
+    "  var errorBox = document.getElementById('passkey-error');",
+    "  if (!area || !button) return;",
+    "  area.hidden = false;",
+    "  function b64uToBytes(text) {",
+    "    var b64 = text.replace(/-/g, '+').replace(/_/g, '/');",
+    "    while (b64.length % 4) b64 += '=';",
+    "    var bin = atob(b64);",
+    "    var bytes = new Uint8Array(bin.length);",
+    "    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);",
+    "    return bytes;",
+    "  }",
+    "  function bytesToB64u(bytes) {",
+    "    var bin = '';",
+    "    var view = new Uint8Array(bytes);",
+    "    for (var i = 0; i < view.length; i++) bin += String.fromCharCode(view[i]);",
+    "    return btoa(bin).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');",
+    "  }",
+    "  var conditional = null;",
+    "  function abortConditional() {",
+    "    if (conditional) { conditional.abort(); conditional = null; }",
+    "  }",
+    "  function attempt(signal, mediation) {",
+    "    return fetch('/login/passkey/options', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })",
+    "      .then(function (res) { if (!res.ok) throw new Error('refused'); return res.json(); })",
+    "      .then(function (options) {",
+    "        var getOptions = { publicKey: {",
+    "          challenge: b64uToBytes(options.challenge),",
+    "          rpId: options.rpId,",
+    "          userVerification: 'required',",
+    "          timeout: options.timeout || 300000,",
+    "        } };",
+    "        if (mediation) { getOptions.mediation = mediation; getOptions.signal = signal; }",
+    "        return navigator.credentials.get(getOptions);",
+    "      })",
+    "      .then(function (cred) {",
+    "        var body = {",
+    "          id: cred.id, rawId: bytesToB64u(cred.rawId), type: cred.type,",
+    "          response: {",
+    "            clientDataJSON: bytesToB64u(cred.response.clientDataJSON),",
+    "            authenticatorData: bytesToB64u(cred.response.authenticatorData),",
+    "            signature: bytesToB64u(cred.response.signature),",
+    "            userHandle: cred.response.userHandle ? bytesToB64u(cred.response.userHandle) : null,",
+    "          },",
+    "        };",
+    "        return fetch('/login/passkey/verify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });",
+    "      })",
+    "      .then(function (res) { if (!res.ok) throw new Error('refused'); window.location = '/'; });",
+    "  }",
+    "  button.addEventListener('click', function () {",
+    "    abortConditional();",
+    "    errorBox.hidden = true;",
+    "    attempt().catch(function () {",
+    "      errorBox.textContent = 'That passkey did not sign you in. Try again, or ask for a link above.';",
+    "      errorBox.hidden = false;",
+    "    });",
+    "  });",
+    "  if (form) form.addEventListener('submit', abortConditional);",
+    "  var emailInput = document.getElementById('login-name');",
+    "  if (emailInput && window.PublicKeyCredential.isConditionalMediationAvailable) {",
+    "    window.PublicKeyCredential.isConditionalMediationAvailable().then(function (available) {",
+    "      if (!available || typeof AbortController === 'undefined') return;",
+    "      conditional = new AbortController();",
+    "      attempt(conditional.signal, 'conditional').catch(function () { /* silent by design */ });",
+    "    });",
+    "  }",
+    "})();",
+    "</script>",
+  ].join("\n");
+}
+
+// The page a link request lands on. Its words are the same
+// whatever the address holds or the switch says: nothing on
+// it tells a stranger whether an account stands, whether
+// joining is open, or whether anything was sent.
+export function checkInboxPageHtml() {
+  var body = [
+    "<h1>TaskSparkle</h1>",
+    '<p class="sub">Check your inbox.</p>',
+    "<p>If that address can sign in or join, a link is on its way to it. The link works once, and it expires in 15 minutes.</p>",
+    '<p><a href="/login">Back to sign in</a></p>',
+  ].join("\n");
+  return pageHtml("Check your inbox — TaskSparkle", body);
+}
+
+// A spent, expired or unknown link: the invite refusal's
+// shape, in the link's own words.
+export function linkRefusedPageHtml() {
+  var body = [
+    "<h1>TaskSparkle</h1>",
+    "<p>This link does not work.</p>",
+    "<p>It may already have been used, or it may have expired — a link works once, and only for 15 minutes. Ask for a fresh one on the sign-in page.</p>",
+    '<p><a href="/login">Back to sign in</a></p>',
+  ].join("\n");
+  return pageHtml("Sign in — TaskSparkle", body);
+}
+
+// The link's landing page when an account stands: one press
+// signs in. The press is the spend — looking never spends —
+// so a mail scanner that follows the link cannot use it up.
+export function linkSignInPageHtml(cfg, account, code) {
+  var body = [
+    "<h1>TaskSparkle</h1>",
+    '<p class="sub">This link signs in ' + escapeHtml(account.name) + ".</p>",
+    "<p>Spending it signs out your other sign-ins — it is also the way back in when you are shut out, so it takes the place of every other way in.</p>",
+    '<form method="post" action="/link/' + escapeHtml(code) + '">',
+    '    <button type="submit">Sign in</button>',
+    "  </form>",
+  ].join("\n");
+  return pageHtml("Sign in — TaskSparkle", body);
+}
+
+// The link's landing page when no account stands: the whole
+// of joining. A name (any name — it is only what the person
+// is called here), the Terms tick standing unticked, and one
+// button. The account is made only when the tick stands, at
+// the press; the bot check's widget stands in the form where
+// the deployment configured one.
+export function linkJoinPageHtml(cfg, code, error, secure) {
+  var messages = {
+    name: "That name cannot be used. Pick another name and try again.",
+    terms: "Tick the box to agree to the Terms first.",
+    bot: "The bot check did not pass. Try again.",
+    taken: "That address already has an account. Ask for a link on the sign-in page, and sign in instead.",
+    locked: "Too many tries. Wait a little, then try again.",
+  };
+  var botCheck = cfg.turnstileSiteKey
+    ? '    <div class="cf-turnstile" data-sitekey="' +
+      escapeHtml(cfg.turnstileSiteKey) + '"></div>'
+    : "";
+  var body = [
+    "<h1>TaskSparkle</h1>",
+    '<p class="sub">Make your account on this copy of TaskSparkle.</p>',
+    "<p>You get your own boards, and no one else's boards are shared with you.</p>",
+    messages[error] ? '<p class="error">' + messages[error] + "</p>" : "",
+    '<form method="post" action="/link/' + escapeHtml(code) + '">',
+    '    <label class="field">Your name — what you will be called here',
+    '      <input type="text" name="name" required maxlength="120" autocomplete="name">',
+    "    </label>",
+    '    <label class="remember"><input type="checkbox" name="terms" value="1"> I agree to the <a href="/terms">Terms</a></label>',
+    botCheck,
+    '    <button type="submit">Make my boards</button>',
+    "  </form>",
+    cfg.turnstileSiteKey
+      ? '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>'
+      : "",
+  ].join("\n");
+  return pageHtml("Join — TaskSparkle", body);
+}
+
+// The joining refusal at the link's landing, while the
+// switch stands at invite-only or closed: plain words, and
+// the invite path named, because invites keep working
+// exactly as they do.
+export function linkJoinRefusedPageHtml(closed) {
+  var body = [
+    "<h1>TaskSparkle</h1>",
+    closed
+      ? "<p>Joining is closed on this copy.</p>"
+      : "<p>Joining is not open on this copy.</p>",
+    closed
+      ? "<p>No new accounts are being made here right now. If you were sent an invite, it still works — open its link.</p>"
+      : "<p>New accounts here are made by invite. If you were sent an invite, open its link.</p>",
+    '<p><a href="/login">Back to sign in</a></p>',
+  ].join("\n");
+  return pageHtml("Join — TaskSparkle", body);
+}
+
+// The country gate's refusal at the link's landing: signing
+// in stands open from anywhere; only joining is gated.
+export function linkCountryPageHtml(cfg) {
+  var body = [
+    "<h1>TaskSparkle</h1>",
+    "<p>" + escapeHtml(countryLine(cfg)) + "</p>",
+    "<p>This address reads as outside them, so an account cannot be made from here. If you already have an account, you can sign in from anywhere.</p>",
+    '<p><a href="/login">Back to sign in</a></p>',
+  ].join("\n");
+  return pageHtml("Join — TaskSparkle", body);
+}
+
+// The offer that follows a joining spend, inside the first
+// session: a passkey for this device. The ceremony is the
+// Account page's own (its options and its answer, under the
+// core's step-up — the just-spent link is the session's fresh
+// proof, and the new account holds no passkey yet, so the
+// proof the enrolment asks for stands). "Not now" is a plain
+// way past it; the offer stands again in Settings, then
+// Account, whenever the person wants it.
+export function passkeyOfferPageHtml(cfg) {
+  var body = [
+    "<h1>TaskSparkle</h1>",
+    '<p class="sub">Your boards stand. One more thing, if you like.</p>',
+    "<p>Make this device one tap: add a passkey for it, and signing in here after that is the tap and nothing else — no link to wait for.</p>",
+    '    <div id="spend-passkey">',
+    '      <button type="button" id="spend-passkey-button">Add a passkey</button>',
+    '      <p class="error" id="spend-error" hidden></p>',
+    "    </div>",
+    '  <p class="switch"><a href="/">Not now</a></p>',
+    spendScript("/api/auth/passkeys/options", "/api/auth/passkeys"),
+  ].join("\n");
+  return pageHtml("Add a passkey — TaskSparkle", body);
+}
+
 // --- The page handlers ----------------------------------------------------------------
 //
 // Builds the handler for the sign-in, setup, invite and logout
@@ -2381,6 +2834,25 @@ export function inviteRefusedHtml() {
 //   home (fifteen minutes hosted, one minute at home).
 // - cfg.cookieSecure(request): whether the session cookie
 //   carries Secure for this request.
+// - cfg.turnstileSiteKey / cfg.turnstileVerify(token, source):
+//   the bot check on joining. Both stand only where the
+//   deployment configured the check — the widget's public
+//   key, and the server-side verification the deployment's
+//   secret answers. Where the key stands, joining waits for
+//   the verifier's yes and fails closed without it; where
+//   neither stands, no check runs at all.
+// - cfg.signupCountries / cfg.countryOf(request): the
+//   country gate on joining. The list names the countries
+//   joining is open to; no list, no gate. countryOf reads
+//   the request's country as the deployment's own edge
+//   reports it. The gate refuses joining only — sign-in is
+//   never gated.
+// - cfg.mailSend(message): the hosted copy's mail path — the
+//   deployment's hand that sends one message ({to, subject,
+//   text, html, kind, idempotencyKey}) through the shared
+//   mail service and answers whether it was accepted. Only
+//   the hosted shape ever calls it; where it does not stand,
+//   a link request still answers the same and sends nothing.
 //
 // The handler takes and returns web-standard Request and
 // Response objects, like the core's, and answers null for any
@@ -2401,15 +2873,28 @@ function authRedirect(location, headers) {
   return new Response(null, { status: 302, headers: all });
 }
 
-function authHtml(html) {
+function authHtml(html, turnstile) {
+  var policy =
+    "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; " +
+    "font-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
+  if (turnstile) {
+    // The bot check's widget stands on the joining form
+    // alone: its script, its frame and its answer calls are
+    // let through in that page's answers, and nowhere else.
+    policy =
+      "default-src 'none'; style-src 'unsafe-inline'; " +
+      "script-src 'unsafe-inline' https://challenges.cloudflare.com; " +
+      "font-src 'self'; img-src 'self'; " +
+      "connect-src 'self' https://challenges.cloudflare.com; " +
+      "frame-src https://challenges.cloudflare.com; " +
+      "form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
+  }
   return new Response(html, {
     status: 200,
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "no-cache",
-      "content-security-policy":
-        "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; " +
-        "font-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+      "content-security-policy": policy,
       "x-content-type-options": "nosniff",
       "x-frame-options": "DENY",
       "referrer-policy": "same-origin",
@@ -3000,6 +3485,179 @@ export function createAuthHandlers(deps) {
     return beginSession(authRedirect("/"), finalKey, "invite", request);
   }
 
+  // --- The emailed link's handlers (the hosted shape) ---
+  // Every one of these answers only where cfg.hosted stands;
+  // the dispatch below never routes a home copy here, so the
+  // home shape's behaviour is untouched by their standing.
+
+  // The bot check, where the deployment configured one: no
+  // site key stands configured, no check runs. Where one
+  // stands, a missing token, a missing verifier or a failed
+  // verification all refuse — the check fails closed.
+  async function turnstilePassed(token, source) {
+    if (!cfg.turnstileSiteKey) return true;
+    if (!token || !cfg.turnstileVerify) return false;
+    try {
+      return !!(await cfg.turnstileVerify(String(token), source));
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // The body of the one message the hosted copy sends: the
+  // link, what it does, and how long it stands. The wording
+  // is the same whether the address is joining or coming
+  // back — the message itself tells nobody which.
+  function signInLinkMessage(email, code, origin) {
+    var link = origin + "/link/" + code;
+    var text = [
+      "Sign in to TaskSparkle with this link:",
+      "",
+      link,
+      "",
+      "It works once, and it expires in 15 minutes. It signs you in — or makes your account if you are new.",
+      "",
+      "If you did not ask for this link, leave this message alone.",
+    ].join("\n");
+    var html = [
+      "<p>Sign in to TaskSparkle with this link:</p>",
+      '<p><a href="' + link + '">Sign in to TaskSparkle</a></p>',
+      "<p>" + link + "</p>",
+      "<p>It works once, and it expires in 15 minutes. It signs you in — or makes your account if you are new.</p>",
+      "<p>If you did not ask for this link, leave this message alone.</p>",
+    ].join("\n");
+    return {
+      to: email, subject: "Your TaskSparkle sign-in link",
+      text: text, html: html, kind: "sign-in-link",
+    };
+  }
+
+  // The ask: an address typed on the sign-in page. The answer
+  // is one redirect, always — the check-your-inbox page —
+  // whatever the address holds, whatever the switch says,
+  // whether anything was sent: nothing about the answer tells
+  // a stranger which case stood. A link is sent only when it
+  // would do something: the address has an account (signing
+  // in is never gated), or joining stands open to this
+  // request under the switch and the country gate. Locked
+  // sources and capped paces send nothing either; every
+  // well-formed ask that is not already capped spends the
+  // pace, sent or not.
+  async function handleEmailLinkRequest(request) {
+    var source = cfg.sourceOf(request);
+    var answer = authRedirect("/login/sent");
+    var form = new URLSearchParams(await request.text());
+    var email = emailKey(form.get("email"));
+    if (emailProblem(email)) return answer;
+    if (await throttleLocked(authDb, source, null)) return answer;
+    if (await linkPaceCapped(authDb, source, email)) return answer;
+    await noteLinkRequest(authDb, source, email);
+    var account = await getAccountByEmail(authDb, email);
+    var maySend = !!account;
+    if (!maySend && (await countAccounts(authDb)) > 0 &&
+        (await doorState(authDb)) === DOOR_OPEN && countryAllowed(cfg, request)) {
+      maySend = true;
+    }
+    if (maySend && cfg.mailSend) {
+      var minted = await mintEmailLink(authDb, email);
+      var origin = new URL(request.url).origin;
+      var message = signInLinkMessage(email, minted.code, origin);
+      message.idempotencyKey = minted.codeHash;
+      try { await cfg.mailSend(message); } catch (e) { /* the answer never says */ }
+    }
+    await sweepAuth(authDb);
+    return answer;
+  }
+
+  async function handleLinkGet(request, url, code) {
+    var row = await findEmailLink(authDb, code);
+    if (!emailLinkUsable(row)) return authHtml(linkRefusedPageHtml());
+    var account = await getAccountByEmail(authDb, row.email);
+    if (account) return authHtml(linkSignInPageHtml(cfg, account, code));
+    // Joining is judged at the landing as at the spend: the
+    // switch first, then the country gate, then the form.
+    if ((await doorState(authDb)) !== DOOR_OPEN) {
+      return authHtml(linkJoinRefusedPageHtml(
+        (await doorState(authDb)) === DOOR_CLOSED));
+    }
+    if (!countryAllowed(cfg, request)) {
+      return authHtml(linkCountryPageHtml(cfg));
+    }
+    return authHtml(
+      linkJoinPageHtml(cfg, code, url.searchParams.get("error") || "",
+        secureAddress(url)),
+      !!cfg.turnstileSiteKey);
+  }
+
+  async function handleLinkPost(request, code) {
+    var source = cfg.sourceOf(request);
+    var back = "/link/" + encodeURIComponent(code);
+    var form = new URLSearchParams(await request.text());
+    var row = await findEmailLink(authDb, code);
+    if (!emailLinkUsable(row)) return authRedirect(back);
+    var account = await getAccountByEmail(authDb, row.email);
+    if (await throttleLocked(authDb, source, account ? account.key : null)) {
+      return authRedirect(back + "?error=locked");
+    }
+    if (account) {
+      // The sign-in spend — and the recovery, the same act:
+      // the link is proven by holding it, every other session
+      // the account holds is revoked, and a fresh session
+      // begins stamped with the link as its proof.
+      if (!(await spendEmailLink(authDb, code))) return authRedirect(back);
+      await revokeAccountSessions(authDb, account.key, null);
+      await writeAudit(authDb, account, "sign-in", account, "emailed link");
+      await clearThrottle(authDb, source, account.key);
+      await sweepAuth(authDb);
+      return beginSession(authRedirect("/"), account.key, "email", request);
+    }
+    // The joining spend. Every judgment stands before the
+    // spend — the switch and the gate read again here, as
+    // the creation they guard can have been outrun since the
+    // page was rendered — so a refused press leaves the link
+    // unspent, exactly as a refused invite press does.
+    if ((await doorState(authDb)) !== DOOR_OPEN) return authRedirect(back);
+    if (!countryAllowed(cfg, request)) return authRedirect(back);
+    var display = String(form.get("name") || "").trim();
+    if (nameProblem(display)) return authRedirect(back + "?error=name");
+    if (!form.get("terms")) return authRedirect(back + "?error=terms");
+    if (!(await turnstilePassed(form.get("cf-turnstile-response"), source))) {
+      return authRedirect(back + "?error=bot");
+    }
+    if (!(await spendEmailLink(authDb, code))) return authRedirect(back);
+    // The account is keyed by its address and carries it:
+    // the name the person gave is only what they are called.
+    // It is born with no password — the link and the passkey
+    // it is about to be offered are its ways in.
+    var created;
+    try {
+      created = await createAccount(authDb, {
+        key: row.email, email: row.email, name: display,
+        passwordHash: null, admin: false,
+      });
+    } catch (e) {
+      // The address won an account in the same moment. Hand
+      // the link back unspent and refuse, as an invite spend
+      // hands its invite back.
+      await unspendEmailLink(authDb, code);
+      return authRedirect(back + "?error=taken");
+    }
+    await writeAudit(authDb, created, "account-created", created, "emailed link");
+    await ensureAdminStanding(authDb);
+    await clearThrottle(authDb, source, created.key);
+    await sweepAuth(authDb);
+    return beginSession(authRedirect("/add-passkey"), created.key, "email", request);
+  }
+
+  // The passkey offer after a joining spend: a standing
+  // session is the whole entry requirement — without one the
+  // sign-in page is the answer.
+  async function handleAddPasskeyGet(request) {
+    var standing = await sessionFromRequest(authDb, request);
+    if (!standing) return authRedirect("/login");
+    return authHtml(passkeyOfferPageHtml(cfg));
+  }
+
   async function handlePasskeyOptions(request) {
     var source = cfg.sourceOf(request);
     // Refused with zero writes while the source stands locked:
@@ -3088,11 +3746,25 @@ export function createAuthHandlers(deps) {
           return authHtml(setupPageHtml(cfg, url.searchParams.get("error") || "",
             secureAddress(url)));
         }
-        var names = cfg.listNames ? await listAccounts(authDb) : null;
-        // The attempted name stands for this rendering only
-        // (issue #143): the cookie that carried it is expired
-        // in the same answer that reads it.
+        // The attempted name's cookie is read on every shape
+        // (issue #143): it is expired in the same answer that
+        // reads it. The home page below stands the name in
+        // its field; the hosted page renders no name at all,
+        // so there it is simply consumed.
         var attemptedName = attemptedNameFromRequest(request);
+        // The hosted copy's page is the emailed link's page:
+        // no name is typed and no password is asked for. The
+        // home page below is untouched.
+        if (cfg.hosted) {
+          var hostedAnswer = authHtml(hostedLoginPageHtml(cfg,
+            url.searchParams.get("error") || ""));
+          if (attemptedName) {
+            hostedAnswer.headers.append("Set-Cookie",
+              expiredAttemptCookieValue(cfg.cookieSecure(request)));
+          }
+          return hostedAnswer;
+        }
+        var names = cfg.listNames ? await listAccounts(authDb) : null;
         var loginAnswer = authHtml(loginPageHtml(cfg, url.searchParams.get("error") || "",
           names, rememberedNameFromRequest(request), secureAddress(url),
           rememberedViewFromRequest(request), attemptedName));
@@ -3108,6 +3780,25 @@ export function createAuthHandlers(deps) {
     }
     if (path === "/login/passkey/verify" && method === "POST") {
       return handlePasskeyVerify(request);
+    }
+    // The emailed link's addresses, the hosted shape only: a
+    // home copy never routes here, and its answers for these
+    // paths stay the fall-through they have always been.
+    if (cfg.hosted && path === "/login/email" && method === "POST") {
+      return handleEmailLinkRequest(request);
+    }
+    if (cfg.hosted && path === "/login/sent" && method === "GET") {
+      return authHtml(checkInboxPageHtml());
+    }
+    var linkMatch = /^\/link\/([^/]+)$/.exec(path);
+    if (cfg.hosted && linkMatch) {
+      var linkCode = linkMatch[1];
+      try { linkCode = decodeURIComponent(linkCode); } catch (e) { /* the raw segment stands */ }
+      if (method === "POST") return handleLinkPost(request, linkCode);
+      if (method === "GET") return handleLinkGet(request, url, linkCode);
+    }
+    if (cfg.hosted && path === "/add-passkey" && method === "GET") {
+      return handleAddPasskeyGet(request);
     }
     if (path === "/setup") {
       if (method === "POST") return handleSetupPost(request);

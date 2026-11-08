@@ -215,7 +215,7 @@ function countOf(row) {
 // loading line. The deploy checks the two stamps agree and fails
 // when they do not, so a release can never ship them mismatched.
 // Bump both together whenever the app files change.
-var BUILD_ID = "r2026-11-07-4";
+var BUILD_ID = "r2026-11-07-5";
 
 // Every API answer carries two standing headers. Cache-Control:
 // no-store, because state answers hold a person's boards and the
@@ -519,8 +519,9 @@ async function accessOwnerFromEmail(db, env, email, displayName) {
 // owners table's own shape. The identity string it carries is
 // the account's key: on a home copy that is the sign-in name
 // folded to lower case, the string the owners table has always
-// held there; on a hosted fresh install it is the same — the
-// person's name, not an address, and the app shows it as such.
+// held there; on the hosted copy, for an account the emailed
+// link made, the key is the address itself, so the address is
+// what stands here — and the app shows it as such.
 function freshOwnerRow(account) {
   return {
     id: newId("owner"),
@@ -2474,8 +2475,14 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
         // here, before anything is written, like every field
         // of a write. A transition-door caller holds no
         // account; their stored name is the claim's to keep.
+        // The one exception: an account that carries an email
+        // address is keyed by that address, and its name is
+        // only what it is called — a name change renames it
+        // in place below and never re-keys it, so two people
+        // called the same name never collide.
         var renameTarget = null;
-        if (meBody.name != null && via === "account" && caller && caller.account) {
+        if (meBody.name != null && via === "account" && caller && caller.account &&
+            !caller.account.email) {
           var wantedKey = nameKey(meBody.name.trim());
           if (wantedKey !== caller.account.key &&
               (await getAccount(deps.authDb || deps.db, wantedKey))) {
@@ -2487,6 +2494,12 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
           var newDisplayName = meBody.name.trim();
           if (renameTarget) {
             await renameAccount(deps.authDb || deps.db, renameTarget, newDisplayName);
+          } else if (via === "account" && caller && caller.account &&
+              caller.account.email && newDisplayName !== caller.account.name) {
+            await (deps.authDb || deps.db).prepare(
+              "UPDATE accounts SET name = ? WHERE key = ?"
+            ).bind(newDisplayName, caller.account.key).run();
+            caller.account.name = newDisplayName;
           }
           await db.prepare("UPDATE owners SET display_name = ? WHERE id = ?")
             .bind(newDisplayName, owner.id).run();
@@ -3932,6 +3945,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
           return json({
             key: account.key,
             name: account.name,
+            email: account.email || null,
             admin: !!account.admin,
             linked: !!owner,
             hasPassword: !!account.password_hash,

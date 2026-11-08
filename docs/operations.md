@@ -47,6 +47,30 @@ The Feedback page is a deployment setting, off unless set: a copy with no target
 - `LICENSE` is the MIT licence
 - `CHANGELOG.md` records what each release carries, and `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` and `SECURITY.md` hold how to contribute, the behaviour expected and the private route for reporting a vulnerability. The screenshots in the README live in `docs/screenshots/` and show a staged example board with sample cards
 
+## Joining and mail
+
+On a hosted copy, whether a stranger may join stands in the sign-in store's own bookkeeping — the `auth_meta` row with key `door`: no row, or 0, for invite-only (the default), 1 for open, 2 for closed. The Worker reads it on every request that could lead to an account, so flipping it is one stored value and no redeploy:
+
+```
+wrangler d1 execute <the auth database> --remote --command \
+  "INSERT INTO auth_meta (key, value) VALUES ('door', 1) ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+```
+
+The switch governs joining only. Signing in is never gated by it, and invites work in every state.
+
+Joining by email also takes the country gate and the bot check, where the deployment configures them: `SIGNUP_COUNTRIES` names the countries joining is open to (unset, it stands at Canada and the United States; set it empty for no gate), and a Turnstile site key in `TURNSTILE_SITE_KEY` with its secret set as the `TURNSTILE_SECRET_KEY` Worker secret stands the bot check on the joining form. Both are judged when a link is spent, never at sign-in.
+
+The links themselves ride a shared mail service. Bind the service's Worker as `MAIL_SERVICE` in the deployment's settings and set this copy's mail key as the `MAIL_APP_KEY` Worker secret; `MAIL_FROM` names the sender address, which must be one the key is scoped to send from, on a domain the mail service has onboarded (its own setup stands up the return path, DKIM and DMARC for the domain). A copy calling the service from off this platform leaves the binding out and sets `MAIL_SEND_URL` instead; the same key then signs each call. With no mail wiring at all, a link ask is still answered the same way and nothing is sent — the wiring completes the feature, and the page never shows which state stands.
+
+A standing account made before email sign-in — by setup or by invite — carries no address. Attach one with a single update against the auth database, naming the account's key and an address the person controls:
+
+```
+wrangler d1 execute <the auth database> --remote --command \
+  "UPDATE accounts SET email = '<the address>' WHERE key = '<the account key>'"
+```
+
+Their passkeys sign them in exactly as before. From the update on, the emailed link signs them in too, and the link is their recovery.
+
 ## Deploys and backups
 
 A push to main deploys the Cloudflare way through the workflows in `.github/workflows`, written for a self-hosted GitHub Actions runner; [Cloudflare setup](cloudflare-setup.md) says what to change if you do not have one. A deploy publishes the Pages site and the Worker together. It applies the schema first and syncs any missing columns. It then checks that the app's and the API core's build stamps agree before shipping. The deployment's Cloudflare credential and its filled-in `wrangler.toml` are repository secrets, handed to the job for that run only and written to the checkout by the job's first step. The workflows pin their tools (wrangler to an exact version, the checkout action to a commit) so nothing unreviewed runs beside the credential.

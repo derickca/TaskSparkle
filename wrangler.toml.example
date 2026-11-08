@@ -36,7 +36,9 @@ workers_dev = false
 # and fails. /login/* carries the passkey calls the sign-in page
 # makes under /login; /setup/* carries the passkey calls the setup
 # page makes under /setup; /invite-code is the paste-a-code form's
-# own address, which /invite/* does not cover.
+# own address, which /invite/* does not cover. /link/* carries
+# the emailed sign-in links, and /add-passkey the passkey offer a
+# new person lands on after joining.
 routes = [
   { pattern = "tasksparkle.your-domain.com/api/*", zone_name = "your-domain.com" },
   { pattern = "tasksparkle.your-domain.com/login", zone_name = "your-domain.com" },
@@ -45,6 +47,8 @@ routes = [
   { pattern = "tasksparkle.your-domain.com/setup/*", zone_name = "your-domain.com" },
   { pattern = "tasksparkle.your-domain.com/invite/*", zone_name = "your-domain.com" },
   { pattern = "tasksparkle.your-domain.com/invite-code", zone_name = "your-domain.com" },
+  { pattern = "tasksparkle.your-domain.com/link/*", zone_name = "your-domain.com" },
+  { pattern = "tasksparkle.your-domain.com/add-passkey", zone_name = "your-domain.com" },
   { pattern = "tasksparkle.your-domain.com/logout", zone_name = "your-domain.com" },
   { pattern = "tasksparkle-api.your-domain.com/api/*", zone_name = "your-domain.com" },
 ]
@@ -119,3 +123,31 @@ OWNER_EMAILS = "you@example.com"
 # It is spent the moment the first account stands — the page
 # never asks again — and deployments that predate accounts
 # need it once, at the cutover (docs/cloudflare-setup.md).
+
+# The countries joining is open to, as the edge reports them.
+# The hosted service stands at Canada and the United States;
+# unset, the Worker stands at that pair itself. Set it empty
+# for no country gate at all. Joining only — signing in is
+# never gated.
+SIGNUP_COUNTRIES = "CA,US"
+# Optional: a bot check on joining (Cloudflare Turnstile). The
+# site key is public and stands here; its secret half is a
+# Worker secret, set with `wrangler secret put
+# TURNSTILE_SECRET_KEY`, never written in this file. Leave the
+# site key out and no check runs.
+# TURNSTILE_SITE_KEY = "your-turnstile-site-key"
+# The address the sign-in links are sent from. It must be an
+# address this copy's mail credential is scoped to send from.
+MAIL_FROM = "noreply@your-domain.com"
+
+# The emailed sign-in links ride a shared mail service. Bind
+# its Worker here (the service name is your own deployment's),
+# and set this app's mail key as a Worker secret with
+# `wrangler secret put MAIL_APP_KEY` — the key stands only in
+# that setting, never in this file. A copy calling the service
+# from off this platform leaves the binding out and sets the
+# MAIL_SEND_URL var to the service's address instead; the key
+# is then used to sign each call.
+# [[services]]
+# binding = "MAIL_SERVICE"
+# service = "your-mail-service"

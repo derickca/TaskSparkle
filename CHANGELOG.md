@@ -6,6 +6,10 @@ Inside a release, the app stamps every deploy with a build stamp. The stamp is `
 
 ## [Unreleased]
 
+### Added
+
+- A hosted copy can now take people by emailed link. The sign-in page on a hosted copy is the link's page: one field for an email address, the button that sends the link, and the passkey button for a device that holds one — no name is typed and no password is asked for there. A person asks for a link, and spending it signs them in; where no account stands for the address, spending it joins instead — a name and the Terms agreement on the landing page make the account, and a passkey for the device is offered next. The link works once and lasts 15 minutes, and recovery is the same link asked for again. An account made this way carries its address, unique across the copy; its name is only what the person is called. Whether joining stands open is the operator's switch (invite-only by default, open, or closed), judged with the country gate and the bot check when a link is spent — never at sign-in — and asks are paced per source and per address, answered the same way whether or not an address holds an account. The links ride a shared mail service the deployment wires in. Self-host copies are unchanged: names, the pick list and passwords all stay. Build r2026-11-07-5.
+
 ### Changed
 
 - Feedback is now a deployment setting, off unless set. The Feedback page no longer posts to a named outside service out of the product's own files: a deployment names its feedback target in its own settings — the `FEEDBACK_URL` var on Cloudflare, `feedbackUrl` in a home copy's config — and a copy with no target named shows no Feedback page and no Feedback link anywhere. Where a target stands, the form posts to the app's own API, which passes the note to the target from the server side and relays its answer. Build r2026-11-07-3.

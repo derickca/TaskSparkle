@@ -28,3 +28,16 @@ ACCESS_AUD = "rig-audience"
 BROWSER_HOST = "localhost"
 AGENT_HOST = "127.0.0.1"
 SETUP_CODE = "rig-setup-code"
+# The joining gates and the mail path, rig values: the country
+# gate stands at the hosted pair, the bot check's site key
+# stands (its verifier is the rig's own siteverify stand-in on
+# the certs server), and the mail path is the capture server in
+# this folder, so an email drill reads a sent link out of the
+# captured message and spends it.
+SIGNUP_COUNTRIES = "CA,US"
+TURNSTILE_SITE_KEY = "rig-site-key"
+TURNSTILE_SECRET_KEY = "rig-secret-key"
+TURNSTILE_VERIFY_URL = "http://127.0.0.1:8791/siteverify"
+MAIL_SEND_URL = "http://127.0.0.1:8795/send"
+MAIL_APP_KEY = "rig-mail-key"
+MAIL_FROM = "noreply@rig.example.test"

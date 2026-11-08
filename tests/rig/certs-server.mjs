@@ -11,6 +11,19 @@ createServer((req, res) => {
   if (req.url === "/cdn-cgi/access/certs") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(jwks);
+  } else if (req.url === "/siteverify" && req.method === "POST") {
+    // The bot check's verification stand-in for the email
+    // drill: it answers success only for the rig's one good
+    // token, under the rig's configured secret.
+    let body = "";
+    req.on("data", (chunk) => { body += chunk; });
+    req.on("end", () => {
+      const params = new URLSearchParams(body);
+      const ok = params.get("secret") === "rig-secret-key" &&
+        params.get("response") === "pass-token";
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ success: ok }));
+    });
   } else {
     res.writeHead(404);
     res.end("nope");

@@ -152,6 +152,15 @@ The rig's two hosts are the two doors. `localhost` is the people's door. `127.0.
 
 The mint script signs a token for any name. The frozen transition door honours tokens only for board sets that already stand; the drill's accounts enter through the setup page and invites, like people.
 
+On its own fresh rig (the drill makes the first account itself and flips the joining switch in the rig's auth database), the email drill walks the hosted copy's sign-in and joining by emailed link:
+
+```
+node tests/email-drill.mjs --base https://localhost:8792 \
+  --setup-code rig-setup-code --rig-dir <the rig folder>
+```
+
+The rig's mail path points at the drill's own capture server (port 8795), so a sent link is read out of the captured message and spent. The walk covers the page's shape, the switch at invite-only and closed, the full joining journey with a passkey enrolment and a one-tap return, the link spent twice and expired, the country gate at the ask and at the spend, the link pace, the no-leak answer, and the invite machinery standing untouched.
+
 3. Stop the rig with `node tests/rig/rig.mjs stop --dir <the same folder>`. It stops the recorded process groups, confirms every one is gone, and only then removes the folder. A rig folder is never removed while its server still runs, and stop refuses a folder that holds no state file rather than guess which processes are the rig's.
 
 If a run is interrupted, or a rig folder was removed by hand, the stack can be left standing on a deleted folder (issue #157). `node tests/rig/rig.mjs reap --match <part of the folder's path>` stops every wrangler or workerd process whose working directory reads "(deleted)" and matches — and nothing else. `node tests/rig/rig-check.mjs`, run on the rig machine, proves the stop, the reap and the refusal.
@@ -176,7 +185,7 @@ node tests/api-drill.mjs --base http://localhost:8793 --mode selfhost \
 
 Some families run in Worker mode only. Self-host mode skips them:
 
-- The hosted setup refusals and the typed-name hosted sign-in page (issue #109)
+- The hosted setup refusals (issue #109), and the hosted sign-in page's shape — the emailed link's page, asserted in the API drill's place and walked whole in the email drill
 - The agent door refusing a session cookie and a person token
 - The #49 cookie expiry
 - The push route's 501 on an unconfigured deployment
@@ -271,7 +280,7 @@ The UI drill is `ui-drill.mjs`. It holds the browser checks. They are written fo
 
 - The remembered name: a sign-in pre-picks the person's name on the next visit; unticking "Remember my name on this device" clears it at once, and the visit after an unticked sign-in pre-picks nothing. This covers issue #112.
 - The same instance under a home-style name — `drill-home.local`, which the browser's resolver rule maps to the test machine — is an ordinary HTTP address, and the walk proves the gate there: the sign-in page offers no passkey button and the line stands in its place (framed at desktop and phone widths for the capture set); the password signs in; a passkey made at the secure address still lists on the Account page and can be removed, while the add act is not offered and the line stands in its place. This covers issue #113.
-- Given `--hosted-base <the Worker rig's address> --hosted-name "Drill A" --hosted-password <that password>`, a second walk runs against the rig's hosted page: the conditional passkey offer starts as the page loads (an options call no click made) and a password sign-in is undisturbed by it; a passkey signs in from the page's own button; the remembered name fills the typed field and clears the same way. The rig serves no front end, so a landed sign-in is proven by the session itself, and the enrolment runs from the sign-in page through the Account page's own calls (the app's enrolment click is covered on the self-host instance). The rig's drill accounts must already stand — run the API drill in Worker mode first.
+- Given `--hosted-base <the Worker rig's address> --rig-dir <the rig folder>`, a second walk runs against the rig's hosted page, which is the emailed link's page now: an email field carrying the webauthn autofill word, no password field and no name field; the conditional passkey offer starts as the page loads (an options call no click made); the ask lands on the check-your-inbox page; a new person's link — asked over HTTP with the country header a real edge adds, and read out of the drill's own mail capture (the rig's mail path points at it) — opens the joining page in the browser, its Terms tick standing unticked; the joining press itself runs over HTTP (the bot check's widget cannot mint a token for the rig's fake site key in any browser), and the browser then walks the passkey offer, enrols the device passkey with the offer's own button, and signs back in with the sign-in page's passkey button. The rig serves no front end, so a landed sign-in is proven by the session itself. The walk flips the joining switch open in the rig's auth database first, the operator's way — run it after the API drill in Worker mode, on the same rig.
 - The local mirror holds no name. A stale name, seeded on purpose, is cleared.
 - Logging out clears the mirror whole. This covers issue #58.
 - The whole run listens for a content-security-policy violation.

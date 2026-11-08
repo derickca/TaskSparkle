@@ -2123,20 +2123,33 @@ if (MODE === "worker") {
   const rememberOf = (res) =>
     (res.headers["set-cookie"] || []).find((c) => c.startsWith("ts_name=")) || "";
   {
-    // The page itself, in both shapes: the remember box
-    // stands ticked, and the passkey button stands under the
-    // name entry, before the password field.
+    // The page itself, in both shapes. At home: the remember
+    // box stands ticked, and the passkey button stands under
+    // the name entry, before the password field. On the
+    // hosted copy the page is the emailed link's page: no
+    // name, no password and no remember box stand on it at
+    // all — the remember machinery exercised below is the
+    // endpoint's own, and it still answers there.
     const plain = await raw(BASE, "GET", "/login", {});
-    check("#112: the sign-in page carries the remember box, ticked",
-      plain.text.includes('id="remember-name"') &&
-        /id="remember-name"[^>]*checked/.test(plain.text) &&
-        plain.text.includes("Remember my name on this device"),
-      "status " + plain.status);
-    check("#112: the passkey button stands under the name entry, before the password",
-      plain.text.indexOf('id="passkey-button"') !== -1 &&
-        plain.text.indexOf('id="passkey-button"') < plain.text.indexOf('name="password"'),
-      "button at " + plain.text.indexOf('id="passkey-button"') +
-        " password at " + plain.text.indexOf('name="password"'));
+    if (MODE === "worker") {
+      check("#112: the hosted sign-in page carries no remember box and no password field — the link's page stands instead",
+        !plain.text.includes('id="remember-name"') &&
+          !plain.text.includes('name="password"') &&
+          plain.text.includes('name="email"') &&
+          plain.text.includes('id="passkey-button"'),
+        "status " + plain.status);
+    } else {
+      check("#112: the sign-in page carries the remember box, ticked",
+        plain.text.includes('id="remember-name"') &&
+          /id="remember-name"[^>]*checked/.test(plain.text) &&
+          plain.text.includes("Remember my name on this device"),
+        "status " + plain.status);
+      check("#112: the passkey button stands under the name entry, before the password",
+        plain.text.indexOf('id="passkey-button"') !== -1 &&
+          plain.text.indexOf('id="passkey-button"') < plain.text.indexOf('name="password"'),
+        "button at " + plain.text.indexOf('id="passkey-button"') +
+          " password at " + plain.text.indexOf('name="password"'));
+    }
     // The same page as an ordinary HTTP address serves it
     // (issue #113): fetched from this same server with a
     // home-style Host name — the name a browser on the home
@@ -2179,8 +2192,9 @@ if (MODE === "worker") {
     const filled = await raw(BASE, "GET", "/login",
       { Cookie: "ts_name=" + encodeURIComponent(NAME_A) });
     if (MODE === "worker") {
-      check("#112: the hosted page fills the remembered name into the field, which carries the webauthn autofill word",
-        filled.text.includes('value="' + NAME_A + '"') &&
+      check("#112: the hosted page carries no name for the remembered cookie to fill — its one field is the email field, carrying the webauthn autofill word",
+        !filled.text.includes('value="' + NAME_A + '"') &&
+          filled.text.includes('name="email"') &&
           filled.text.includes('autocomplete="username webauthn"'),
         "status " + filled.status);
     } else {
@@ -2749,25 +2763,41 @@ if (MODE === "worker") {
   check("#122: with a password standing, the same removal is ordinary and lands",
     rmNow.status === 200, "status " + rmNow.status);
 
-  // The sign-in views (A.8): a fresh device opens on the
-  // passkey view; the device remembers the password view when
-  // it was left there; no hint about the autofill passkey
-  // stands anywhere on the page.
+  // The sign-in views (A.8): at home, a fresh device opens on
+  // the passkey view and the device remembers the password
+  // view when it was left there. On the hosted copy there are
+  // no views to switch: the page is the emailed link's one
+  // page, and the view cookie names nothing there.
   const loginFresh = await raw(BASE, "GET", "/login", {});
-  check("#122: a fresh device opens the sign-in on the passkey view, the switch below it",
-    loginFresh.status === 200 &&
-      loginFresh.text.includes('<div id="view-passkey">') &&
-      loginFresh.text.includes('<div id="view-password" hidden>') &&
-      loginFresh.text.includes('id="view-switch"') &&
-      loginFresh.text.includes("Use a password instead"),
-    "status " + loginFresh.status);
   const loginPwView = await raw(BASE, "GET", "/login", { Cookie: "ts_view=password" });
-  check("#122: a device that left the password view open opens there, with the way back standing",
-    loginPwView.status === 200 &&
-      loginPwView.text.includes('<div id="view-password">') &&
-      loginPwView.text.includes('<div id="view-passkey" hidden>') &&
-      loginPwView.text.includes("Use a passkey instead"),
-    "status " + loginPwView.status);
+  if (MODE === "worker") {
+    check("#122: the hosted sign-in has no views to switch — one page, the email field and the passkey button",
+      loginFresh.status === 200 &&
+        !loginFresh.text.includes('id="view-passkey"') &&
+        !loginFresh.text.includes('id="view-switch"') &&
+        loginFresh.text.includes('name="email"') &&
+        loginFresh.text.includes('id="passkey-button"'),
+      "status " + loginFresh.status);
+    check("#122: a device that left the password view open gets the same one page — the cookie names nothing there now",
+      loginPwView.status === 200 &&
+        !loginPwView.text.includes('id="view-password"') &&
+        loginPwView.text.includes('name="email"'),
+      "status " + loginPwView.status);
+  } else {
+    check("#122: a fresh device opens the sign-in on the passkey view, the switch below it",
+      loginFresh.status === 200 &&
+        loginFresh.text.includes('<div id="view-passkey">') &&
+        loginFresh.text.includes('<div id="view-password" hidden>') &&
+        loginFresh.text.includes('id="view-switch"') &&
+        loginFresh.text.includes("Use a password instead"),
+      "status " + loginFresh.status);
+    check("#122: a device that left the password view open opens there, with the way back standing",
+      loginPwView.status === 200 &&
+        loginPwView.text.includes('<div id="view-password">') &&
+        loginPwView.text.includes('<div id="view-passkey" hidden>') &&
+        loginPwView.text.includes("Use a passkey instead"),
+      "status " + loginPwView.status);
+  }
   check("#122: no hint about the autofill passkey stands anywhere on the sign-in, in either view",
     !/autofill/i.test(loginFresh.text) && !/autofill/i.test(loginPwView.text) &&
       !loginFresh.text.includes("passkey manager") &&
@@ -2825,8 +2855,9 @@ if (MODE === "worker") {
   const attemptPage = await raw(BASE, "GET", "/login",
     { Cookie: "ts_attempt=" + encodeURIComponent(NAME_A) });
   if (MODE === "worker") {
-    check("#143: the hosted page stands the attempted name in the typed field",
-      attemptPage.text.includes('value="' + NAME_A + '"'),
+    check("#143: the hosted page stands no attempted name anywhere — it renders no name field for one to stand in",
+      !attemptPage.text.includes('value="' + NAME_A + '"') &&
+        !attemptPage.text.includes('name="name"'),
       "status " + attemptPage.status);
   } else {
     check("#143: the home page pre-picks the attempted name on the list",

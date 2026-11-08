@@ -108,7 +108,7 @@ The app runs its own sign-in — there is nothing to set up in Zero Trust, and n
 
 7. **Fill in the settings file.**
    - Copy `wrangler.toml.example` to `wrangler.toml`.
-   - Put your two hosts in the routes. The browser host needs its sign-in routes as well as its `/api/*` route — `/login`, `/login/*`, `/setup`, `/invite/*`, `/invite-code` and `/logout` — because the Worker serves those pages itself. Leave them out and nobody can sign in.
+   - Put your two hosts in the routes. The browser host needs its sign-in routes as well as its `/api/*` route — `/login`, `/login/*`, `/setup`, `/invite/*`, `/invite-code`, `/link/*`, `/add-passkey` and `/logout` — because the Worker serves those pages itself. Leave them out and nobody can sign in.
    - Put the same hosts in the `BROWSER_HOST` and `AGENT_HOST` values.
    - Add your database ID.
    - If you made the second database in step 3, uncomment its block so it binds as `AUTH_DB`.

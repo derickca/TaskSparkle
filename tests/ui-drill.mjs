@@ -67,23 +67,19 @@
 // section stands disabled under its note instead of bouncing
 // to the sign-in page, while a board-API refusal still
 // bounces, as it should. Given --hosted-base (the Worker
-// rig), it also walks the hosted sign-in page in a browser:
-// the conditional passkey offer starts as the page loads and
-// a password sign-in is undisturbed by it, a passkey signs
-// in from the page's own button, and the remembered name
-// fills the typed field and clears the same way. The rig
-// serves no front end, so a landed sign-in there is proven
-// by the session itself, and the enrolment runs from the
-// sign-in page through the Account page's own calls — the
-// app's enrolment click is covered on the self-host
-// instance, whose Account section the walks above read.
+// rig) and --rig-dir, it also walks the hosted sign-in page
+// in a browser: the emailed link's page, its conditional
+// passkey offer, the check-your-inbox answer, a new person's
+// joining page read out of the drill's own mail capture, the
+// passkey offer and its enrolment, and the one-tap sign-in
+// from the page's own button. The rig serves no front end,
+// so a landed sign-in there is proven by the session itself.
 //
 // Usage:
 //   node tests/ui-drill.mjs --base http://host:PORT \
 //     --name "Drill A" --password <that person's own password> \
 //     --out /path/to/screenshots \
-//     [--hosted-base https://host:PORT --hosted-name "Drill A" \
-//      --hosted-password <that person's password on the rig>]
+//     [--hosted-base https://host:PORT --rig-dir <the rig folder>]
 //   node tests/ui-drill.mjs --spend-family 1 --base https://host:PORT \
 //     [--setup-code <the fresh copy's setup code>]
 //     runs only the spend-pages family (issue #128) against a
@@ -113,8 +109,6 @@ const NAME = args.name || "Drill A";
 const PASSWORD = args.password;
 const B_PASSWORD = args["password-b"] || PASSWORD;
 const HOSTED = args["hosted-base"] || null;
-const HOSTED_NAME = args["hosted-name"] || "Drill A";
-const HOSTED_PASSWORD = args["hosted-password"] || "";
 const OUT = args.out || "/tmp/ui-drill-shots";
 if (!BASE || (!PASSWORD && !args["spend-family"])) {
   console.error("usage: see the header of tests/ui-drill.mjs");
@@ -3721,252 +3715,203 @@ const deadKeyRes = await fetch(BASE + "/api/v1/state", {
 check("#57: the key minted in this run is dead after the erasure",
   deadKeyRes.status === 401, "status " + deadKeyRes.status);
 
-// --- The hosted sign-in page in a browser (issue #112) ------------------------------
-// Only with --hosted-base (the Worker rig, whose drill
-// accounts the API drill made): the typed-name page. A CDP
-// virtual authenticator stands in for a device passkey. The
-// walk: the conditional offer starts as the page loads and a
-// password sign-in is undisturbed by it; a passkey enrols in
-// the app and then signs in from the page's own button; the
-// remembered name fills the field and clears on untick.
+// --- The hosted sign-in page in a browser -----------------------------------
+// Only with --hosted-base (the Worker rig) and --rig-dir (so
+// the joining switch can be flipped the operator's way, in
+// the rig's local auth database). The page is the emailed
+// link's page now: an email field, the link button, and the
+// passkey button. A CDP virtual authenticator stands in for
+// a device passkey. The walk: the page's shape and its
+// conditional offer; the ask landing on the check-your-inbox
+// page; a new person's link opened in the browser (the ask
+// itself is made over HTTP with the country header a real
+// edge adds, which a browser cannot set) and the joining
+// page it lands on; the joining press itself over HTTP (the
+// bot check's widget cannot mint a token for the rig's fake
+// site key in any browser — the press is the email drill's
+// proof at the HTTP level); then the passkey offer page in
+// the browser, its own button enrolling the device passkey,
+// and the one-tap sign-in from the sign-in page's button.
 if (HOSTED) {
-  const hctx = await browser.newContext({
-    viewport: { width: 1280, height: 900 }, ignoreHTTPSErrors: true,
+  const { execFileSync } = await import("node:child_process");
+  const { request: httpsRequest } = await import("node:https");
+  const { startMailCapture, capturedMessages } =
+    await import("./rig/mail-capture.mjs");
+  const RIG_DIR = args["rig-dir"] || "";
+  const rigSql = (sql) => execFileSync("npx",
+    ["--yes", "wrangler@4.153.0", "d1", "execute", "tasksparkle-rig-auth",
+     "--local", "--command", sql],
+    { cwd: RIG_DIR, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  const rawHttps = (method, path, headers, body) => new Promise((resolve, reject) => {
+    const url = new URL(path, HOSTED);
+    const req = httpsRequest({
+      method, hostname: url.hostname, port: url.port,
+      path: url.pathname + url.search, rejectUnauthorized: false,
+      headers: body != null
+        ? { ...headers, "Content-Length": Buffer.byteLength(body) } : headers,
+    }, (res) => {
+      let text = "";
+      res.on("data", (c) => (text += c));
+      res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, text }));
+    });
+    req.on("error", reject);
+    if (body != null) req.write(body);
+    req.end();
   });
-  const hpage = await hctx.newPage();
-  const cdp = await hctx.newCDPSession(hpage);
-  await cdp.send("WebAuthn.enable");
-  await cdp.send("WebAuthn.addVirtualAuthenticator", {
-    options: {
-      protocol: "ctap2", transport: "internal", hasResidentKey: true,
-      hasUserVerification: true, isUserVerified: true,
-      automaticPresenceSimulation: true,
-    },
-  });
-  let optionsCalls = 0;
-  hpage.on("request", (req) => {
-    if (req.method() === "POST" && req.url().endsWith("/login/passkey/options")) {
-      optionsCalls += 1;
+  const formPostHttps = (path, fields, headers) => rawHttps("POST", path, {
+    "Content-Type": "application/x-www-form-urlencoded", ...(headers || {}),
+  }, new URLSearchParams(fields).toString());
+  const sessionOf = (res) => (res.headers["set-cookie"] || [])
+    .map((c) => c.split(";")[0])
+    .find((c) => c.startsWith("ts_session=") && c.length > "ts_session=".length) || null;
+
+  const capture = await startMailCapture(8795);
+  try {
+    if (RIG_DIR) {
+      rigSql("INSERT INTO auth_meta (key, value) VALUES ('door', 1) " +
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value");
     }
-  });
-  await hpage.goto(HOSTED + "/login", { waitUntil: "domcontentloaded" });
-  check("#112 hosted: the typed field carries the webauthn autofill word",
-    (await hpage.getAttribute("#login-name", "autocomplete")) === "username webauthn",
-    await hpage.getAttribute("#login-name", "autocomplete"));
-  check("#112 hosted: the remember box stands ticked",
-    await hpage.isChecked("#remember-name"), "");
-  check("#122 hosted: a fresh device opens on the passkey view — the button stands, the password field waits behind the switch",
-    (await hpage.locator("#passkey-button").isVisible()) &&
-      (await hpage.locator('input[name="password"]').isHidden()) &&
-      (await hpage.locator("#view-switch").innerText()).includes("Use a password instead"),
-    "");
-  // The conditional offer starts on its own: an options call
-  // with no click anywhere is its footprint.
-  for (let i = 0; i < 16 && optionsCalls === 0; i++) {
-    await hpage.waitForTimeout(500);
-  }
-  const mediation = await hpage.evaluate(() =>
-    window.PublicKeyCredential && window.PublicKeyCredential.isConditionalMediationAvailable
-      ? window.PublicKeyCredential.isConditionalMediationAvailable()
-      : Promise.resolve(false)).catch(() => false);
-  check("#112 hosted: the conditional passkey offer starts as the page loads",
-    optionsCalls >= 1, "options calls " + optionsCalls + " mediation " + mediation);
-  // The password door, with the offer standing: fill and
-  // submit — the offer disturbed nothing and printed
-  // nothing. The rig serves no front end (the Worker answers
-  // the root with its API note; in a real deployment the
-  // static site serves the app there), so a landed sign-in
-  // is proven by the session itself: /api/auth/me names the
-  // account on the far side of the redirect.
-  const meAfterPassword = async () => hpage.evaluate(async () => {
-    const res = await fetch("/api/auth/me");
-    return { status: res.status, body: await res.json().catch(() => null) };
-  });
-  await hpage.fill("#login-name", HOSTED_NAME);
-  await showPasswordView(hpage);
-  await hpage.fill('input[name="password"]', HOSTED_PASSWORD);
-  await hpage.click('button[type="submit"]');
-  await hpage.waitForURL(HOSTED + "/", { timeout: 15000 }).catch(() => {});
-  const landed = await meAfterPassword();
-  check("#112 hosted: a password sign-in lands with the conditional offer standing",
-    landed.status === 200 && !!landed.body && landed.body.name === HOSTED_NAME,
-    "status " + landed.status + " url " + hpage.url());
-  // Enrol the drill device's passkey, behind the fresh proof
-  // the sign-in itself gave. The rig has no front end, so
-  // the ceremony runs from this page through the Account
-  // page's own calls — the same options, the browser's own
-  // create, the same answer posted back. The API drill's
-  // software authenticators already stand on this account;
-  // remove them through their own route first, so this is a
-  // first passkey — a further one would ask for a passkey
-  // proof the drill's device cannot give for credentials it
-  // does not hold.
-  const enrolResult = await hpage.evaluate(async (nickname) => {
-    const b64uToBytes = (text) => {
-      const b64 = text.replace(/-/g, "+").replace(/_/g, "/");
-      const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
-      const bin = atob(padded);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return bytes;
-    };
-    const bytesToB64u = (buf) => {
-      const view = new Uint8Array(buf);
-      let bin = "";
-      for (let i = 0; i < view.length; i++) bin += String.fromCharCode(view[i]);
-      return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-    };
-    const call = async (method, path, body) => {
-      const res = await fetch(path, {
-        method,
-        headers: body != null ? { "Content-Type": "application/json" } : {},
-        body: body != null ? JSON.stringify(body) : undefined,
-      });
-      return { status: res.status, json: await res.json().catch(() => null) };
-    };
-    const me = await call("GET", "/api/auth/me");
-    for (const pk of (me.json && me.json.passkeys) || []) {
-      await call("DELETE", "/api/auth/passkeys/" + encodeURIComponent(pk.id));
-    }
-    const opts = await call("POST", "/api/auth/passkeys/options", {});
-    if (opts.status !== 200) return { step: "options", status: opts.status };
-    const o = opts.json;
-    const cred = await navigator.credentials.create({ publicKey: {
-      challenge: b64uToBytes(o.challenge),
-      rp: o.rp,
-      user: { id: b64uToBytes(o.user.id), name: o.user.name, displayName: o.user.displayName },
-      pubKeyCredParams: o.pubKeyCredParams,
-      authenticatorSelection: o.authenticatorSelection,
-      attestation: "none",
-      timeout: o.timeout,
-      excludeCredentials: (o.excludeCredentials || []).map((c) => ({ id: b64uToBytes(c.id), type: c.type })),
-    } });
-    const created = await call("POST", "/api/auth/passkeys", {
-      response: {
-        id: bytesToB64u(cred.rawId), type: cred.type,
-        response: {
-          clientDataJSON: bytesToB64u(cred.response.clientDataJSON),
-          attestationObject: bytesToB64u(cred.response.attestationObject),
-          transports: cred.response.getTransports ? cred.response.getTransports() : [],
-        },
+    const hctx = await browser.newContext({
+      viewport: { width: 1280, height: 900 }, ignoreHTTPSErrors: true,
+    });
+    const hpage = await hctx.newPage();
+    const cdp = await hctx.newCDPSession(hpage);
+    await cdp.send("WebAuthn.enable");
+    await cdp.send("WebAuthn.addVirtualAuthenticator", {
+      options: {
+        protocol: "ctap2", transport: "internal", hasResidentKey: true,
+        hasUserVerification: true, isUserVerified: true,
+        automaticPresenceSimulation: true,
       },
-      nickname,
     });
-    if (created.status !== 201) return { step: "create", status: created.status };
-    const after = await call("GET", "/api/auth/me");
-    return {
-      step: "done", status: created.status,
-      names: ((after.json && after.json.passkeys) || []).map((p) => p.nickname),
-    };
-  }, "Hosted drill passkey");
-  check("#112 hosted: the passkey enrols against the fresh proof",
-    enrolResult.step === "done" && enrolResult.names.includes("Hosted drill passkey"),
-    JSON.stringify(enrolResult).slice(0, 120));
-  // Sign out: the page now remembers the name (the password
-  // sign-in stood the cookie), and the button signs in. The
-  // device now holds a passkey, so this visit's conditional
-  // offer could complete on its own given time — the walk
-  // holds the offer's first call back briefly (a network
-  // delay on the options route), so the button's own
-  // ceremony is the one that runs: the click stands the
-  // offer down before its ceremony ever begins.
-  await hpage.route("**/login/passkey/options", async (route) => {
-    await new Promise((r) => setTimeout(r, 1500));
-    await route.continue();
-  });
-  await hpage.goto(HOSTED + "/logout", { waitUntil: "domcontentloaded" });
-  await hpage.waitForURL(/\/login/, { timeout: 10000 }).catch(() => {});
-  check("#112 hosted: the remembered name fills the field on the next visit",
-    (await hpage.inputValue("#login-name")) === HOSTED_NAME,
-    await hpage.inputValue("#login-name"));
-  check("#122 hosted: the device remembered the password view from the earlier sign-in",
-    (await hpage.locator('input[name="password"]').isVisible()) &&
-      (await hpage.locator("#view-switch").innerText()).includes("Use a passkey instead"),
-    "");
-  await hpage.screenshot({ path: join(OUT, "login-hosted-1280.png") });
-  await hpage.click("#view-switch");
-  await hpage.locator("#passkey-button").waitFor({ state: "visible", timeout: 5000 });
-  await hpage.click("#passkey-button");
-  await hpage.waitForURL(HOSTED + "/", { timeout: 15000 }).catch(() => {});
-  const tapLanded = await meAfterPassword();
-  check("#112 hosted: the page's own passkey button signs in",
-    tapLanded.status === 200 && !!tapLanded.body && tapLanded.body.proofVia === "passkey",
-    "status " + tapLanded.status + " via " + (tapLanded.body && tapLanded.body.proofVia));
-  await hpage.unroute("**/login/passkey/options");
-  // The phone-width frame of the same page, in a throwaway
-  // context carrying only the remembered-name cookie: it
-  // holds no authenticator, so no offer can disturb the
-  // portrait.
-  {
-    const jar = await hctx.cookies(HOSTED + "/login");
-    const nameCookie = jar.find((c) => c.name === "ts_name");
-    const pctx = await browser.newContext({
-      viewport: { width: 390, height: 844 }, ignoreHTTPSErrors: true,
+    let optionsCalls = 0;
+    hpage.on("request", (req) => {
+      if (req.method() === "POST" && req.url().endsWith("/login/passkey/options")) {
+        optionsCalls += 1;
+      }
     });
-    if (nameCookie) await pctx.addCookies([nameCookie]);
-    const portrait = await pctx.newPage();
-    await portrait.goto(HOSTED + "/login", { waitUntil: "domcontentloaded" });
-    await portrait.waitForTimeout(600);
-    await portrait.screenshot({ path: join(OUT, "login-hosted-390.png") });
-    await pctx.close();
+    const meInPage = async () => hpage.evaluate(async () => {
+      const res = await fetch("/api/auth/me");
+      return { status: res.status, body: await res.json().catch(() => null) };
+    });
+
+    await hpage.goto(HOSTED + "/login", { waitUntil: "domcontentloaded" });
+    check("#112 hosted: the email field carries the webauthn autofill word",
+      (await hpage.getAttribute("#login-name", "autocomplete")) === "username webauthn",
+      await hpage.getAttribute("#login-name", "autocomplete"));
+    check("email hosted: the page is the designed page — an email field, the link " +
+        "button and the passkey button, and no password field, no name field " +
+        "and no remember box anywhere on it",
+      (await hpage.getAttribute("#login-name", "type")) === "email" &&
+        (await hpage.locator('input[name="password"]').count()) === 0 &&
+        (await hpage.locator('input[name="name"]').count()) === 0 &&
+        (await hpage.locator("#remember-name").count()) === 0 &&
+        (await hpage.locator("#passkey-button").isVisible()) &&
+        (await hpage.locator("h1").innerText()).includes("TaskSparkle") &&
+        (await hpage.locator("body").innerText()).includes("No password, ever."),
+      "");
+    for (let i = 0; i < 16 && optionsCalls === 0; i++) {
+      await hpage.waitForTimeout(500);
+    }
+    check("#112 hosted: the conditional passkey offer starts as the page loads",
+      optionsCalls >= 1, "options calls " + optionsCalls);
+    await hpage.screenshot({ path: join(OUT, "login-hosted-1280.png") });
+    {
+      const pctx = await browser.newContext({
+        viewport: { width: 390, height: 844 }, ignoreHTTPSErrors: true,
+      });
+      const portrait = await pctx.newPage();
+      await portrait.goto(HOSTED + "/login", { waitUntil: "domcontentloaded" });
+      await portrait.waitForTimeout(600);
+      await portrait.screenshot({ path: join(OUT, "login-hosted-390.png") });
+      await pctx.close();
+    }
+
+    // The ask, in the browser: the answer is the
+    // check-your-inbox page, in its settled words.
+    await hpage.fill("#login-name", "ui-joiner@example.test");
+    await hpage.click('button[type="submit"]');
+    await hpage.waitForURL(HOSTED + "/login/sent", { timeout: 15000 }).catch(() => {});
+    check("email hosted: the ask lands on the check-your-inbox page",
+      hpage.url() === HOSTED + "/login/sent" &&
+        (await hpage.locator("body").innerText()).includes("Check your inbox"),
+      "url " + hpage.url());
+    await hpage.screenshot({ path: join(OUT, "sent-hosted-1280.png") });
+
+    if (RIG_DIR) {
+      // The same ask over HTTP, carrying the country a real
+      // edge adds: the message lands in the capture, and its
+      // link opens in the browser.
+      await formPostHttps("/login/email",
+        { email: "ui-joiner@example.test" }, { "CF-IPCountry": "CA" });
+      let linkPath = null;
+      for (let i = 0; i < 20 && !linkPath; i++) {
+        const all = await capturedMessages(8795);
+        const mine = all.filter((m) => m.body && m.body.to === "ui-joiner@example.test");
+        const text = mine.length ? String(mine[mine.length - 1].body.text || "") : "";
+        const match = /\/link\/([A-Za-z0-9_-]+)/.exec(text);
+        if (match) linkPath = "/link/" + match[1];
+        if (!linkPath) await hpage.waitForTimeout(250);
+      }
+      check("email hosted: the sent link was read out of the captured message",
+        !!linkPath, String(linkPath));
+      await hpage.goto(HOSTED + linkPath, { waitUntil: "domcontentloaded" });
+      check("email hosted: the link lands on the joining page — a name field, " +
+          "the Terms tick standing unticked, and the one button",
+        (await hpage.locator('input[name="name"]').isVisible()) &&
+          (await hpage.locator('input[name="terms"]').isChecked()) === false &&
+          (await hpage.locator('button[type="submit"]').innerText()).includes("Make my boards") &&
+          (await hpage.locator("body").innerText()).includes("You get your own boards"),
+        "url " + hpage.url());
+      await hpage.screenshot({ path: join(OUT, "join-hosted-1280.png") });
+      // The press itself, over HTTP (see the header): the
+      // session it begins is handed to the browser.
+      const press = await formPostHttps(linkPath,
+        { name: "UI Joiner", terms: "1", "cf-turnstile-response": "pass-token" },
+        { "CF-IPCountry": "CA" });
+      const session = sessionOf(press);
+      check("email hosted: the joining press lands on the passkey offer",
+        press.status === 302 &&
+          (press.headers.location || "") === "/add-passkey" && !!session,
+        "status " + press.status + " location " + press.headers.location);
+      await hctx.addCookies([{
+        name: "ts_session", value: session.slice("ts_session=".length),
+        url: HOSTED + "/",
+      }]);
+      await hpage.goto(HOSTED + "/add-passkey", { waitUntil: "domcontentloaded" });
+      check("email hosted: the passkey offer stands in its words, with a way past it",
+        (await hpage.locator("body").innerText()).includes("Make this device one tap") &&
+          (await hpage.locator("#spend-passkey-button").isVisible()) &&
+          (await hpage.locator("body").innerText()).includes("Not now"),
+        "url " + hpage.url());
+      await hpage.screenshot({ path: join(OUT, "offer-hosted-1280.png") });
+      await hpage.click("#spend-passkey-button");
+      await hpage.waitForURL(HOSTED + "/", { timeout: 15000 }).catch(() => {});
+      const afterEnrol = await meInPage();
+      check("email hosted: the offer's own button enrols the device passkey",
+        afterEnrol.status === 200 && !!afterEnrol.body &&
+          (afterEnrol.body.passkeys || []).length >= 1,
+        "status " + afterEnrol.status + " passkeys " +
+          ((afterEnrol.body && afterEnrol.body.passkeys) || []).length);
+      // Out, and back with the one tap alone.
+      await hpage.goto(HOSTED + "/logout", { waitUntil: "domcontentloaded" });
+      await hpage.waitForURL(/\/login/, { timeout: 10000 }).catch(() => {});
+      await hpage.locator("#passkey-button").waitFor({ state: "visible", timeout: 5000 });
+      await hpage.click("#passkey-button");
+      await hpage.waitForURL(HOSTED + "/", { timeout: 15000 }).catch(() => {});
+      const tapLanded = await meInPage();
+      check("email hosted: the page's own passkey button signs in — one tap, nothing typed",
+        tapLanded.status === 200 && !!tapLanded.body &&
+          tapLanded.body.proofVia === "passkey",
+        "status " + tapLanded.status + " via " + (tapLanded.body && tapLanded.body.proofVia));
+    } else {
+      check("email hosted: the joining walk needs --rig-dir (the switch flip and the mail capture)",
+        false, "pass --rig-dir <the rig folder>");
+    }
+    await hctx.close();
+  } finally {
+    capture.close();
   }
-  // Untick, and the memory goes: at once on the page, and
-  // for the next visit after an unticked sign-in. The offer
-  // is held back across this walk the same way — the device
-  // holds the passkey, and an offer completing mid-walk
-  // would sign the page in out from under the form.
-  await hpage.route("**/login/passkey/options", async (route) => {
-    await new Promise((r) => setTimeout(r, 3000));
-    await route.continue();
-  });
-  await hpage.goto(HOSTED + "/logout", { waitUntil: "domcontentloaded" });
-  await hpage.waitForURL(/\/login/, { timeout: 10000 }).catch(() => {});
-  await hpage.uncheck("#remember-name");
-  const hostedCookie = await hpage.evaluate(() => document.cookie);
-  check("#112 hosted: unticking clears the remembered name at once",
-    !hostedCookie.includes("ts_name="), hostedCookie.slice(0, 60));
-  await showPasswordView(hpage);
-  await hpage.fill('input[name="password"]', HOSTED_PASSWORD);
-  await hpage.click('button[type="submit"]');
-  await hpage.waitForURL(HOSTED + "/", { timeout: 15000 }).catch(() => {});
-  await hpage.goto(HOSTED + "/logout", { waitUntil: "domcontentloaded" });
-  await hpage.waitForURL(/\/login/, { timeout: 10000 }).catch(() => {});
-  // The durable fact is the store, not the live field: the
-  // device holds a passkey, so this visit's own offer may
-  // fill the field from the authenticator (and sign in) at
-  // any moment — that is the offer working, not a memory.
-  // What the unticked sign-in had to leave behind is no
-  // cookie in the jar and a page served with an empty field.
-  const jarAfter = await hctx.cookies(HOSTED + "/login");
-  // The served value: the field's tag, and its value word
-  // when it carries one — an empty field is served with no
-  // value word at all, which reads as "" here; null means
-  // the field itself was not in the page.
-  const servedFillOf = (html) => {
-    const tag = /<input[^>]*id="login-name"[^>]*>/.exec(html);
-    if (!tag) return null;
-    const value = /value="([^"]*)"/.exec(tag[0]);
-    return value ? value[1] : "";
-  };
-  let servedFill = servedFillOf(await hpage.evaluate(async () => {
-    const res = await fetch("/login");
-    return await res.text();
-  }).catch(() => ""));
-  if (servedFill === null) {
-    // The offer may have signed the page in mid-fetch; the
-    // served page is the same read from the far side.
-    await hpage.waitForTimeout(800);
-    servedFill = servedFillOf(await hpage.evaluate(async () => {
-      const res = await fetch("/login");
-      return await res.text();
-    }).catch(() => ""));
-  }
-  check("#112 hosted: after an unticked sign-in the name stands nowhere — no cookie, and the page is served empty",
-    !jarAfter.some((c) => c.name === "ts_name") && servedFill === "",
-    "cookie " + jarAfter.some((c) => c.name === "ts_name")
-      + " served value " + JSON.stringify(servedFill));
-  await hpage.unroute("**/login/passkey/options");
-  await hctx.close();
 }
 
 await browser.close();

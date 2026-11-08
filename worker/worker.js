@@ -120,6 +120,125 @@ function notifyOwnerPush(env, ctx, ownerId, version) {
   } catch (e) { /* push is a courtesy; the version still tells the truth */ }
 }
 
+// SIGNUP_COUNTRIES names the countries joining is open to, as
+// the edge reports them ("CA,US"). Unset, it stands at the
+// hosted service's pair — Canada and the United States — so
+// the gate survives an operator forgetting the setting; a copy
+// that wants no gate sets it empty.
+function signupCountriesOf(env) {
+  if (!env || env.SIGNUP_COUNTRIES === undefined || env.SIGNUP_COUNTRIES === null) {
+    return ["CA", "US"];
+  }
+  return String(env.SIGNUP_COUNTRIES).split(",")
+    .map(function (code) { return code.trim().toUpperCase(); })
+    .filter(Boolean);
+}
+
+// The bot check's server-side half: posts the person's token
+// to the verification address with the deployment's secret and
+// answers whether it stood. Unconfigured, it answers false —
+// the check fails closed wherever a site key stands.
+async function verifyTurnstile(env, token, source) {
+  if (!env || !env.TURNSTILE_SECRET_KEY) return false;
+  try {
+    var res = await fetch(env.TURNSTILE_VERIFY_URL || "https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        secret: env.TURNSTILE_SECRET_KEY, response: token,
+        remoteip: source || "",
+      }),
+    });
+    if (!res.ok) return false;
+    var data = await res.json();
+    return !!(data && data.success);
+  } catch (e) {
+    return false;
+  }
+}
+
+async function sha256HexText(text) {
+  var digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  var bytes = new Uint8Array(digest);
+  var hex = "";
+  for (var i = 0; i < bytes.length; i++) hex += bytes[i].toString(16).padStart(2, "0");
+  return hex;
+}
+
+// The hosted copy's mail path: one message through the shared
+// mail service, under this app's own credential — scoped
+// service-side to this app's sender addresses and kinds, so
+// the key can only ever send as TaskSparkle. Two shapes stand:
+// the service binding, where the deployment bound the mail
+// service's Worker (the host in a binding call is never read —
+// the binding routes the call itself — so a plain name stands
+// there), and a plain signed call to MAIL_SEND_URL, the shape
+// a caller off this platform uses. Neither configured, nothing
+// sends: the ask was still answered the same, and the
+// operator's wiring completes it.
+async function sendViaMailService(env, message) {
+  var body = JSON.stringify({
+    from: (env && env.MAIL_FROM) || "noreply@tasksparkle.com",
+    from_name: "TaskSparkle",
+    to: message.to,
+    subject: message.subject,
+    text: message.text,
+    html: message.html,
+    kind: message.kind,
+    idempotency_key: message.idempotencyKey,
+  });
+  try {
+    if (env && env.MAIL_SERVICE && env.MAIL_SERVICE.fetch) {
+      var bound = await env.MAIL_SERVICE.fetch("https://mail-service/send", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-mail-app": "tasksparkle",
+          "authorization": "Bearer " + (env.MAIL_APP_KEY || ""),
+        },
+        body: body,
+      });
+      return bound.status === 202 || bound.status === 200;
+    }
+    if (env && env.MAIL_SEND_URL && env.MAIL_APP_KEY) {
+      var timestamp = String(Math.floor(Date.now() / 1000));
+      var nonceBytes = new Uint8Array(16);
+      crypto.getRandomValues(nonceBytes);
+      var nonce = "";
+      for (var i = 0; i < nonceBytes.length; i++) {
+        nonce += nonceBytes[i].toString(16).padStart(2, "0");
+      }
+      var bodyHash = await sha256HexText(body);
+      var signed = "POST\n/send\n" + timestamp + "\n" + nonce + "\n" + bodyHash;
+      var key = await crypto.subtle.importKey(
+        "raw", new TextEncoder().encode(env.MAIL_APP_KEY),
+        { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+      var signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(signed));
+      var sigBytes = new Uint8Array(signature);
+      var signatureHex = "";
+      for (var j = 0; j < sigBytes.length; j++) {
+        signatureHex += sigBytes[j].toString(16).padStart(2, "0");
+      }
+      var called = await fetch(env.MAIL_SEND_URL, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-mail-app": "tasksparkle",
+          "x-mail-key": env.MAIL_APP_KEY,
+          "x-mail-timestamp": timestamp,
+          "x-mail-nonce": nonce,
+          "x-mail-signature": signatureHex,
+        },
+        body: body,
+      });
+      return called.status === 202 || called.status === 200;
+    }
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
 export default {
   async fetch(request, env, ctx) {
     var url = new URL(request.url);
@@ -161,7 +280,22 @@ export default {
             return req.headers.get("CF-Connecting-IP") || "unknown";
           },
           sourceCapMs: 15 * 60 * 1000,
-          cookieSecure: function () { return true; }
+          cookieSecure: function () { return true; },
+          // The joining gates and the mail path, this
+          // deployment's own seams (see worker/auth.js): the
+          // country comes from the edge's own header, and a
+          // missing header reads as no country at all.
+          signupCountries: signupCountriesOf(env),
+          countryOf: function (req) {
+            return req.headers.get("CF-IPCountry") || null;
+          },
+          turnstileSiteKey: (env && env.TURNSTILE_SITE_KEY) || null,
+          turnstileVerify: function (token, source) {
+            return verifyTurnstile(env, token, source);
+          },
+          mailSend: function (message) {
+            return sendViaMailService(env, message);
+          }
         }
       });
       var pageAnswer = await authPages(request);

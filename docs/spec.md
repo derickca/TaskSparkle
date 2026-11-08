@@ -118,6 +118,16 @@ Every later person joins by invite. An administrator makes a one-use invite link
 
 The administrator can invite people and make another person an administrator. The administrator can send reset and recovery links. The administrator can sign a person out everywhere, remove a named passkey and remove a person.
 
+### Joining by email
+
+A hosted copy can also take people by emailed link, when its operator opens joining. The setting stands in the copy's own store: invite-only (the default), open, or closed. Invites work in every state.
+
+An account made this way carries one email address, proven by the link round-trip, and unique across the copy. Its name is only what the person is called: never unique, and never typed at sign-in.
+
+Joining and signing in are one act. A person types their address on the sign-in page and the copy emails a one-use link that lasts 15 minutes. Spending it signs in an account that stands, and makes the account when none stands — the landing page asks for a name and the Terms agreement, and the account is made only when both stand. Joining can be gated to named countries, and a bot check can stand on the joining form; both are judged when the link is spent, never at sign-in. A joining spend offers a passkey for the device next.
+
+The page answers an ask the same way whether or not the address holds an account, and a link is sent only when it would do something. Link asks are paced per source and per address, so no inbox can be flooded through the page.
+
 The administrator cannot sign in as another person. The administrator cannot read, set or use another person's password or passkey.
 
 One guard protects the copy. The only administrator cannot be removed or lose that role while other accounts stand. Another person must become an administrator first.
@@ -132,6 +142,8 @@ Signing in is passkey-first at a secure address. The sign-in page opens on the p
 
 The device remembers the view last used. Enrolling a passkey makes the passkey view that device's view. A later manual switch changes the memory again.
 
+On a hosted copy the sign-in page is the emailed link's page: one field for the address, the button that sends the link, and the passkey button for a device that holds one. No name is typed and no password is asked for there. The passkey ceremony is the same discoverable one, and the address field carries its autofill offer.
+
 An account can hold a password alone, a password and passkeys, or a passkey alone. A password needs at least 12 characters. The product refuses passwords people use most and refuses a password equal to the account name.
 
 A new account chooses its first way in on the setup or invite page. The page stands the passkey way first at a secure address. A passkey account is created only when its ceremony verifies. It starts with no password.
@@ -144,7 +156,9 @@ Passkeys need an address the browser trusts. At an ordinary HTTP address, the si
 
 ### Recovery and removal
 
-The app sends no recovery message by itself. Recovery is a link handed over by a person or by the operator.
+A self-host copy sends no recovery message by itself. Recovery there is a link handed over by a person or by the operator.
+
+On a hosted copy, recovery is the sign-in link again: a shut-out person asks for a link, and spending it is the way back in. There is no separate reset. Spending it revokes the account's other sessions, like a reset spend does.
 
 An administrator can send a reset or recovery link from Settings, then Admin. On a home copy, the operator can mint the same kind of link with the server command. On a hosted copy, the operator can mint it with the deployment's own credential. Those routes serve the day no administrator can sign in.
 

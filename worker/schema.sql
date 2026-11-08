@@ -210,7 +210,14 @@ CREATE TABLE IF NOT EXISTS accounts (
   admin INTEGER NOT NULL DEFAULT 0,
   owner_id TEXT,
   user_handle TEXT NOT NULL,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  -- The address the emailed-link sign-in answers to, folded
+  -- to lower case, or NULL where the account carries none —
+  -- every account the older ways made, and every account on
+  -- a home copy. An account the link itself made is keyed by
+  -- its address, and the address stands here as well: one
+  -- account per address, held by the unique index below.
+  email TEXT
 );
 
 CREATE TABLE IF NOT EXISTS invites (
@@ -220,6 +227,31 @@ CREATE TABLE IF NOT EXISTS invites (
   created INTEGER NOT NULL,
   expires INTEGER NOT NULL,
   used_at INTEGER
+);
+
+-- The emailed sign-in links, in the invites' own shape: only
+-- the SHA-256 hash of the code stands, the address the link
+-- was sent to rides the row, and a link lives fifteen
+-- minutes. Spending is one conditional update, as with an
+-- invite; looking at the page never spends it.
+CREATE TABLE IF NOT EXISTS email_links (
+  code_hash TEXT PRIMARY KEY,
+  email TEXT NOT NULL,
+  created INTEGER NOT NULL,
+  expires INTEGER NOT NULL,
+  used_at INTEGER
+);
+
+-- The link requests' own pace, apart from the sign-in
+-- throttle: how many requests one watched key — a source
+-- address, or an email address inside its hour or its day —
+-- has set in motion inside its current window. A row is dead
+-- once its longest window has passed; the auth sweep reaps
+-- it like the throttle's rows.
+CREATE TABLE IF NOT EXISTS link_requests (
+  key TEXT PRIMARY KEY,
+  window_start INTEGER NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS passkeys (
@@ -281,8 +313,10 @@ CREATE TABLE IF NOT EXISTS auth_throttle (
   PRIMARY KEY (scope, key)
 );
 
--- One-row bookkeeping for the auth store (today: the cleanup
--- sweep's last-run stamp).
+-- One-row bookkeeping for the auth store: the cleanup
+-- sweep's last-run stamp, and the joining switch's row —
+-- key 'door', 0 or no row for invite-only (the default),
+-- 1 for open, 2 for closed.
 CREATE TABLE IF NOT EXISTS auth_meta (
   key TEXT PRIMARY KEY,
   value INTEGER NOT NULL
@@ -292,6 +326,10 @@ CREATE INDEX IF NOT EXISTS idx_passkeys_account ON passkeys (account_key);
 CREATE INDEX IF NOT EXISTS idx_sessions_account ON sessions (account_key);
 CREATE INDEX IF NOT EXISTS idx_auth_challenges_hash ON auth_challenges (challenge_hash);
 CREATE INDEX IF NOT EXISTS idx_invites_key ON invites (key);
+CREATE INDEX IF NOT EXISTS idx_email_links_email ON email_links (email);
+-- One account per address: the index is partial so the many
+-- accounts carrying no address never collide on it.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_email ON accounts (email) WHERE email IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_api_tokens_owner ON api_tokens (owner_id, revoked_at);
 CREATE INDEX IF NOT EXISTS idx_boards_owner ON boards (owner_id, position);

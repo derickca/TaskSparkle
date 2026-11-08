@@ -456,6 +456,35 @@ const authConfig = {
   publicBase: inviteBase(),
 };
 
+// The joining gates' seams stand in the home config too, so
+// the shared code's shape is one shape on both deployments.
+// They govern joining on the hosted copy only — a home copy
+// joins by invite, and nothing here is ever read on it.
+function homeSignupCountries() {
+  if (!Array.isArray(config.signupCountries)) return null;
+  return config.signupCountries
+    .map((code) => String(code).trim().toUpperCase())
+    .filter(Boolean);
+}
+async function homeVerifyTurnstile(token) {
+  if (!config.turnstileSecretKey) return false;
+  try {
+    const res = await fetch(
+      config.turnstileVerifyUrl || "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ secret: config.turnstileSecretKey, response: String(token) }),
+      },
+    );
+    if (!res.ok) return false;
+    const data = await res.json();
+    return !!(data && data.success);
+  } catch {
+    return false;
+  }
+}
+
 // The sign-in pages, from the shared code, in this copy's
 // shape: the pick list of names stands (a home copy is reached
 // by the household), and no setup code is asked — the house
@@ -470,6 +499,10 @@ const authPages = createAuthHandlers({
     sourceOf: authConfig.sourceOf,
     sourceCapMs: authConfig.sourceCapMs,
     cookieSecure: () => false,
+    signupCountries: homeSignupCountries(),
+    countryOf: (request) => request.headers.get("cf-ipcountry") || null,
+    turnstileSiteKey: config.turnstileSiteKey || null,
+    turnstileVerify: homeVerifyTurnstile,
     },
 });
 

@@ -34,7 +34,7 @@ A password can always come back. On the same page, **Add a password** sets one a
 
 ## What passkey-only costs
 
-With no password standing, your ways back in are another passkey or a link a person hands you. There is no password road: no reset by email, no security question, nothing the app sends you by itself.
+With no password standing, your ways back in are another passkey or a link a person hands you. There is no password road: no reset by email, no security question. On a home copy nothing the app sends you exists at all; on a hosted copy the emailed sign-in link below is the one message the copy sends, and it is a sign-in, not a password reset.
 
 Two more costs, named before you choose:
 
@@ -43,9 +43,9 @@ Two more costs, named before you choose:
 
 ## Getting back in
 
-Recovery is always a person or the operator handing you a link. The app never sends one by itself.
+On a home copy, recovery is always a person or the operator handing you a link; the app never sends one by itself. On a hosted copy, recovery is the sign-in link again: ask for one on the sign-in page, and spending the link that arrives is the way back in — there is no separate reset.
 
-- **You hold a password and forgot it:** the administrator — the first account on this copy — sends you a reset link from Settings, then Admin. Spending it sets a new password and signs out every sign-in.
+- **You hold a password and forgot it:** the administrator — the first account on this copy — sends you a reset link from Settings, then Admin. Spending it sets a new password and signs out every sign-in. On a hosted copy whose account carries your email address, the emailed sign-in link does the same job.
 - **You sign in with passkeys and lost them all:** the administrator sends you a link the same way. Your invite opens a recovery page instead of a password form, and spending it enrols a fresh passkey and signs out every sign-in.
 - **You run this copy:** the operator can mint the same link at the machine — a command on a home copy, the deployment's own credential on a hosted copy. That is the floor under every account, and it is held by a person, never by the app alone.
 
