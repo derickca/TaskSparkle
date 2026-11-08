@@ -23,7 +23,7 @@
 // paints (see bootLoad). The deploy fails when the stamps differ,
 // so they can only ever disagree in a browser still holding an
 // older copy of this file — which is the case the reload cures.
-var BUILD_ID = "r2026-11-07-18";
+var BUILD_ID = "r2026-11-07-19";
 
 // Label colours are stored as palette ids. The person picks from this
 // palette in Settings and each card chip paints itself from it. Each
