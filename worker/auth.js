@@ -1604,7 +1604,10 @@ var PAGE_STYLE = [
      below are the site stylesheet's, copied the same way
      as the palette; the deployment repo's local checks
      hold the copies equal to the stylesheet's, rule by
-     rule, where the stylesheet's site section stands. */
+     rule, where the stylesheet's site section stands.
+     One adaptation stands: the copy's frame carries its
+     own box-sizing, where the stylesheet's pages take
+     theirs from its global rule. */
   ".static-wrap { max-width: 46em; margin: 0 auto;",
   "  padding: 0 14px 40px; box-sizing: border-box; }",
   ".site-head, .site-head * { box-sizing: border-box; }",

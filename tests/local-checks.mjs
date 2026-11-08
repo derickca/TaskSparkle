@@ -366,13 +366,17 @@ function paletteBlocksOf(css) {
   }
 }
 {
-  // The heading's measures: the account pages' inline copy of
-  // the heading's rules must give the heading the same box the
-  // site stylesheet gives it — same padding, gaps, sizes and
-  // phone rules — or the heading would stand in a different
-  // place on the sign-in page than on the site's pages. The
-  // rendered walks measure the boxes themselves; this check
-  // holds the rules that produce them equal at the source.
+  // The heading's measures and the frame's: the account
+  // pages' inline copies of the heading's rules and of the
+  // frame's rules (the body rule and the reading column)
+  // must give those pages the same boxes the site
+  // stylesheet gives the site's pages — same padding, gaps,
+  // sizes, standing height and phone rules, the frame's
+  // same width, centring and side padding — or the account
+  // pages would stand in different margins from the site's
+  // pages. The rendered walks measure the boxes themselves;
+  // this check holds the rules that produce them equal at
+  // the source (issues #39, #40).
   const auth = readFileSync(join(ROOT, "worker", "auth.js"), "utf8");
   const pageStyle = jsStringLiterals(auth, "var PAGE_STYLE = [", "].join(");
   const css = readFileSync(join(ROOT, "public", "styles.css"), "utf8");
@@ -395,7 +399,7 @@ function paletteBlocksOf(css) {
   };
   const tailOf = (text) => text.slice(text.lastIndexOf("@media (max-width: 640px)"));
   const pairs = [
-    [".site-head", ["display", "align-items", "gap", "padding"]],
+    [".site-head", ["display", "align-items", "gap", "padding", "min-height"]],
     [".site-brand", ["display", "align-items", "gap", "color",
       "text-decoration", "font-family", "font-weight", "font-size"]],
     [".site-links", ["display", "align-items", "gap", "margin-left"]],
@@ -409,8 +413,13 @@ function paletteBlocksOf(css) {
   const phonePairs = [
     [".site-link", ["padding"]],
     [".site-brand", ["order", "font-size", "gap"]],
-    [".site-head", ["flex-wrap", "row-gap", "padding-top", "padding-bottom"]],
+    [".site-head", ["flex-wrap", "row-gap", "padding-top", "padding-bottom",
+      "min-height"]],
     [".site-links", ["order", "flex-basis", "margin-left"]],
+  ];
+  const framePairs = [
+    ["body", ["margin", "font-family", "background", "color", "line-height"]],
+    [".static-wrap", ["max-width", "margin", "padding"]],
   ];
   const drift = [];
   const compare = (aRules, bRules, selA, selB, props, where) => {
@@ -423,6 +432,7 @@ function paletteBlocksOf(css) {
     }
   };
   const cssRules = rulesOf(css); const pageRules = rulesOf(pageStyle);
+  for (const [sel, props] of framePairs) compare(cssRules, pageRules, sel, sel, props, "frame");
   for (const [sel, props] of pairs) compare(cssRules, pageRules, sel, sel, props, "heading");
   compare(cssRules, pageRules, ".site-brand img", ".site-brand svg",
     ["display", "border-radius", "width", "height"], "heading");
@@ -431,14 +441,15 @@ function paletteBlocksOf(css) {
   compare(cssPhone, pagePhone, ".site-brand img", ".site-brand svg",
     ["width", "height"], "phone heading");
   if (drift.length) {
-    console.error("The account pages' heading rules have drifted from " +
-      "public/styles.css: " + drift.join("; ") + ". The heading would " +
-      "stand in a different box on the sign-in pages than on the site's " +
-      "pages. Bring worker/auth.js's PAGE_STYLE heading rules back in line.");
+    console.error("The account pages' heading and frame rules have " +
+      "drifted from public/styles.css: " + drift.join("; ") + ". The " +
+      "heading or the frame would stand in a different box on the " +
+      "sign-in pages than on the site's pages. Bring worker/auth.js's " +
+      "PAGE_STYLE heading and frame rules back in line.");
     process.exit(1);
   }
-  console.log("Account pages' heading rules: the measures in worker/auth.js " +
-    "match public/styles.css, phone rules included.");
+  console.log("Account pages' heading and frame rules: the measures in " +
+    "worker/auth.js match public/styles.css, phone rules included.");
   }
 }
 
