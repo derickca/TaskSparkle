@@ -1638,6 +1638,70 @@ const stateGone = !(await stateHasCard(delMade.card.id));
 check("#97: confirming in the dialog deletes the card, on the board and in the state",
   faceGone === 0 && stateGone, "faces=" + faceGone + " gone from state=" + stateGone);
 
+// --- The Archived list stands closed (issue #26) -------------------------------
+// Under the board the section is one line: the word Archived
+// and how many cards it holds. No archived card rows stand
+// under the regular cards. Tapping the line opens the list as
+// it stands today — every archived card with Restore and
+// Delete — and tapping again closes it. Leaving the board and
+// coming back starts it closed again.
+const CLOSED_ONE = "Closed list one " + Date.now();
+const CLOSED_TWO = "Closed list two " + Date.now();
+const closedOne = await makeCardViaApi(CLOSED_ONE);
+const closedTwo = await makeCardViaApi(CLOSED_TWO);
+for (const made of [closedOne, closedTwo]) {
+  await fetch(BASE + "/api/v1/cards/" + made.card.id, {
+    method: "PATCH",
+    headers: { Authorization: "Bearer " + mintedKey, "Content-Type": "application/json" },
+    body: JSON.stringify({ archived: true }),
+  });
+}
+const closedState = await (await fetch(BASE + "/api/v1/state", {
+  headers: { Authorization: "Bearer " + mintedKey },
+})).json();
+const closedCount = (closedState.cards || []).filter((c) => c.boardId === personalBoard.id && c.archived).length;
+const professionalBoardEarly = (closedState.boards || []).find((b) => b.name === "Professional");
+check("#26: the cards for the closed-list walk stand archived on the board",
+  closedOne.status === 201 && closedTwo.status === 201 && closedCount >= 2 && !!professionalBoardEarly,
+  "made " + closedOne.status + "/" + closedTwo.status + " archived on the board=" + closedCount);
+await page.reload({ waitUntil: "domcontentloaded" });
+await page.waitForSelector("#board-ui:not([hidden])", { timeout: 15000 });
+await page.waitForSelector("#archived-section:not([hidden])", { timeout: 10000 });
+const closedRows = await page.locator("[data-archived-card]").count();
+const toggleText = await page.locator("#archived-toggle").textContent({ timeout: 2000 }).catch(() => "");
+const toggleExpanded = await page.locator("#archived-toggle").getAttribute("aria-expanded", { timeout: 2000 }).catch(() => null);
+check("#26: the section stands as one line naming the count, with no archived rows under the board",
+  closedRows === 0 && (toggleText || "").includes("Archived") &&
+    (toggleText || "").includes("(" + closedCount + ")") && toggleExpanded === "false",
+  "rows=" + closedRows + " line=" + JSON.stringify(toggleText) + " expanded=" + toggleExpanded);
+if (await page.locator("#archived-toggle").count() === 1) {
+  await page.click("#archived-toggle");
+  await page.waitForSelector("[data-archived-card]", { timeout: 10000 }).catch(() => {});
+}
+const openRows = await page.locator("[data-archived-card]").count();
+const openRowActs = await page.locator("[data-archived-card]").first()
+  .locator('[data-role="archived-restore"], [data-role="archived-delete"]').count().catch(() => 0);
+check("#26: tapping the line opens the list as it stands today, Restore and Delete on its rows",
+  openRows === closedCount && openRowActs === 2,
+  "rows=" + openRows + " of " + closedCount + " acts on the first row=" + openRowActs);
+// Away to the other board and back: the list starts closed again.
+await page.click('.board-tab[data-board="' + professionalBoardEarly.id + '"]');
+await page.waitForTimeout(400);
+await page.click('.board-tab[data-board="' + personalBoard.id + '"]');
+await page.waitForSelector("#archived-section:not([hidden])", { timeout: 10000 });
+const backRows = await page.locator("[data-archived-card]").count();
+check("#26: leaving the board and coming back starts the list closed again",
+  backRows === 0, "rows=" + backRows);
+if (await page.locator("#archived-toggle").count() === 1) {
+  await page.click("#archived-toggle");
+  await page.waitForSelector("[data-archived-card]", { timeout: 10000 }).catch(() => {});
+  await page.click("#archived-toggle");
+  await page.waitForTimeout(300);
+}
+const shutRows = await page.locator("[data-archived-card]").count();
+check("#26: tapping the line again closes the list",
+  shutRows === 0, "rows=" + shutRows);
+
 // The Archived list's Delete opens the same dialog.
 const ARCH_TITLE = "Delete dialog archived " + Date.now();
 const archMade = await makeCardViaApi(ARCH_TITLE);
