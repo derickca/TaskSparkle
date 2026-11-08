@@ -3818,12 +3818,23 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
       // within the last ten minutes, and — once the account
       // holds a passkey — that proof must be a passkey for
       // enrolment (determination 2: passkey guards passkey).
-      var stepUpState = async function () {
+      // Enrolment alone also takes a fresh emailed link's
+      // proof: where a deployment's door signs people in by
+      // an emailed link, the link is the full proof — the
+      // spend that began the session is the sign-in itself —
+      // and a passkey enrolled at one of the deployment's
+      // addresses can never answer a proof tap at another,
+      // so demanding one would close the very offer the link
+      // lands on. A copy whose door mints no link proofs has
+      // no session that can carry one, and its rule stands
+      // exactly as it was.
+      var stepUpState = async function (forEnrolment) {
         var held = await countPasskeys(authDb2, account.key);
         var fresh = !!session &&
           (Date.now() - Number(session.proof_at || 0) <= PROOF_FRESH_MS);
         var needs = held.count > 0 ? "passkey" : "any";
-        var ok = fresh && (needs === "any" || session.proof_via === "passkey");
+        var ok = fresh && (needs === "any" || session.proof_via === "passkey" ||
+          (forEnrolment && session.proof_via === "email"));
         return { ok: ok, needs: needs, held: held.count };
       };
       var stepUpRefusal = function (needs) {
@@ -3946,7 +3957,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
       // answer. Guarded by the step-up rule above.
       if ((p = match(parts, ["api", "auth", "passkeys", "options"]))) {
         if (method === "POST") {
-          var enrolState = await stepUpState();
+          var enrolState = await stepUpState(true);
           if (!enrolState.ok) return stepUpRefusal(enrolState.needs);
           var enrolChallenge = await issueChallenge(authDb2, "enrol", account.key);
           // No exclusion list (issue #132): naming the
@@ -3982,7 +3993,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
       }
       if ((p = match(parts, ["api", "auth", "passkeys"]))) {
         if (method === "POST") {
-          var addState = await stepUpState();
+          var addState = await stepUpState(true);
           if (!addState.ok) return stepUpRefusal(addState.needs);
           var addBody = await readBody(request);
           if (!addBody || !addBody.response) return error("The enrolment answer is incomplete.");
