@@ -26,7 +26,6 @@ Two habits back that up. Every password must be at least 12 characters. Sign-in 
 
      **Settle this address before anyone adds a passkey.** A passkey is made for one exact address: change the address later and every passkey stops working, and each person must make a new one.
    - `agentHost` — the name and port agents use to reach this machine, printed in the directions the API serves and in the app's Set Up Agent text. Use the machine's network name and the port, like `your-machine.local:8080`. If your agents run on the machine itself, `localhost:8080` is fine.
-   - `feedbackUrl` — optional, and empty unless you set it. The full address your own feedback service accepts submissions at, path included: the place the Feedback page sends its notes. Leave it empty and this copy shows no Feedback page and no Feedback link anywhere — feedback goes nowhere by default, and no copy sends notes to anyone else's inbox. Set it and the Feedback page stands, its form sending each note to that address through this server.
 
    Older configs may still carry a `sessionSecret` field. Sessions are server-side rows in the data file now — the server mints and revokes them itself — so the field is ignored and can be deleted.
 

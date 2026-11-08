@@ -70,7 +70,7 @@
 // self-host mode) run under the oldest supported Node.
 import { spawn, spawnSync } from "node:child_process";
 import { connect } from "node:net";
-import { request as httpRequest, createServer as httpCreateServer } from "node:http";
+import { request as httpRequest } from "node:http";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir, networkInterfaces } from "node:os";
 import { dirname, join } from "node:path";
@@ -1595,88 +1595,6 @@ try {
       nocodeOpts.status === 400 && !!nocodeOptsJson &&
         /No setup code is set/.test(nocodeOptsJson.error || ""),
       "status " + nocodeOpts.status + " body " + (nocodeOptsJson && nocodeOptsJson.error));
-  }
-
-  // --- Feedback: a deployment setting (#22) ---------------------------------------
-  // The config's feedbackUrl is the copy's feedback target,
-  // and empty is the default. A copy that names none: the
-  // site answer says no target stands, the Feedback page's
-  // addresses answer not found, and the submit route answers
-  // not found — while the rest of the copy stands as usual. A
-  // copy that names one: the page serves with its form, and a
-  // note posted to the copy's own API lands on the target
-  // whole, under the copy's own origin, the target's answer
-  // relayed. The target is a stand-in this drill holds open.
-  {
-    const portFbOff = nextPort;
-    const cfgFbOff = writeConfig("feedback-off.json", {});
-    nextPort += 1;
-    const srvFbOff = await startServer(cfgFbOff);
-    try {
-      const siteOff = await apiCall(portFbOff, null, "GET", "/api/site");
-      check("#22: a copy with no feedback target says so",
-        siteOff.status === 200 && !!siteOff.json && siteOff.json.feedback === false,
-        "status " + siteOff.status);
-      check("#22: and its Feedback page answers not found, in both spellings",
-        (await getStatus("http://127.0.0.1:" + portFbOff + "/feedback")) === 404 &&
-          (await getStatus("http://127.0.0.1:" + portFbOff + "/feedback.html")) === 404);
-      const postOff = await apiCall(portFbOff, null, "POST", "/api/feedback",
-        { service: "tasksparkle", type: "other", fields: { message: "A drill note." }, website: "", openedAt: 1 });
-      check("#22: and its submit route answers not found",
-        postOff.status === 404, "status " + postOff.status);
-      check("#22: while the rest of the copy stands as usual",
-        (await getStatus("http://127.0.0.1:" + portFbOff + "/")) === 200 &&
-          (await getStatus("http://127.0.0.1:" + portFbOff + "/terms")) === 200);
-    } finally {
-      await stopServer(srvFbOff);
-    }
-
-    let fbSeen = null;
-    const standin = httpCreateServer((req, res) => {
-      let text = "";
-      req.on("data", (c) => (text += c));
-      req.on("end", () => {
-        fbSeen = { method: req.method, url: req.url, origin: req.headers.origin || "", body: text };
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true }));
-      });
-    });
-    await new Promise((resolve) => standin.listen(0, "127.0.0.1", resolve));
-    const standinUrl = "http://127.0.0.1:" + standin.address().port + "/api/submit";
-    const portFbOn = nextPort;
-    const cfgFbOn = writeConfig("feedback-on.json", { feedbackUrl: standinUrl });
-    nextPort += 1;
-    const srvFbOn = await startServer(cfgFbOn);
-    try {
-      const siteOn = await apiCall(portFbOn, null, "GET", "/api/site");
-      check("#22: a copy that names a target says so",
-        siteOn.status === 200 && !!siteOn.json && siteOn.json.feedback === true,
-        "status " + siteOn.status);
-      const pageOn = await getText("http://127.0.0.1:" + portFbOn + "/feedback");
-      check("#22: and its Feedback page serves, with the form standing",
-        pageOn.status === 200 && pageOn.text.includes('id="feedback-form"'),
-        "status " + pageOn.status);
-      const note = {
-        service: "tasksparkle", type: "improve",
-        fields: { message: "A drill note.", page: "/feedback" },
-        website: "", openedAt: 1234567890,
-      };
-      const postOn = await apiCall(portFbOn, null, "POST", "/api/feedback", note);
-      check("#22: a note posted to the copy's own API is answered by the target's answer",
-        postOn.status === 200 && !!postOn.json && postOn.json.ok === true,
-        "status " + postOn.status);
-      let seenNote = null;
-      try { seenNote = fbSeen ? JSON.parse(fbSeen.body) : null; } catch (e) { seenNote = null; }
-      check("#22: and the note reached the target whole, under the copy's own origin",
-        !!fbSeen && fbSeen.method === "POST" && fbSeen.url === "/api/submit" &&
-          fbSeen.origin === "http://127.0.0.1:" + portFbOn &&
-          !!seenNote && seenNote.service === "tasksparkle" && seenNote.type === "improve" &&
-          !!seenNote.fields && seenNote.fields.message === "A drill note.",
-        fbSeen ? fbSeen.method + " " + fbSeen.url + " origin " + fbSeen.origin : "the target saw nothing");
-    } finally {
-      await stopServer(srvFbOn);
-      standin.close();
-    }
   }
 } finally {
   rmSync(scratch, { recursive: true, force: true });

@@ -30,10 +30,10 @@ import { createServer } from "node:http";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createApiHandler, feedbackTarget } from "../worker/core.js";
+import { createApiHandler } from "../worker/core.js";
 import {
   createAuthHandlers, getAccount, countAccounts, mintInvite,
-  eraseAccountCredentials, ensureAdminStanding,
+  eraseAccountCredentials, ensureAdminStanding, sessionFromRequest,
   nameKey, nameProblem, newAccountId, randomBytes, b64uEncode,
 } from "../worker/auth.js";
 import { openDatabase } from "./d1-adapter.mjs";
@@ -434,12 +434,6 @@ const coreEnv = {
   OWNER_EMAILS: "",
   AGENT_HOST: agentHost,
   AGENT_SCHEME: agentScheme,
-  // The deployment's feedback target (issue #22), from the
-  // config's feedbackUrl: the address this copy's Feedback
-  // page posts its notes to. Absent — the config.example.json
-  // default — the copy shows no Feedback page and no Feedback
-  // link, and the core's submit route answers not found.
-  FEEDBACK_URL: String(config.feedbackUrl || ""),
 };
 
 // The sign-in config this copy hands both the page handlers
@@ -600,28 +594,17 @@ const NO_CACHE = new Set([
   "/", "/index.html", "/boot.js", "/app.js", "/styles.css", "/manifest.webmanifest", "/sw.js",
   "/icons/icon-192.png", "/icons/icon-512.png", "/icons/icon-maskable-512.png", "/icons/icon-180.png",
   "/icons/icon-64.png", "/icons/icon.svg", "/fonts/comfortaa-bold.woff2",
-  // The public pages (issue #14) and the feedback page's
-  // script revalidate the same way, so a change to their
-  // words is what every open gets. The Help topics stand
-  // under /help/ and are covered by the prefix check where
-  // this set is read.
-  "/feedback.js", "/terms", "/terms.html", "/help", "/help.html",
-  "/feedback", "/feedback.html", "/site.js",
 ]);
 
 // The app's security headers (issue #70), the same set
 // public/_headers declares on Cloudflare — the two lists are
-// kept alike by hand. The policy names the app's own origin
-// and nothing else: its own script, styles and icons, its own
-// API and socket, and no framing by anyone. The Feedback
-// page's form posts to the app's own API, which passes the
-// note to the deployment's configured target from the server
-// side (issue #22), so no outside origin stands here either.
+// kept alike by hand. The policy names only the app's own
+// origin: its own script, styles and icons, its own API and
+// socket, and no framing by anyone.
 const SECURITY_HEADERS = {
   "Content-Security-Policy":
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; " +
-    "connect-src 'self'; manifest-src 'self'; worker-src 'self'; " +
-    "base-uri 'self'; form-action 'self'; " +
+    "connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; " +
     "frame-ancestors 'none'",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
@@ -633,31 +616,18 @@ const SECURITY_HEADERS = {
 
 function serveStatic(req, res, pathname) {
   const rel = pathname === "/" ? "/index.html" : pathname;
-  let file = resolve(PUBLIC_DIR, "." + rel);
+  const file = resolve(PUBLIC_DIR, "." + rel);
   if (file !== PUBLIC_DIR && !file.startsWith(PUBLIC_DIR + sep)) {
     res.writeHead(404); res.end("Not found."); return;
   }
   let info;
-  try { info = statSync(file); } catch (e) { info = null; }
-  if ((!info || !info.isFile()) && !extname(rel)) {
-    // A page's pretty path: /terms stands for /terms.html, the
-    // way the Cloudflare copy answers — its _headers rules name
-    // both forms for the same reason. The same guard applies
-    // to the candidate as to the path itself.
-    const alt = resolve(PUBLIC_DIR, "." + rel + ".html");
-    if (alt.startsWith(PUBLIC_DIR + sep)) {
-      try {
-        const altInfo = statSync(alt);
-        if (altInfo.isFile()) { file = alt; info = altInfo; }
-      } catch (e) { /* no page by that name */ }
-    }
-  }
-  if (!info || !info.isFile()) { res.writeHead(404); res.end("Not found."); return; }
+  try { info = statSync(file); } catch (e) { res.writeHead(404); res.end("Not found."); return; }
+  if (!info.isFile()) { res.writeHead(404); res.end("Not found."); return; }
   const headers = {
     "Content-Type": CONTENT_TYPES[extname(file).toLowerCase()] || "application/octet-stream",
     ...SECURITY_HEADERS,
   };
-  if (NO_CACHE.has(rel) || rel.startsWith("/help/")) headers["Cache-Control"] = "no-cache";
+  if (NO_CACHE.has(rel)) headers["Cache-Control"] = "no-cache";
   res.writeHead(200, headers);
   res.end(readFileSync(file));
 }
@@ -706,25 +676,15 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // The Feedback page stands only on a copy whose config
-    // names a feedback target (issue #22): with no target set
-    // the page's addresses answer not found here, before the
-    // static files are read — the same answer the core's
-    // submit route gives on such a copy.
-    if ((pathname === "/feedback" || pathname === "/feedback.html") && !feedbackTarget(coreEnv)) {
-      res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8", ...SECURITY_HEADERS });
-      res.end("Not found.");
-      return;
+    // Page loads: the app itself. Without a session the door is
+    // the sign-in page; the files around the app (its script,
+    // styles, icons) carry no one's data and are served openly,
+    // as the manifest and icons are on Cloudflare — the API above
+    // is the gate that matters.
+    if (pathname === "/" || pathname === "/index.html") {
+      const webReq = toWebRequest(req, null);
+      if (!(await sessionFromRequest(db, webReq))) { redirect(res, "/login"); return; }
     }
-
-    // Page loads: the app itself, served openly like the files
-    // around it (its script, styles, icons) — the API above is
-    // the gate that matters, as it is on Cloudflare, where the
-    // root is a Pages file no Worker route covers. The app
-    // decides what a load shows: boards for a signed-in
-    // account, the public page for a signed-out visitor
-    // (issue #16 — a server-side bounce here meant the public
-    // page could never show on a self-host copy).
     serveStatic(req, res, pathname);
   } catch (err) {
     if (err && err.code === "BODY_TOO_LARGE") {

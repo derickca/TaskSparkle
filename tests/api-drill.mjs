@@ -68,17 +68,6 @@
 //     old-config refusals, the bind option) is drilled by
 //     tests/server-drill.mjs.
 //
-// The feedback family (issue #22) drills the deployment's
-// feedback setting, and is told which state the copy under it
-// stands in: --feedback on|off (off when unspoken — the state
-// the harness's instance and the standing rig stand in). On
-// names a target the drill itself holds open as a stand-in on
-// port 8795: the copy's FEEDBACK_URL must point at
-// http://127.0.0.1:8795/api/submit before the copy starts (on
-// the Worker rig, the var stands in the rig folder's
-// wrangler.toml; the self-host on-state is carried by the
-// server drill instead, which writes its own configs).
-//
 // The two drill people are accounts named Drill A and Drill B
 // on both homes (issue #109): the core keys their owners by
 // the sign-in name folded to lower case ("drill a", "drill b"),
@@ -102,7 +91,7 @@
 // passkey tap honouring the box, and the passkey button
 // standing under the name entry on both pages.
 import { request as httpsRequest } from "node:https";
-import { request as httpRequest, createServer as httpCreateServer } from "node:http";
+import { request as httpRequest } from "node:http";
 import { connect as netConnect } from "node:net";
 import { randomBytes, generateKeyPairSync, createSign, createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
@@ -3431,59 +3420,6 @@ function doorCallerFor(cookie) {
         "redeem " + fresh.status + " state " + res.status + " version " +
           (res.json && res.json.version) + " boards " +
           (res.json && res.json.boards && res.json.boards.length));
-    }
-  }
-}
-
-// --- Feedback: a deployment setting (issue #22) ------------------------------
-// The feedback target is the deployment's setting, never the
-// product's default, and no caller is involved: the site
-// answer and the submit route answer visitors. Off (the
-// state every standing copy stands in until its operator
-// sets a target): the site answer says no target stands and
-// the submit route answers not found. On: the note a visitor
-// posts lands on the target whole — the same JSON, the
-// copy's own origin named — and the target's answer is
-// relayed as it stood.
-{
-  const FEEDBACK_ON = args.feedback === "on";
-  const site = await raw(BASE, "GET", "/api/site", {});
-  check("#22: the site answer names whether a feedback target stands",
-    site.status === 200 && !!site.json && site.json.feedback === FEEDBACK_ON,
-    "status " + site.status + " body " + site.text);
-  const noteBody = JSON.stringify({
-    service: "tasksparkle", type: "other",
-    fields: { message: "A drill note.", page: "/feedback" },
-    website: "", openedAt: 1234567890,
-  });
-  const noteHeaders = { "Content-Type": "application/json", Origin: new URL(BASE).origin };
-  if (!FEEDBACK_ON) {
-    const post = await raw(BASE, "POST", "/api/feedback", noteHeaders, noteBody);
-    check("#22: with no target set the submit route answers not found",
-      post.status === 404, "status " + post.status + " body " + post.text);
-  } else {
-    let fbSeen = null;
-    const standin = httpCreateServer((req, res) => {
-      let text = "";
-      req.on("data", (c) => (text += c));
-      req.on("end", () => {
-        fbSeen = { method: req.method, url: req.url, origin: req.headers.origin || "", body: text };
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: true }));
-      });
-    });
-    await new Promise((resolve) => standin.listen(8795, "127.0.0.1", resolve));
-    try {
-      const post = await raw(BASE, "POST", "/api/feedback", noteHeaders, noteBody);
-      check("#22: with a target set the submit route relays the target's answer",
-        post.status === 200 && !!post.json && post.json.ok === true,
-        "status " + post.status + " body " + post.text);
-      check("#22: the note reached the target whole, under the copy's own origin",
-        !!fbSeen && fbSeen.method === "POST" && fbSeen.url === "/api/submit" &&
-          fbSeen.origin === new URL(BASE).origin && fbSeen.body === noteBody,
-        fbSeen ? fbSeen.method + " " + fbSeen.url + " origin " + fbSeen.origin : "the target saw nothing");
-    } finally {
-      standin.close();
     }
   }
 }

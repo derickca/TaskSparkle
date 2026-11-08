@@ -1,15 +1,9 @@
 # The app's security headers ride on every page and file the app
-# serves (issue #70). The policy names the app's own origin and
-# nothing else — its own script, styles and icons, its own API
-# and socket, framed by nobody. It stands in this one rule
-# rather than a page's own because Pages merges a page rule's
-# policy with this one instead of replacing it, and two policies
-# are enforced as their intersection. The Feedback page's form
-# posts to the app's own API, which passes the note to the
-# deployment's configured target from the server side
-# (issue #22), so no outside origin is named here. The self-host
-# server sends the same headers from its own code; the two
-# lists are kept alike by hand.
+# serves (issue #70). The policy names only the app's own origin:
+# the app loads its own script, styles and icons, talks to its own
+# API and socket, and is framed by nobody. The self-host server
+# sends the same headers from its own code; the two lists are
+# kept alike by hand.
 /*
   Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
@@ -52,28 +46,4 @@
 # The wordmark's font follows the same rule, so a new cut of it
 # is what every open gets.
 /fonts/comfortaa-bold.woff2
-  Cache-Control: no-cache
-# The public pages (issue #14) follow the same rule: the front
-# page's script and the standalone Terms, Help and Feedback
-# pages revalidate on every load, so a change to the words is
-# what every open gets. Each page is named in both its forms —
-# the .html path and the pretty path — because the rules match
-# the final address after the redirect.
-/feedback.js
-  Cache-Control: no-cache
-/site.js
-  Cache-Control: no-cache
-/terms
-  Cache-Control: no-cache
-/terms.html
-  Cache-Control: no-cache
-/help
-  Cache-Control: no-cache
-/help.html
-  Cache-Control: no-cache
-/help/*
-  Cache-Control: no-cache
-/feedback
-  Cache-Control: no-cache
-/feedback.html
   Cache-Control: no-cache

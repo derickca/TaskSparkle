@@ -12,10 +12,6 @@ On a self-hosted copy there is no export workflow, because there is nothing to e
 
 Zero on the Cloudflare free tier at personal scale: the app, the site, the database, the live updates and the backup bucket all fit inside the free plan's allowances for a board one or two people use daily. Nothing in the setup asks for a card. A self-hosted copy costs the electricity of a machine you already run.
 
-## Feedback
-
-The Feedback page is a deployment setting, off unless set: a copy with no target named shows no Feedback page and no Feedback link anywhere. On Cloudflare the target is the `FEEDBACK_URL` var in the deployment's `wrangler.toml` — the full address the deployment's feedback service accepts submissions at, path included. Set it and the page and its links stand. The form posts to the app's own API, which passes each note to that address from the server side and relays the answer, so the address stands only in the deployment's own settings and in no file the repo carries. A home copy sets the same thing as `feedbackUrl` in its config; [Self-hosting](self-hosting.md) covers it.
-
 ## Repo files
 
 ### App and server
