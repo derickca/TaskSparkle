@@ -23,7 +23,7 @@
 // paints (see bootLoad). The deploy fails when the stamps differ,
 // so they can only ever disagree in a browser still holding an
 // older copy of this file — which is the case the reload cures.
-var BUILD_ID = "r2026-11-06-1";
+var BUILD_ID = "r2026-11-07-12";
 
 // Label colours are stored as palette ids. The person picks from this
 // palette in Settings and each card chip paints itself from it. Each
@@ -510,6 +510,16 @@ var overviewOpen = false;
 // below), without moving the remembered tag.
 var scheduleOpen = false;
 var scheduleTag = "dated";
+
+// The Archived list under the board: it stands closed — its
+// heading line names how many cards it holds — and a tap on
+// the line opens it; a tap again closes it. The open state
+// belongs to the board in view: every board starts it closed,
+// and coming back to a board starts it closed again, which
+// renderArchived holds by remembering which board the state
+// was last read for.
+var archivedOpen = false;
+var archivedOpenBoard = null;
 
 // The tag the open schedule is showing. It is the remembered
 // tag, except for the one opening issue #33 names: pressing
@@ -2485,7 +2495,11 @@ function renderSearchResults() {
 }
 
 // The Archived list: every archived card of the board in view,
-// standing under the columns. Each row names the card and the
+// standing under the columns. The section stands closed
+// (issue #26): its heading line names the count and carries
+// the toggle, and the rows are built only while the section
+// stands open, so a board's archived cards never stand as a
+// wall under its work. Each row names the card and the
 // column Restore will take it back to, and carries Restore and
 // Delete. Delete asks first, in the delete dialog (issue #97) —
 // the same dialog the editor's Delete opens, in the same words.
@@ -2495,6 +2509,12 @@ function renderArchived(columns) {
   var section = document.getElementById("archived-section");
   var list = document.getElementById("archived-list");
   if (!section || !list || !state) return;
+  // The open state belongs to the board in view: a board the
+  // list has not been opened on starts closed.
+  if (archivedOpenBoard !== state.activeBoard) {
+    archivedOpenBoard = state.activeBoard;
+    archivedOpen = false;
+  }
   var archived = state.cards.filter(function (c) {
     return c.boardId === state.activeBoard && c.archived;
   });
@@ -2505,7 +2525,13 @@ function renderArchived(columns) {
     return byColumn !== 0 ? byColumn : a.position - b.position;
   });
   section.hidden = archived.length === 0;
+  var toggle = document.getElementById("archived-toggle");
+  if (toggle) {
+    toggle.textContent = "Archived (" + archived.length + ")";
+    toggle.setAttribute("aria-expanded", archivedOpen ? "true" : "false");
+  }
   list.innerHTML = "";
+  if (!archivedOpen) return;
   archived.forEach(function (card) {
     var row = document.createElement("div");
     row.className = "archived-row";
@@ -7961,6 +7987,10 @@ function init() {
   wire("search-filters-btn", "click", function () {
     searchFiltersOpen = !searchFiltersOpen;
     renderSearch();
+  });
+  wire("archived-toggle", "click", function () {
+    archivedOpen = !archivedOpen;
+    render();
   });
   var searchBoardSel = document.getElementById("search-board");
   if (searchBoardSel) searchBoardSel.addEventListener("change", function () {
