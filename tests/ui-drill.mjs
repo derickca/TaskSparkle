@@ -3725,13 +3725,17 @@ check("#57: the key minted in this run is dead after the erasure",
 // conditional offer; the ask landing on the check-your-inbox
 // page; a new person's link opened in the browser (the ask
 // itself is made over HTTP with the country header a real
-// edge adds, which a browser cannot set) and the joining
-// page it lands on; the joining press itself over HTTP (the
-// bot check's widget cannot mint a token for the rig's fake
-// site key in any browser — the press is the email drill's
-// proof at the HTTP level); then the passkey offer page in
-// the browser, its own button enrolling the device passkey,
-// and the one-tap sign-in from the sign-in page's button.
+// edge adds, which a browser cannot set — the browser's
+// context carries the same header as an extra HTTP header,
+// the edge's simulation) and the joining page it lands on;
+// the joining press itself over HTTP (the bot check's
+// widget cannot mint a token for the rig's fake site key in
+// any browser — the press is the email drill's proof at the
+// HTTP level); then the passkey offer page in the browser,
+// its own button enrolling the device passkey, and the
+// one-tap sign-in from the sign-in page's button — with the
+// conditional offer held back on that last visit, so the
+// button's own ceremony is the one that runs.
 if (HOSTED) {
   const { execFileSync } = await import("node:child_process");
   const { request: httpsRequest } = await import("node:https");
@@ -3773,6 +3777,7 @@ if (HOSTED) {
     }
     const hctx = await browser.newContext({
       viewport: { width: 1280, height: 900 }, ignoreHTTPSErrors: true,
+      extraHTTPHeaders: { "CF-IPCountry": "CA" },
     });
     const hpage = await hctx.newPage();
     const cdp = await hctx.newCDPSession(hpage);
@@ -3893,7 +3898,15 @@ if (HOSTED) {
           (afterEnrol.body.passkeys || []).length >= 1,
         "status " + afterEnrol.status + " passkeys " +
           ((afterEnrol.body && afterEnrol.body.passkeys) || []).length);
-      // Out, and back with the one tap alone.
+      // Out, and back with the one tap alone. The device
+      // now holds a passkey, so this visit's conditional
+      // offer could complete on its own and sign the page
+      // in first — the walk holds the offer's call back
+      // briefly, so the button's own ceremony runs.
+      await hpage.route("**/login/passkey/options", async (route) => {
+        await new Promise((r) => setTimeout(r, 1500));
+        await route.continue();
+      });
       await hpage.goto(HOSTED + "/logout", { waitUntil: "domcontentloaded" });
       await hpage.waitForURL(/\/login/, { timeout: 10000 }).catch(() => {});
       await hpage.locator("#passkey-button").waitFor({ state: "visible", timeout: 5000 });
@@ -3904,6 +3917,7 @@ if (HOSTED) {
         tapLanded.status === 200 && !!tapLanded.body &&
           tapLanded.body.proofVia === "passkey",
         "status " + tapLanded.status + " via " + (tapLanded.body && tapLanded.body.proofVia));
+      await hpage.unroute("**/login/passkey/options");
     } else {
       check("email hosted: the joining walk needs --rig-dir (the switch flip and the mail capture)",
         false, "pass --rig-dir <the rig folder>");
