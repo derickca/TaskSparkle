@@ -30,7 +30,7 @@ import { createServer } from "node:http";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createApiHandler, feedbackTarget } from "../worker/core.js";
+import { createApiHandler } from "../worker/core.js";
 import {
   createAuthHandlers, getAccount, countAccounts, mintInvite,
   eraseAccountCredentials, ensureAdminStanding,
@@ -434,12 +434,6 @@ const coreEnv = {
   OWNER_EMAILS: "",
   AGENT_HOST: agentHost,
   AGENT_SCHEME: agentScheme,
-  // The deployment's feedback target (issue #22), from the
-  // config's feedbackUrl: the address this copy's Feedback
-  // page posts its notes to. Absent — the config.example.json
-  // default — the copy shows no Feedback page and no Feedback
-  // link, and the core's submit route answers not found.
-  FEEDBACK_URL: String(config.feedbackUrl || ""),
 };
 
 // The sign-in config this copy hands both the page handlers
@@ -606,21 +600,20 @@ const NO_CACHE = new Set([
   // under /help/ and are covered by the prefix check where
   // this set is read.
   "/feedback.js", "/terms", "/terms.html", "/help", "/help.html",
-  "/feedback", "/feedback.html", "/site.js",
+  "/feedback", "/feedback.html",
 ]);
 
 // The app's security headers (issue #70), the same set
 // public/_headers declares on Cloudflare — the two lists are
-// kept alike by hand. The policy names the app's own origin
-// and nothing else: its own script, styles and icons, its own
-// API and socket, and no framing by anyone. The Feedback
-// page's form posts to the app's own API, which passes the
-// note to the deployment's configured target from the server
-// side (issue #22), so no outside origin stands here either.
+// kept alike by hand. The policy names the app's own origin —
+// its own script, styles and icons, its own API and socket,
+// and no framing by anyone — and one guest: the shared
+// feedback service stands in connect-src, because the
+// Feedback page's form posts to it (issue #20).
 const SECURITY_HEADERS = {
   "Content-Security-Policy":
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; " +
-    "connect-src 'self'; manifest-src 'self'; worker-src 'self'; " +
+    "connect-src 'self' https://feedback.certifiable.media; manifest-src 'self'; worker-src 'self'; " +
     "base-uri 'self'; form-action 'self'; " +
     "frame-ancestors 'none'",
   "X-Content-Type-Options": "nosniff",
@@ -703,17 +696,6 @@ const server = createServer(async (req, res) => {
       await sendWebResponse(res, await handler(toWebRequest(req, body, {
         "x-ts-source": req.socket.remoteAddress || "unknown",
       })));
-      return;
-    }
-
-    // The Feedback page stands only on a copy whose config
-    // names a feedback target (issue #22): with no target set
-    // the page's addresses answer not found here, before the
-    // static files are read — the same answer the core's
-    // submit route gives on such a copy.
-    if ((pathname === "/feedback" || pathname === "/feedback.html") && !feedbackTarget(coreEnv)) {
-      res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8", ...SECURITY_HEADERS });
-      res.end("Not found.");
       return;
     }
 

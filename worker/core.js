@@ -109,28 +109,6 @@ function agentScheme(env) {
   return String((env && env.AGENT_SCHEME) || "https").trim().toLowerCase() === "http" ? "http" : "https";
 }
 
-// The deployment's feedback target (issue #22): the full address
-// the Feedback page's notes are posted to, named by the
-// deployment alone — a Worker var on the hosted copy, the
-// config's feedbackUrl on a home copy. Unset is the default and
-// the product's own state: a copy with no target set shows no
-// Feedback page and no Feedback link anywhere, and the submit
-// route below answers not found. A value that does not read as
-// an http or https address is no target at all, so a mistyped
-// setting closes the page rather than posting notes into the
-// void.
-export function feedbackTarget(env) {
-  var raw = String((env && env.FEEDBACK_URL) || "").trim();
-  if (!raw) return "";
-  try {
-    var parsed = new URL(raw);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
-  } catch (e) {
-    return "";
-  }
-  return raw;
-}
-
 // The kinds of the five columns every board starts with. After that
 // the columns are the owner's own: a column added later carries a
 // generated kind of its own (see newColumnKind), and a column's kind
@@ -215,7 +193,7 @@ function countOf(row) {
 // loading line. The deploy checks the two stamps agree and fails
 // when they do not, so a release can never ship them mismatched.
 // Bump both together whenever the app files change.
-var BUILD_ID = "r2026-11-07-3";
+var BUILD_ID = "r2026-11-07-2";
 
 // Every API answer carries two standing headers. Cache-Control:
 // no-store, because state answers hold a person's boards and the
@@ -1973,7 +1951,7 @@ function match(parts, pattern) {
 //   Defaults to db.
 // - env: the deployment's settings, read exactly as the routes
 //   have always read them (the allowlist, the two doors' hosts,
-//   the directions' scheme, the feedback target).
+//   the directions' scheme).
 // - auth: the sign-in config the wrappers hand in:
 //   accessIdentity(request) — the transition door's adapter,
 //   answering { email, name } for a request whose Access token
@@ -2022,72 +2000,6 @@ export function createApiHandler(deps) {
   if (parts.length === 0 || parts[0] !== "api") {
     return error("Use the /api routes. The Pages site serves the front end.", 404);
   }
-
-  // The deployment's own shape, and the Feedback page's way in
-  // (issue #22). Both routes answer before any caller is
-  // resolved: the site's public pages read the first to know
-  // whether their Feedback entries stand, and the second is a
-  // public form's post — the note a visitor sends is the whole
-  // of it, and no sign-in and no key has anything to do with
-  // either.
-  //
-  // GET /api/site answers one fact: whether this deployment
-  // has a feedback target set. The target itself is never
-  // named in the answer — the browser never needs it, because
-  // the submit route below does the posting.
-  if (method === "GET" && parts.length === 2 && parts[1] === "site") {
-    return json({ feedback: !!feedbackTarget(env) });
-  }
-  // POST /api/feedback passes the note to the deployment's
-  // target from the server side, and relays the target's
-  // answer. A deployment with no target set has no such
-  // route: the call answers not found. The target is told the
-  // caller's own origin, the way the page itself would have
-  // named it when the form posted straight to the inbox: an
-  // inbox that admits named origins sees the same name it
-  // always saw.
-  if (method === "POST" && parts.length === 2 && parts[1] === "feedback") {
-    var target = feedbackTarget(env);
-    if (!target) {
-      return error("This copy takes no feedback.", 404);
-    }
-    var fbOrigin = request.headers.get("Origin");
-    if (fbOrigin) {
-      var fbOriginHost = null;
-      try { fbOriginHost = new URL(fbOrigin).hostname; } catch (e) { fbOriginHost = null; }
-      if (fbOriginHost !== host) {
-        return error("This post did not come from TaskSparkle itself.", 403);
-      }
-    }
-    var fbRaw = "";
-    try { fbRaw = await request.text(); } catch (e) { fbRaw = ""; }
-    if (fbRaw.length > 65536) {
-      return error("That note is too long.", 413);
-    }
-    try { JSON.parse(fbRaw); } catch (e) {
-      return error("The request body was not JSON.", 400);
-    }
-    var fbAnswer = null;
-    try {
-      fbAnswer = await fetch(target, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Origin": fbOrigin || (url.protocol + "//" + url.host)
-        },
-        body: fbRaw
-      });
-    } catch (e) {
-      return json({ ok: false }, 502);
-    }
-    var fbBody = null;
-    try { fbBody = await fbAnswer.json(); } catch (e) { fbBody = null; }
-    if (!fbBody || typeof fbBody !== "object") {
-      return json({ ok: false }, fbAnswer.status >= 400 ? fbAnswer.status : 502);
-    }
-    return json(fbBody, fbAnswer.status);
-  }
-
   if (!deps.db) {
     return error("The database is not configured.", 501);
   }
