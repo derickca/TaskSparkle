@@ -420,11 +420,11 @@ try {
   const enrol = await jsonPost(BASE, "/api/auth/passkeys",
     { response: authNP.attestation(enrolOpts.json.challenge) }, { jar: npJar });
   check("email: the passkey enrols",
-    enrol.status === 200, "status " + enrol.status);
+    enrol.status === 201, "status " + enrol.status);
   // Out, and back with the one tap alone.
   await getPage(BASE, "/logout", { jar: npJar });
   const tapOpts = await jsonPost(BASE, "/login/passkey/options", {});
-  const handleNP = b64uDrillToBuf(meBefore.json.userHandle);
+  const handleNP = b64uDrillToBuf(enrolOpts.json.user.id);
   const tapJar = jar();
   const tap = await jsonPost(BASE, "/login/passkey/verify",
     authNP.assertion(tapOpts.json.challenge, handleNP));
