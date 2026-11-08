@@ -502,6 +502,30 @@ check("sign-in: a signed-out visitor gets the public page",
   (await page.locator("#landing:not([hidden])").count()) === 1 && !page.url().includes("/login"),
   page.url());
 await page.screenshot({ path: join(OUT, "landing-1280.png") });
+// Feedback is a deployment setting (issue #22), and the
+// harness's instance names no target: the public pages must
+// show no Feedback entry anywhere — the site script removes
+// the entries once the deployment answers — and the page's
+// own address answers not found on this copy.
+await page.waitForFunction(
+  () => document.querySelectorAll("[data-feedback-link]").length === 0,
+  null, { timeout: 5000 }).catch(() => {});
+check("#22: the public page shows no Feedback entry on a copy with no target set",
+  (await page.locator('a[href="/feedback"]:visible').count()) === 0 &&
+  (await page.locator("[data-feedback-link]").count()) === 0);
+await page.goto(BASE + "/help", { waitUntil: "domcontentloaded" });
+await page.waitForFunction(
+  () => document.querySelectorAll("[data-feedback-link]").length === 0,
+  null, { timeout: 5000 }).catch(() => {});
+check("#22: the Help page and its topic list show no Feedback entry either",
+  (await page.locator('a[href="/feedback"]:visible').count()) === 0 &&
+  (await page.locator("[data-feedback-link]").count()) === 0);
+const fbPageResp = await page.goto(BASE + "/feedback", { waitUntil: "domcontentloaded" }).catch(() => null);
+check("#22: the Feedback page's address answers not found on such a copy",
+  !!fbPageResp && fbPageResp.status() === 404,
+  fbPageResp ? "status " + fbPageResp.status() : "no response");
+await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+await page.waitForSelector("#landing:not([hidden])", { timeout: 10000 }).catch(() => {});
 await page.click('#landing .landing-cta a[href="/login"]');
 await page.waitForURL(/\/login/, { timeout: 10000 }).catch(() => {});
 check("sign-in: the public page's button lands on the sign-in page", page.url().includes("/login"), page.url());

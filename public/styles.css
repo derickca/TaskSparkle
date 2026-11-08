@@ -2905,6 +2905,12 @@ textarea.copy-field { resize: vertical; }
 
 .site-link:hover { background: var(--column-bg); }
 
+/* The Feedback entries stand hidden until the site script
+   learns whether the deployment has a feedback target
+   (issue #22); the guard keeps the link's own display rule
+   from beating the hidden attribute in the meantime. */
+.site-link[hidden] { display: none; }
+
 .site-links .btn {
   display: inline-flex;
   align-items: center;
@@ -3027,6 +3033,10 @@ textarea.copy-field { resize: vertical; }
 
 .help-topic p { margin: 0; color: var(--muted); }
 
+/* The Feedback topic is one of the gated entries (issue #22):
+   hidden until the site script settles it. */
+.help-topic[hidden] { display: none; }
+
 .faq-group {
   font-weight: 700;
   font-family: var(--font-display, var(--font));
@@ -3039,7 +3049,11 @@ textarea.copy-field { resize: vertical; }
 .faq-item p { margin: 0 0 6px; }
 
 /* The feedback form: the shared service's shape — a kind, a
-   note with its count, and two optional fields. */
+   note with its count, and two optional fields. The form
+   itself stands hidden until the page's script learns the
+   deployment takes feedback (issue #22). */
+.feedback-form[hidden] { display: none; }
+
 .feedback-form label {
   display: block;
   font-weight: 600;

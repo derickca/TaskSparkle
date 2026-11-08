@@ -126,6 +126,10 @@ The second #109 family covers the rest of the design, split by mode the way the 
 - The drill also reads the directions. It checks the erasure truth.
 - It checks the watching passage too. That passage teaches stamp attribution off the work itself. It gives no instruction to read a change stamp off a key's answers.
 
+### Feedback
+
+The feedback family covers issue #22, in both modes. It is told which state the copy under it stands in with `--feedback on|off` (off when unspoken — the state the harness's instance and the standing rig stand in). Off: the site answer (`GET /api/site`) says no feedback target stands, and the submit route (`POST /api/feedback`) answers not found. On: the target is a stand-in the drill itself holds open on port 8795, and the copy's `FEEDBACK_URL` must point at `http://127.0.0.1:8795/api/submit` before the copy starts — on the Worker rig the var stands in the rig folder's `wrangler.toml`, copied from a prepared source. A post to the submit route then lands on the stand-in whole (the same JSON, the copy's own origin named) and the stand-in's answer is relayed. The self-host on-state is carried by the server drill, which writes its own configs; this family's on-state is for the Worker rig.
+
 The drill runs in two modes, one per home.
 
 ### Run it against the Worker rig
@@ -223,6 +227,8 @@ The checks cover:
 - The config's `host` setting binds an instance to this machine only.
 - Behind an HTTPS front door on the same machine (issue #115, the shape Tailscale Serve makes): the config names the public https address and the bare agent name with no port. The first account is made through that shape and its session speaks at the one address, the startup line and the directions name the https base, the passkey ceremonies verify against the public origin the front door's forwarded-proto stamp names — and the same ceremony without the stamp is refused.
 
+The feedback family covers issue #22. A config with no `feedbackUrl` — the default — answers not found at the Feedback page's addresses and at the submit route, and its site answer says no target stands, while the rest of the copy stands as usual. A config naming a target (a stand-in the drill holds open) serves the page with its form, and a note posted to the copy's own API lands on the target whole, under the copy's own origin, with the target's answer relayed.
+
 The last family is the recovery erasure command. It covers issue #57.
 
 - `--delete-person "A Name"` erases the account under that name in the data file.
@@ -243,6 +249,7 @@ The UI drill is `ui-drill.mjs`. It holds the browser checks. They are written fo
 
 ### Sign-in, cards and live updates
 
+- On the public page before sign-in, it proves the deployment's feedback setting (issue #22): the harness's instance names no target, so no Feedback entry stands on the public page or the Help page once the site script settles, and the Feedback page's address answers not found.
 - It signs in through the local sign-in page.
 - It sees the seeded boards.
 - It works a card end to end in the app: make it, add a checklist step, tick it, reopen it and find it ticked.

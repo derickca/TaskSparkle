@@ -6,6 +6,10 @@ Inside a release, the app stamps every deploy with a build stamp. The stamp is `
 
 ## [Unreleased]
 
+### Changed
+
+- Feedback is now a deployment setting, off unless set. The Feedback page no longer posts to a named outside service out of the product's own files: a deployment names its feedback target in its own settings — the `FEEDBACK_URL` var on Cloudflare, `feedbackUrl` in a home copy's config — and a copy with no target named shows no Feedback page and no Feedback link anywhere. Where a target stands, the form posts to the app's own API, which passes the note to the target from the server side and relays its answer. Build r2026-11-07-3.
+
 ## [1.0.0] - 2026-11-04
 
 TaskSparkle is a personal kanban board: boards, columns, cards, labels and projects for one person's work, with agent keys so an AI agent can hold a card's next step alongside you. It runs as one small app — host it on Cloudflare, or run it on your own machine. This is the first public release; everything in this release is what the app carries at launch.
