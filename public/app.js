@@ -8866,12 +8866,17 @@ function init() {
   applyDisplayMode();
   applyTheme();
   bootLoad();
-  registerServiceWorker();
 }
 
 // The service worker is what lets a phone offer TaskSparkle as an
-// app on the home screen. It is registered here, off the load's
-// path, and it is not allowed to matter to the boot: a browser
+// app on the home screen. It registers only once the app stands
+// up for an account or a boards caller — never on a signed-out
+// load: a worker registered there takes charge of the return
+// from the sign-in page (it claims no load, so the next one is
+// the first it carries), and the signed-in app would run under
+// a worker its own first load never chose (issue #17). It is
+// registered off the load's path, and it is not allowed to
+// matter to the boot: a browser
 // without the feature, or a registration that fails, changes
 // nothing about how the boards load. The worker itself keeps no
 // copies of anything (see sw.js), so it can never hold a stale
@@ -8971,6 +8976,7 @@ function proceedToBoards() {
 // its board names, its card count, when it last changed —
 // never a card's contents.
 function showUnlinked(me) {
+  registerServiceWorker();
   var loading = byId("loading-state");
   if (loading) loading.hidden = true;
   var boardUi = byId("board-ui");
@@ -9082,6 +9088,7 @@ function loadInitial() {
     render();
     applyTheme();
     startPush();
+    registerServiceWorker();
 
     // Links like ?settings=agent and ?open=<card id> open those views.
     // The screenshot tool uses them to capture panels.
