@@ -1621,7 +1621,15 @@ var PAGE_STYLE = [
   "  .site-head { flex-wrap: wrap; row-gap: 8px; padding-top: 7px; padding-bottom: 7px; }",
   "  .site-links { order: 2; flex-basis: auto; margin-left: auto; }",
   "}",
-  "main { width: min(22rem, calc(100vw - 3rem)); padding: 1.5rem 0 3rem; margin: auto; }",
+  /* The form column stands directly under the heading,
+     centred across the page — margin 0 auto, never auto on
+     all sides: in the body's column, auto top and bottom
+     margins absorb the window's leftover height and the
+     content floats in the middle of the window, at a gap
+     set by the window and the content's own height, where
+     every other page in the family stands with its content
+     following its heading (issue #37). */
+  "main { width: min(22rem, calc(100vw - 3rem)); padding: 1.5rem 0 3rem; margin: 0 auto; }",
   /* The wordmark: the name at the top of these pages is set in
      Comfortaa Bold, the brand's face, from the same subset the
      app shell loads (only the letters of "TaskSparkle"; its
