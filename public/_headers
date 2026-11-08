@@ -54,7 +54,7 @@
 /fonts/comfortaa-bold.woff2
   Cache-Control: no-cache
 # The public pages (issue #14) follow the same rule: the front
-# page's script and the standalone Terms, Help and Feedback
+# page's script and the standalone Help and Feedback
 # pages revalidate on every load, so a change to the words is
 # what every open gets. Each page is named in both its forms —
 # the .html path and the pretty path — because the rules match
@@ -62,10 +62,6 @@
 /feedback.js
   Cache-Control: no-cache
 /site.js
-  Cache-Control: no-cache
-/terms
-  Cache-Control: no-cache
-/terms.html
   Cache-Control: no-cache
 /help
   Cache-Control: no-cache

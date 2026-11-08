@@ -3003,15 +3003,6 @@ textarea.copy-field { resize: vertical; }
 
 .static-sub { color: var(--muted); font-size: 16.5px; margin: 0 0 18px; }
 
-.draft-line {
-  background: var(--warn-bg);
-  color: var(--warn-ink);
-  border: 1px solid var(--warn-border);
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 14.5px;
-}
-
 .static-wrap h2 { font-size: 20px; margin: 26px 0 8px; }
 
 .static-wrap p, .static-wrap li { font-size: 16px; }
