@@ -102,6 +102,15 @@ AGENT_HOST = "tasksparkle-api.your-domain.com"
 # address is how a key's owner row was named before accounts
 # existed; the claim step in the app joins the two up.
 OWNER_EMAILS = "you@example.com"
+# Optional, and off unless set: where the Feedback page sends
+# its notes — the full address your feedback service accepts
+# submissions at, path included. A copy with this unset shows
+# no Feedback page and no Feedback link anywhere: feedback is
+# the deployment's own choice, never the product's default.
+# The address stands only here, in the deployment's own
+# settings; the app's pages post to the app's own API, which
+# passes each note to this address from the server side.
+# FEEDBACK_URL = "https://feedback.example.com/api/submit"
 # The setup code is NOT a var: it is a secret, set with
 # `wrangler secret put SETUP_CODE`, never written in this file.
 # It is a long random string (at least 22 characters) that the
