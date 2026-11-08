@@ -1590,18 +1590,28 @@ var PAGE_STYLE = [
   ":root[data-look=\"forest\"][data-theme=\"dark\"] { color-scheme: dark; --bg: #0c1710; --column-bg: #1b2f21; --ink: #e7f3de; --accent: #69a85e; --accent-ink: #0d2108; --field-bg: #1b2f21; --danger-bg: #47201c; --danger-ink: #ffb3a7; --danger-border: #7a4038; }",
   ":root[data-look=\"midnight\"] { color-scheme: light; --bg: #e7edfc; --column-bg: #d3defa; --ink: #16213d; --accent: #2b4acb; --accent-ink: #ffffff; --field-bg: #fbfcff; --danger-bg: #f6d9d2; --danger-ink: #8f1306; --danger-border: #e0a08f; --font: -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif; --font-display: \"Avenir Next\", \"Segoe UI\", Roboto, sans-serif; }",
   ":root[data-look=\"midnight\"][data-theme=\"dark\"] { color-scheme: dark; --bg: #050914; --column-bg: #111c36; --ink: #e3ebff; --accent: #7aa2ff; --accent-ink: #0a1430; --field-bg: #111c36; --danger-bg: #2e0f0c; --danger-ink: #ffab9e; --danger-border: #5e2a24; }",
-  "body { font-family: var(--font);",
-  "  margin: 0; min-height: 100vh; display: flex; flex-direction: column;",
-  "  background: var(--bg); color: var(--ink); }",
-  /* The heading's column: the same box the site's pages
-     give their heading — the reading column (46em wide,
-     14px of side padding), centred, flush to the top of
-     the page. The heading's own rules below are the site
-     stylesheet's, copied the same way as the palette. */
-  ".head-wrap { width: 100%; max-width: 46em; margin: 0 auto;",
-  "  padding: 0 14px; box-sizing: border-box; }",
+  "body { margin: 0; font-family: var(--font);",
+  "  background: var(--bg); color: var(--ink); line-height: 1.4; }",
+  /* The one frame every logged-out page stands in: the
+     reading column (46em wide, 14px of side padding),
+     centred, flush to the top of the page — the same box
+     the site's pages give their heading, their content
+     and their footer through public/styles.css's
+     .static-wrap. The heading and the main content both
+     stand inside it here, so these pages' margins are
+     the family's, not a second frame of their own
+     (issue #40). The frame's and the heading's rules
+     below are the site stylesheet's, copied the same way
+     as the palette; the deployment repo's local checks
+     hold the copies equal to the stylesheet's, rule by
+     rule, where the stylesheet's site section stands.
+     One adaptation stands: the copy's frame carries its
+     own box-sizing, where the stylesheet's pages take
+     theirs from its global rule. */
+  ".static-wrap { max-width: 46em; margin: 0 auto;",
+  "  padding: 0 14px 40px; box-sizing: border-box; }",
   ".site-head, .site-head * { box-sizing: border-box; }",
-  ".site-head { display: flex; align-items: center; gap: 12px; padding: 11px 2px; }",
+  ".site-head { display: flex; align-items: center; gap: 12px; padding: 11px 2px; min-height: 74px; }",
   ".site-brand { display: inline-flex; align-items: center; gap: 9px;",
   "  color: var(--ink); text-decoration: none;",
   "  font-family: var(--font-display, var(--font)); font-weight: 700; font-size: 21px; }",
@@ -1618,18 +1628,16 @@ var PAGE_STYLE = [
   "  .site-link { padding: 0; }",
   "  .site-brand { order: 1; font-size: 15px; gap: 6px; }",
   "  .site-brand svg { width: 26px; height: 26px; }",
-  "  .site-head { flex-wrap: wrap; row-gap: 8px; padding-top: 7px; padding-bottom: 7px; }",
+  "  .site-head { flex-wrap: wrap; row-gap: 8px; padding-top: 7px; padding-bottom: 7px; min-height: 66px; }",
   "  .site-links { order: 2; flex-basis: auto; margin-left: auto; }",
   "}",
-  /* The form column stands directly under the heading,
-     centred across the page — margin 0 auto, never auto on
-     all sides: in the body's column, auto top and bottom
-     margins absorb the window's leftover height and the
-     content floats in the middle of the window, at a gap
-     set by the window and the content's own height, where
-     every other page in the family stands with its content
-     following its heading (issue #37). */
-  "main { width: min(22rem, calc(100vw - 3rem)); padding: 1.5rem 0 3rem; margin: 0 auto; }",
+  /* The main content takes the frame's own width and
+     follows the heading at the reading pages' gap. It
+     keeps no column of its own and never floats: the
+     window's leftover height belongs below the content,
+     inside the frame's bottom padding, the way it does
+     on the site's pages (issues #37, #40). */
+  "main { padding-top: 10px; }",
   /* The wordmark: the name at the top of these pages is set in
      Comfortaa Bold, the brand's face, from the same subset the
      app shell loads (only the letters of "TaskSparkle"; its
@@ -1768,14 +1776,14 @@ function pageHead(cfg) {
   var brand = "<a class=\"site-brand\" href=\"" + (base ? base + "/" : "/") + "\">" +
     BRAND_MARK + "<span>TaskSparkle</span></a>";
   if (!base) {
-    return "<div class=\"head-wrap\"><header class=\"site-head\">" + brand + "</header></div>";
+    return "<header class=\"site-head\">" + brand + "</header>";
   }
   var links = "<nav class=\"site-links\" aria-label=\"Site\">" +
     "<a class=\"site-link\" href=\"" + base + "/terms\" aria-label=\"Terms\">" + HEAD_GLYPHS.terms + "</a>" +
     "<a class=\"site-link\" href=\"" + base + "/feedback\" aria-label=\"Feedback\" data-feedback-link hidden>" + HEAD_GLYPHS.feedback + "</a>" +
     "<a class=\"site-link\" href=\"" + base + "/help\" aria-label=\"Help\">" + HEAD_GLYPHS.help + "</a></nav>";
-  return "<div class=\"head-wrap\"><header class=\"site-head\">" + brand + links +
-    "</header></div>\n" + HEAD_SETTLE;
+  return "<header class=\"site-head\">" + brand + links +
+    "</header>\n" + HEAD_SETTLE;
 }
 
 export function escapeHtml(value) {
@@ -1792,7 +1800,8 @@ function pageHtml(title, body, cfg) {
     "<link rel=\"icon\" type=\"image/png\" sizes=\"64x64\" href=\"/icons/icon-64.png\">\n" +
     PAGE_BOOT + "\n" +
     "<style>\n" + PAGE_STYLE + "\n</style>\n" +
-    "</head>\n<body>\n" + pageHead(cfg) + "\n<main>\n" + body + "\n</main>\n</body>\n</html>\n";
+    "</head>\n<body>\n<div class=\"static-wrap\">\n" + pageHead(cfg) +
+    "\n<main>\n" + body + "\n</main>\n</div>\n</body>\n</html>\n";
 }
 
 // The sign-in page's script: the remembered name's untick,
