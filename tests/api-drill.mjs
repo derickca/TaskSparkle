@@ -2337,6 +2337,59 @@ if (MODE === "worker") {
       backS.status === 200, "status " + backS.status);
   }
 
+  // -- Sessions renew quietly with use (issue #47), and the
+  //    account read names whether this copy takes passwords
+  //    (issue #46) ------------------------------------------------
+  // A session's end stands 30 days from its creation today,
+  // however much the person uses it. Activity is to move the
+  // end out to the standing length from the activity, riding
+  // the same hourly stamp as the last-seen mark, and a session
+  // is never shortened. The renewal is read in the data file
+  // directly (self-host only, the same surgery as the
+  // stale-proof family above); the account read's passwords
+  // standing is named on both homes.
+  const aDoorR = doorCaller(await loginWhenFree(NAME_A, PASSWORD_A));
+  const meR = await aDoorR.call("GET", "/api/auth/me");
+  check("#46: the account read names whether passwords stand on this copy",
+    meR.status === 200 && meR.json && meR.json.passwordsAllowed === true,
+    "status " + meR.status + " body " + (meR.text || "").slice(0, 80));
+  if (MODE === "selfhost" && args["server-config"]) {
+    const cfgR = JSON.parse(readFileSync(args["server-config"], "utf8"));
+    const fileR = join(dirname(args["server-config"]), String(cfgR.dataDir || "data"), "tasksparkle.sqlite");
+    const roR = new DatabaseSync(fileR, { readOnly: true });
+    const newestRow = () => roR.prepare(
+      "SELECT rowid AS rid, expires_at, last_seen_at FROM sessions WHERE account_key = ? ORDER BY created_at DESC, rowid DESC LIMIT 1").get(A);
+    const freshRow = newestRow();
+    const rwR = new DatabaseSync(fileR);
+    const agedEnd = Date.now() + 24 * 60 * 60 * 1000;
+    rwR.prepare("UPDATE sessions SET last_seen_at = ?, expires_at = ? WHERE rowid = ?")
+      .run(Date.now() - 2 * 60 * 60 * 1000, agedEnd, freshRow.rid);
+    const usedR = await aDoorR.call("GET", "/api/auth/me");
+    check("#47: the aged session still answers", usedR.status === 200, "status " + usedR.status);
+    const renewedRow = newestRow();
+    check("#47: use moves the session's end out to the standing length",
+      renewedRow.expires_at > Date.now() + 29 * 24 * 60 * 60 * 1000,
+      "expires_at " + renewedRow.expires_at + " (aged to " + agedEnd + ")");
+    check("#47: the renewal rides the last-seen stamp",
+      renewedRow.last_seen_at > Date.now() - 5 * 60 * 1000,
+      "last_seen_at " + renewedRow.last_seen_at);
+    const farEnd = Date.now() + 90 * 24 * 60 * 60 * 1000;
+    rwR.prepare("UPDATE sessions SET last_seen_at = ?, expires_at = ? WHERE rowid = ?")
+      .run(Date.now() - 2 * 60 * 60 * 1000, farEnd, freshRow.rid);
+    await aDoorR.call("GET", "/api/auth/me");
+    const keptRow = newestRow();
+    check("#47: a longer session is never shortened",
+      keptRow.expires_at === farEnd, "expires_at " + keptRow.expires_at + " (set " + farEnd + ")");
+    const beforeRow = newestRow();
+    await aDoorR.call("GET", "/api/auth/me");
+    const afterRow = newestRow();
+    check("#47: inside the stamp's hour nothing is rewritten",
+      afterRow.expires_at === beforeRow.expires_at && afterRow.last_seen_at === beforeRow.last_seen_at,
+      "expires " + beforeRow.expires_at + " -> " + afterRow.expires_at);
+    rwR.close();
+    roR.close();
+  }
+
   // -- A reset spend revokes sessions and removes no passkey
   //    (person B; issue #122, amendment A.5 as ruled: [B]) --
   // Appendix D's eviction drill, inverted by the ruling: a
