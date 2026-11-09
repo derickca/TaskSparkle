@@ -578,11 +578,11 @@ await page.screenshot({ path: join(OUT, "board-1280.png") });
     const t = document.getElementById("theme-toggle");
     return (t.getAttribute("aria-label") || t.getAttribute("title") || "").replace(/^Theme:\s*/, "");
   });
-  const modeNow = async () => page.evaluate(async () => {
-    const r = await fetch("/api/v1/state");
-    const j = await r.json().catch(() => null);
-    return j && j.theme;
-  });
+  // The theme is a device setting: a click writes it on this
+  // device alone and never to the server, so the landing is
+  // read where applyTheme stands it — the root's mode mark.
+  const modeNow = async () => page.evaluate(() =>
+    document.documentElement.getAttribute("data-theme-mode"));
   const MODE_NAMES = { system: "System", light: "Light", dark: "Dark" };
   const named = await labelOf();
   const startMode = await modeNow();
