@@ -1992,7 +1992,6 @@ function match(parts, pattern) {
 export function createApiHandler(deps) {
   return async function handleApiRequest(request) {
     var env = deps.env;
-    var takePasswords = deps.passwordsAllowed !== false;
 
   var url = new URL(request.url);
   var host = url.hostname;
@@ -2349,6 +2348,7 @@ export function createApiHandler(deps) {
 async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
     var db = deps.db;
     var env = deps.env;
+    var takePasswords = deps.passwordsAllowed !== false;
     var method = request.method;
     var p = null;
 
