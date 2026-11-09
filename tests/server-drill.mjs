@@ -1684,11 +1684,16 @@ try {
     // live (the email drill proves that writing); here it
     // stands the re-tick's starting point up.
     const termsFile = join(scratch, "data-termsjson", "tasksparkle.sqlite");
-    const seedDb = new DatabaseSync(termsFile);
-    seedDb.prepare(
-      "INSERT INTO agreements (account_key, terms_version, agreed_at, source) VALUES (?, ?, ?, ?)"
-    ).run("terms person", "2026-10-01", Date.now(), "join");
-    seedDb.close();
+    let seedStood = true;
+    try {
+      const seedDb = new DatabaseSync(termsFile);
+      seedDb.prepare(
+        "INSERT INTO agreements (account_key, terms_version, agreed_at, source) VALUES (?, ?, ?, ?)"
+      ).run("terms person", "2026-10-01", Date.now(), "join");
+      seedDb.close();
+    } catch (e) { seedStood = false; }
+    check("#43: the agreements table stands for the joining row to be placed",
+      seedStood, seedStood ? "" : "the seed insert failed — no agreements table stands");
 
     const stTerms1 = cookieTerms ? await apiCall(portTerms, cookieTerms, "GET", "/api/v1/state")
       : { status: 0, json: null };
