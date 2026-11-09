@@ -171,6 +171,39 @@ if (uncovered.length) {
 console.log("Standalone sign-in routes: every address the sign-in, " +
   "setup and invite pages call is covered by wrangler.toml.example.");
 
+// The terms record's wiring (issue #43): the schema carries
+// the agreements table, both entry points hand the core a
+// Terms version read from the deployment's own settings (the
+// Worker's TERMS_VERSION, the self-host config's
+// termsVersion), and the app carries the gate it stands
+// before the boards. A copy that lost a piece would keep the
+// record in one shape and drop it in another, silently.
+{
+  const schema = readFileSync(join(ROOT, "worker", "schema.sql"), "utf8");
+  const workerEntry = readFileSync(join(ROOT, "worker", "worker.js"), "utf8");
+  const serverEntry = readFileSync(join(ROOT, "server", "server.mjs"), "utf8");
+  const index = readFileSync(join(ROOT, "public", "index.html"), "utf8");
+  const app = readFileSync(join(ROOT, "public", "app.js"), "utf8");
+  const missing = [];
+  if (!schema.includes("CREATE TABLE IF NOT EXISTS agreements")) {
+    missing.push("worker/schema.sql carries no agreements table");
+  }
+  if ((workerEntry.match(/termsVersion: termsVersionOf\(env\)/g) || []).length !== 2) {
+    missing.push("worker/worker.js does not hand the deployment's TERMS_VERSION to both handler configs");
+  }
+  if ((serverEntry.match(/termsVersion: config\.termsVersion/g) || []).length !== 2) {
+    missing.push("server/server.mjs does not hand the config's termsVersion to both handler configs");
+  }
+  if (!index.includes('id="terms-state"') || !app.includes("/api/terms/agree")) {
+    missing.push("the app carries no terms gate before the boards");
+  }
+  if (missing.length) {
+    console.error("The terms record's wiring is incomplete: " + missing.join("; ") + ".");
+    process.exit(1);
+  }
+  console.log("Terms record: the schema, both entry points and the app's gate stand wired.");
+}
+
 // The Standard theme's hairlines (issue #142, Derick's ruling
 // on sweep row THM-03): the border colour --line against the
 // page background --bg must clear 3:1 in both default

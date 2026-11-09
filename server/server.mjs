@@ -464,6 +464,10 @@ const authPages = createAuthHandlers({
     sourceOf: authConfig.sourceOf,
     sourceCapMs: authConfig.sourceCapMs,
     cookieSecure: () => false,
+    // The deployment's Terms version (issue #43), when this
+    // copy's config names one; a config that names none keeps
+    // no terms record and nothing changes.
+    termsVersion: config.termsVersion ? String(config.termsVersion) : null,
     },
 });
 
@@ -472,6 +476,7 @@ const handler = createApiHandler({
   authDb: db,
   env: coreEnv,
   auth: authConfig,
+  termsVersion: config.termsVersion ? String(config.termsVersion) : null,
   sessionCookieName: null, // a stale local session simply reads as signed out
   onOwnerDeleted: async (owner) => {
     // An erasure (issue #57): the core has deleted the owners

@@ -131,6 +131,20 @@
     <p><a class="btn" href="/logout">Log out</a></p>
   </div>
 
+  <!-- The terms gate (issue #43): when the terms changed
+       after the version this person last agreed to, the note
+       stands here before the boards. app.js fills the date —
+       the note states the date and nothing more — the box
+       stands unticked, and Continue posts the new agreement
+       before the boards load. -->
+  <div id="terms-state" hidden>
+    <h2>The terms changed</h2>
+    <p id="terms-note"></p>
+    <p><a href="/terms" target="_blank" rel="noopener">Read the Terms of Use</a></p>
+    <p><label><input type="checkbox" id="terms-agree"> I agree to the Terms of Use</label></p>
+    <p><button type="button" class="btn btn-primary" id="terms-continue" disabled>Continue</button></p>
+  </div>
+
   <div id="board-ui" hidden>
     <nav class="project-filter" id="project-filter" aria-label="Filter by project"></nav>
 

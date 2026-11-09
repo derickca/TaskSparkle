@@ -43,6 +43,16 @@ function base64UrlToText(text) {
   return new TextDecoder().decode(bytes);
 }
 
+// The deployment's Terms version (issue #43): the date its
+// Terms page was last updated, named in the deployment's own
+// settings as TERMS_VERSION. The shared code records a
+// person's ticks against it; a deployment that names none
+// keeps no record and nothing in its behaviour changes.
+function termsVersionOf(env) {
+  var version = String((env && env.TERMS_VERSION) || "").trim();
+  return version || null;
+}
+
 var accessKeysCache = { fetchedAt: 0, keys: [] };
 
 async function accessSigningKeys(env) {
@@ -161,7 +171,8 @@ export default {
             return req.headers.get("CF-Connecting-IP") || "unknown";
           },
           sourceCapMs: 15 * 60 * 1000,
-          cookieSecure: function () { return true; }
+          cookieSecure: function () { return true; },
+          termsVersion: termsVersionOf(env)
         }
       });
       var pageAnswer = await authPages(request);
@@ -196,7 +207,8 @@ export default {
       } : null,
       // An erasure on the hosted copy has no deployment state
       // outside the shared tables to clear.
-      onOwnerDeleted: null
+      onOwnerDeleted: null,
+      termsVersion: termsVersionOf(env)
     });
     return handler(request);
   }

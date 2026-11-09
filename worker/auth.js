@@ -870,15 +870,55 @@ export async function countAdmins(authDb) {
 // .userHandle, on that one path only.
 export async function createAccount(authDb, fields) {
   var stamp = nowMs();
-  await authDb.prepare(
+  var accountWrite = authDb.prepare(
     "INSERT INTO accounts (key, id, name, password_hash, admin, owner_id, user_handle, created_at) " +
     "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
   ).bind(
     fields.key, newAccountId(), fields.name, fields.passwordHash || null,
     fields.admin ? 1 : 0, fields.ownerId || null,
     fields.userHandle || b64uEncode(randomBytes(32)), stamp
-  ).run();
+  );
+  // The joining tick's record (issue #43): a spend that took
+  // a tick against a named Terms version passes the version
+  // with the creation, and the agreement row lands in the
+  // same batch as the account row — no account that spend
+  // made stands without its row. Spends that took no tick
+  // pass no version and create exactly as before.
+  if (fields.termsVersion) {
+    await authDb.batch([accountWrite,
+      agreementWrite(authDb, fields.key, fields.termsVersion, "join", stamp)]);
+  } else {
+    await accountWrite.run();
+  }
   return getAccount(authDb, fields.key);
+}
+
+// --- Agreements ---
+// The record of a person's ticks (issue #43): which Terms
+// version each tick accepted, when, and how the row came to
+// stand. The machinery is the shared code's; the version it
+// records is the deployment's to name, and where a
+// deployment names none, no caller passes one and no rows
+// stand.
+
+function agreementWrite(authDb, accountKey, termsVersion, source, stamp) {
+  return authDb.prepare(
+    "INSERT OR IGNORE INTO agreements (account_key, terms_version, agreed_at, source) " +
+    "VALUES (?, ?, ?, ?)"
+  ).bind(accountKey, termsVersion, stamp, source);
+}
+
+export async function recordAgreement(authDb, accountKey, termsVersion, source) {
+  await agreementWrite(authDb, accountKey, termsVersion, source, nowMs()).run();
+}
+
+// The newest row a person holds, by when it was written —
+// the row the re-tick's standing is judged against.
+export async function latestAgreement(authDb, accountKey) {
+  return authDb.prepare(
+    "SELECT account_key, terms_version, agreed_at, source FROM agreements " +
+    "WHERE account_key = ? ORDER BY agreed_at DESC, rowid DESC LIMIT 1"
+  ).bind(accountKey).first();
 }
 
 // While accounts stand, one of them is the administrator: if
@@ -1528,11 +1568,12 @@ export async function sweepAuth(authDb) {
 
 // --- Erasure of one account's credentials ---
 // Deletes the account's rows in the auth store: its passkeys,
-// sessions, challenges and invites, and the account row
-// itself. The boards' owner row is the caller's act (the core
-// deletes it, or the wrapper's erasure door does), because the
-// owner lives in the boards' store on the hosted copy. Audit
-// rows are never edited (see the audit section above).
+// sessions, challenges, invites and agreements, and the
+// account row itself. The boards' owner row is the caller's
+// act (the core deletes it, or the wrapper's erasure door
+// does), because the owner lives in the boards' store on the
+// hosted copy. Audit rows are never edited (see the audit
+// section above).
 
 export async function eraseAccountCredentials(authDb, accountKey) {
   await authDb.batch([
@@ -1540,6 +1581,7 @@ export async function eraseAccountCredentials(authDb, accountKey) {
     authDb.prepare("DELETE FROM sessions WHERE account_key = ?").bind(accountKey),
     authDb.prepare("DELETE FROM auth_challenges WHERE account_key = ?").bind(accountKey),
     authDb.prepare("DELETE FROM invites WHERE key = ?").bind(accountKey),
+    authDb.prepare("DELETE FROM agreements WHERE account_key = ?").bind(accountKey),
     authDb.prepare("DELETE FROM accounts WHERE key = ?").bind(accountKey),
   ]);
 }
