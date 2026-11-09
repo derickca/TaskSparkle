@@ -59,6 +59,13 @@
 //   door's stamp names, and the directions carry the https
 //   base address.
 //
+// - the terms record (issue #43): a config naming no Terms
+//   version records nothing and changes nothing; a config
+//   naming one makes a stale recorded agreement stand in the
+//   person's state, and the agree route's ticked press writes
+//   the new row — sign-in spends and keys write and see none
+//   of it.
+//
 // The HTTP families against a running instance (throttle, body
 // cap, frame rules) live in tests/api-drill.mjs, self-host mode.
 //
@@ -1595,6 +1602,173 @@ try {
       nocodeOpts.status === 400 && !!nocodeOptsJson &&
         /No setup code is set/.test(nocodeOptsJson.error || ""),
       "status " + nocodeOpts.status + " body " + (nocodeOptsJson && nocodeOptsJson.error));
+  }
+
+  // --- The terms record (issue #43) -----------------------------------
+  // The record a person's tick leaves. A copy whose config
+  // names no Terms version records nothing and changes
+  // nothing: accounts are made as before, no row stands, the
+  // state carries no terms standing and the agree route is
+  // not there. A copy whose config names a version keeps the
+  // record: a row a deployment's own joining spend wrote at
+  // an older version makes the state carry the standing —
+  // the new version's date — and the person's tick on the
+  // agree route writes the new row beside it. Sign-in spends
+  // never write a row, and a key can neither see the standing
+  // nor answer it.
+  {
+    const agreementRows = (configName) => {
+      const file = join(scratch,
+        "data-" + configName.replace(/\W/g, ""), "tasksparkle.sqlite");
+      const raw = new DatabaseSync(file, { readOnly: true });
+      try {
+        const stands = raw.prepare(
+          "SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table' AND name = 'agreements'"
+        ).get();
+        if (!stands || stands.n === 0) return null;
+        return raw.prepare(
+          "SELECT account_key, terms_version, source FROM agreements ORDER BY agreed_at, rowid"
+        ).all();
+      } finally { raw.close(); }
+    };
+
+    // Unconfigured: joins as before, nothing recorded.
+    const portPlain = nextPort;
+    const cfgPlain = writeConfig("terms-plain.json", {});
+    nextPort += 1;
+    const sPlain = await startServer(cfgPlain);
+    res = await postForm(portPlain, "/setup",
+      { name: "Terms Plain", password: "terms-plain-password", confirm: "terms-plain-password" });
+    const cookiePlain = sessionOf(res);
+    check("#43: an unconfigured copy makes its first account as before",
+      res.status === 302 && !!cookiePlain, "status " + res.status);
+    const stPlain = cookiePlain ? await apiCall(portPlain, cookiePlain, "GET", "/api/v1/state")
+      : { status: 0, json: null };
+    check("#43: an unconfigured copy's state carries no terms standing",
+      stPlain.status === 200 && !!stPlain.json && !("termsUpdate" in stPlain.json),
+      "status " + stPlain.status);
+    const agreePlain = cookiePlain ? await apiCall(portPlain, cookiePlain, "POST", "/api/terms/agree", { agreed: true })
+      : { status: 0, json: null };
+    check("#43: an unconfigured copy has no agree route standing",
+      agreePlain.status === 404, "status " + agreePlain.status);
+    const rowsPlain = agreementRows("terms-plain.json");
+    check("#43: an unconfigured copy records nothing",
+      rowsPlain !== null && rowsPlain.length === 0,
+      rowsPlain === null ? "no agreements table stands" : rowsPlain.length + " rows stand");
+    check("stop: the unconfigured terms instance stops cleanly",
+      (await stopServer(sPlain)) === 0, "exit " + sPlain.exited());
+
+    // Configured: the deployment names the standing version.
+    const portTerms = nextPort;
+    const cfgTerms = writeConfig("terms.json", { termsVersion: "2026-11-07" });
+    nextPort += 1;
+    const sTerms = await startServer(cfgTerms);
+    res = await postForm(portTerms, "/setup",
+      { name: "Terms Person", password: "terms-person-password", confirm: "terms-person-password" });
+    const cookieTerms = sessionOf(res);
+    check("#43: a configured copy makes its first account as before",
+      res.status === 302 && !!cookieTerms, "status " + res.status);
+    const rowsMade = agreementRows("terms.json");
+    check("#43: the setup spend records nothing — the record is the joining tick's, and setup is not a joining",
+      rowsMade !== null && rowsMade.length === 0,
+      rowsMade === null ? "no agreements table stands" : rowsMade.length + " rows stand");
+    const stTerms0 = cookieTerms ? await apiCall(portTerms, cookieTerms, "GET", "/api/v1/state")
+      : { status: 0, json: null };
+    check("#43: a person with no row standing sees no terms standing",
+      stTerms0.status === 200 && !!stTerms0.json && !("termsUpdate" in stTerms0.json),
+      "status " + stTerms0.status);
+
+    // The row a joining spend wrote at the older version,
+    // placed in the data file the way the #107 family ages an
+    // invite: the deployment's own spend is what writes it
+    // live (the email drill proves that writing); here it
+    // stands the re-tick's starting point up.
+    const termsFile = join(scratch, "data-termsjson", "tasksparkle.sqlite");
+    const seedDb = new DatabaseSync(termsFile);
+    seedDb.prepare(
+      "INSERT INTO agreements (account_key, terms_version, agreed_at, source) VALUES (?, ?, ?, ?)"
+    ).run("terms person", "2026-10-01", Date.now(), "join");
+    seedDb.close();
+
+    const stTerms1 = cookieTerms ? await apiCall(portTerms, cookieTerms, "GET", "/api/v1/state")
+      : { status: 0, json: null };
+    check("#43: a row older than the configured version makes the state carry the standing, naming the new version",
+      stTerms1.status === 200 && !!stTerms1.json && !!stTerms1.json.termsUpdate &&
+        stTerms1.json.termsUpdate.changedOn === "2026-11-07",
+      "status " + stTerms1.status + " termsUpdate " + JSON.stringify(stTerms1.json && stTerms1.json.termsUpdate));
+
+    const agreeBare = cookieTerms ? await apiCall(portTerms, cookieTerms, "POST", "/api/terms/agree", {})
+      : { status: 0, json: null };
+    check("#43: the agree route refuses a press with no tick",
+      agreeBare.status === 400, "status " + agreeBare.status);
+    const agreeUnticked = cookieTerms ? await apiCall(portTerms, cookieTerms, "POST", "/api/terms/agree", { agreed: false })
+      : { status: 0, json: null };
+    check("#43: the agree route refuses an unticked press",
+      agreeUnticked.status === 400, "status " + agreeUnticked.status);
+    const rowsRefused = agreementRows("terms.json");
+    check("#43: the refused presses wrote no row",
+      rowsRefused !== null && rowsRefused.length === 1,
+      rowsRefused === null ? "no agreements table stands" : rowsRefused.length + " rows stand");
+
+    const agreeYes = cookieTerms ? await apiCall(portTerms, cookieTerms, "POST", "/api/terms/agree", { agreed: true })
+      : { status: 0, json: null };
+    check("#43: the ticked press is accepted",
+      agreeYes.status === 200, "status " + agreeYes.status);
+    const rowsAgreed = agreementRows("terms.json");
+    check("#43: the re-tick writes a second row, at the new version, marked as a re-tick",
+      rowsAgreed !== null && rowsAgreed.length === 2 &&
+        rowsAgreed[1].terms_version === "2026-11-07" && rowsAgreed[1].source === "retick",
+      rowsAgreed === null ? "no agreements table stands" : JSON.stringify(rowsAgreed));
+    const stTerms2 = cookieTerms ? await apiCall(portTerms, cookieTerms, "GET", "/api/v1/state")
+      : { status: 0, json: null };
+    check("#43: with the new row standing, the state carries no terms standing",
+      stTerms2.status === 200 && !!stTerms2.json && !("termsUpdate" in stTerms2.json),
+      "status " + stTerms2.status);
+    const agreeAgain = cookieTerms ? await apiCall(portTerms, cookieTerms, "POST", "/api/terms/agree", { agreed: true })
+      : { status: 0, json: null };
+    const rowsAgain = agreementRows("terms.json");
+    check("#43: a press with nothing standing writes no further row",
+      agreeAgain.status === 200 && rowsAgain !== null && rowsAgain.length === 2,
+      "status " + agreeAgain.status + " rows " + (rowsAgain && rowsAgain.length));
+
+    // A fresh sign-in writes nothing either.
+    await getText("http://127.0.0.1:" + portTerms + "/logout", cookieTerms);
+    res = await login(portTerms, "Terms Person", "terms-person-password");
+    const cookieTerms2 = sessionOf(res);
+    check("#43: the person signs back in",
+      res.status === 302 && !!cookieTerms2, "status " + res.status);
+    const rowsSignedIn = agreementRows("terms.json");
+    check("#43: a returning sign-in writes no row",
+      rowsSignedIn !== null && rowsSignedIn.length === 2,
+      rowsSignedIn === null ? "no agreements table stands" : rowsSignedIn.length + " rows stand");
+
+    // A key neither sees the standing nor answers it.
+    const mintedKey = cookieTerms2 ? await apiCall(portTerms, cookieTerms2, "POST", "/api/me/token", { name: "Terms Key" })
+      : { status: 0, json: null };
+    const keyValue = mintedKey.json && mintedKey.json.key;
+    check("#43: the person mints a key for the key-door checks",
+      mintedKey.status === 201 && !!keyValue, "status " + mintedKey.status);
+    const keyState = keyValue ? await fetch("http://127.0.0.1:" + portTerms + "/api/v1/state", {
+      headers: { Authorization: "Bearer " + keyValue },
+    }).then(async (r) => ({ status: r.status, json: await r.json().catch(() => null) }))
+      : { status: 0, json: null };
+    check("#43: a key's state carries no terms standing",
+      keyState.status === 200 && !!keyState.json && !("termsUpdate" in keyState.json),
+      "status " + keyState.status);
+    const keyAgree = keyValue ? await fetch("http://127.0.0.1:" + portTerms + "/api/terms/agree", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + keyValue, "Content-Type": "application/json" },
+      body: JSON.stringify({ agreed: true }),
+    }).then(async (r) => ({ status: r.status, json: await r.json().catch(() => null) }))
+      : { status: 0, json: null };
+    check("#43: a key's press on the agree route is refused",
+      keyAgree.status === 403, "status " + keyAgree.status);
+    const rowsKeyed = agreementRows("terms.json");
+    check("#43: the key's refused press wrote no row",
+      rowsKeyed !== null && rowsKeyed.length === 2,
+      rowsKeyed === null ? "no agreements table stands" : rowsKeyed.length + " rows stand");
+    check("stop: the configured terms instance stops cleanly",
+      (await stopServer(sTerms)) === 0, "exit " + sTerms.exited());
   }
 } finally {
   rmSync(scratch, { recursive: true, force: true });
