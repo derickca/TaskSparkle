@@ -18,7 +18,10 @@
 //                                          `npm run test:smoke` runs —
 //                                          a small change's quick
 //                                          verdict, under a minute on
-//                                          a warm machine.
+//                                          a warm machine. The
+//                                          smoke tier also carries
+//                                          the slop gate scan below
+//                                          (deploy issue #202).
 //
 // The harness writes a throwaway nameless config (issue #107:
 // the config holds no people) into a scratch folder, starts the
@@ -48,7 +51,7 @@
 // exit status is nonzero when any drill fails.
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -98,6 +101,234 @@ function treeScriptFiles() {
   return found.sort();
 }
 
+// --- The slop gate scan (deploy issue #202) --------------------------
+// The fleet's slop gate stands vendored in tools/slop-gate (copied
+// from derickca/certifiablemedia's tools/slop-gate; that folder's
+// README names the credit and the rules for the copy). The scan
+// searches EXTRACTED reader-facing text, never raw files: the pages
+// in SLOP_PAGES are staged as they stand, and the string literals of
+// the files in SLOP_STRING_FILES are extracted with the reader below
+// and staged as text pages of their own, so a watchlist word in a
+// code comment is never read, and a word standing in a string is
+// read as the words a reader sees. A hit on a ruled entry in the
+// service's own words fails the smoke tier; the watchlist's
+// [proposed] section is printed as report lines and never fails.
+// A literal use of a sense-limited entry — a real agent key, a real
+// cryptographic key — stands recorded in the vendored exemptions
+// file, against the exact sentence on the exact page it covers.
+// The lists are THIS tree's: the scan demands every file its list
+// names, so a page missing from a tree that should carry it fails
+// here rather than passing in silence. The deploy repo's copy of
+// this block names that tree's pages and string files instead —
+// the live pages stand only there.
+const SLOP_PAGES = ["public/index.html"];
+const SLOP_STRING_FILES = [
+  ["worker/auth.js", "strings/worker-auth.html"],
+  ["public/app.js", "strings/public-app.html"],
+];
+// The deploy tree also scans its email closing block: a span of one
+// file, named here as { file, from, to, out } where this tree has
+// none.
+const SLOP_FOOTER = null;
+
+// A string-literal reader for whole files: walks the source with a
+// small state machine, so comments and regex literals are skipped
+// (their words are never reader-facing), quoted strings are
+// collected with their escapes undone, and template literals give
+// up their text parts while the code inside ${ } is walked as code.
+function jsStringLiteralsAll(src) {
+  const out = [];
+  const n = src.length;
+  let i = 0;
+  const isIdChar = (c) => /[A-Za-z0-9_$]/.test(c);
+  function regexAllowed(prev) {
+    if (prev === "") return true;
+    if (isIdChar(prev) || prev === ")" || prev === "]" ||
+        prev === '"' || prev === "'" || prev === "`") return false;
+    return true;
+  }
+  function scanCode(stopAtBrace) {
+    let prev = "";
+    let depth = 0;
+    while (i < n) {
+      const c = src[i];
+      if (c === "/" && src[i + 1] === "/") {
+        while (i < n && src[i] !== "\n") i++;
+        continue;
+      }
+      if (c === "/" && src[i + 1] === "*") {
+        i += 2;
+        while (i < n && !(src[i] === "*" && src[i + 1] === "/")) i++;
+        i += 2;
+        continue;
+      }
+      if (c === "/" && regexAllowed(prev)) {
+        i++;
+        let inClass = false;
+        while (i < n) {
+          if (src[i] === "\\") { i += 2; continue; }
+          if (src[i] === "[") inClass = true;
+          else if (src[i] === "]") inClass = false;
+          else if (src[i] === "/" && !inClass) { i++; break; }
+          else if (src[i] === "\n") break;
+          i++;
+        }
+        while (i < n && isIdChar(src[i])) i++;
+        prev = '"';
+        continue;
+      }
+      if (c === '"' || c === "'") { scanString(c); prev = '"'; continue; }
+      if (c === "`") { scanTemplate(); prev = '"'; continue; }
+      if (stopAtBrace) {
+        if (c === "{") depth++;
+        if (c === "}") {
+          if (depth === 0) { i++; return; }
+          depth--;
+        }
+      }
+      if (!/\s/.test(c)) prev = c;
+      i++;
+    }
+  }
+  function unescape(raw) {
+    return raw.replace(/\\(.)/g, (m, c) =>
+      c === "n" ? "\n" : c === "t" ? "\t" : c === "r" ? "" : c);
+  }
+  function scanString(q) {
+    i++;
+    let raw = "";
+    while (i < n) {
+      const c = src[i];
+      if (c === "\\") { raw += src.slice(i, i + 2); i += 2; continue; }
+      if (c === q) { i++; break; }
+      if (c === "\n") break;
+      raw += c; i++;
+    }
+    out.push(unescape(raw));
+  }
+  function scanTemplate() {
+    i++;
+    let raw = "";
+    while (i < n) {
+      const c = src[i];
+      if (c === "\\") { raw += src.slice(i, i + 2); i += 2; continue; }
+      if (c === "`") { i++; break; }
+      if (c === "$" && src[i + 1] === "{") {
+        out.push(unescape(raw)); raw = "";
+        i += 2;
+        scanCode(true);
+        continue;
+      }
+      raw += c; i++;
+    }
+    out.push(unescape(raw));
+  }
+  scanCode(false);
+  return out;
+}
+
+// Of the literals collected, the ones that are reader-facing prose:
+// markup is stripped to the words it carries (an inline script or
+// style body is code, and goes with its tags), and the machinery
+// that shares these files — queries, selectors, keyword lists for
+// search and icon pickers, bare code fragments — is set aside by
+// its shape. A fragment of a composed string stays: the words are
+// the reader's, in pieces.
+const SLOP_SQL_RE = /\b(SELECT|INSERT INTO|DELETE FROM)\b|^UPDATE\s|\bSET\s+[\w`]+\s*=|\bWHERE\s+[\w`]+\s*=/;
+function slopProseStrings(src) {
+  const kept = [];
+  for (const lit of jsStringLiteralsAll(src)) {
+    const text = lit
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    if (!text.includes(" ")) continue;
+    if (text.includes("{") || text.includes("}")) continue;
+    if (SLOP_SQL_RE.test(text)) continue;
+    if (/[A-Za-z]_[A-Za-z]/.test(text)) continue;
+    if (/===|!==|&&|\|\||=>|\('/.test(text)) continue;
+    if (/\b(var|let|const)\s+[A-Za-z_$]/.test(text)) continue;
+    if (/[\w$]\.[\w$]+\s*=/.test(text)) continue;
+    if (text.includes("[data-") || text.includes("] [")) continue;
+    if (/^[a-z0-9]+([ -][a-z0-9-]+)+$/.test(text)) continue;
+    const letters = (text.match(/[A-Za-z]/g) || []).length;
+    const alnum = (text.match(/[A-Za-z0-9]/g) || []).length;
+    if (letters < 8) continue;
+    if (alnum / text.length < 0.5) continue;
+    kept.push(text);
+  }
+  return kept;
+}
+
+function slopGateScan() {
+  const gateDir = join(ROOT, "tools", "slop-gate");
+  const gate = join(gateDir, "slop-gate.py");
+  if (!existsSync(gate)) {
+    console.error("Slop gate: the vendored gate is missing at " +
+      "tools/slop-gate — the scan cannot run, so the tier fails " +
+      "rather than passing over it.");
+    return false;
+  }
+  const named = [...SLOP_PAGES,
+    ...SLOP_STRING_FILES.map(([rel]) => rel),
+    ...(SLOP_FOOTER ? [SLOP_FOOTER.file] : [])];
+  const missing = named.filter((rel) => !existsSync(join(ROOT, rel)));
+  if (missing.length) {
+    console.error("Slop gate: files this tree's scan list names are " +
+      "missing: " + missing.join(", ") + ". The scan demands every " +
+      "page and string file on its list; restore the file or take " +
+      "it off the list in the open.");
+    return false;
+  }
+  const dist = join(scratch, "slop-dist");
+  const stageStrings = (outName, literals) => {
+    const esc = (s) => s.replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const path = join(dist, outName);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, "<!doctype html>\n<html><head><title>" +
+      "Extracted strings</title></head><body>\n" +
+      literals.map((t) => "<p>" + esc(t) + "</p>").join("\n") +
+      "\n</body></html>\n");
+  };
+  for (const rel of SLOP_PAGES) {
+    const dst = join(dist, rel);
+    mkdirSync(dirname(dst), { recursive: true });
+    copyFileSync(join(ROOT, rel), dst);
+  }
+  for (const [rel, outName] of SLOP_STRING_FILES) {
+    stageStrings(outName,
+      slopProseStrings(readFileSync(join(ROOT, rel), "utf8")));
+  }
+  if (SLOP_FOOTER) {
+    const src = readFileSync(join(ROOT, SLOP_FOOTER.file), "utf8");
+    const at = src.indexOf(SLOP_FOOTER.from);
+    const span = at < 0 ? "" :
+      src.slice(at, src.indexOf(SLOP_FOOTER.to, at));
+    stageStrings(SLOP_FOOTER.out, slopProseStrings(span));
+  }
+  const res = spawnSync("python3", [gate, "check", "--dist", dist],
+    { encoding: "utf8" });
+  if (res.error || res.status === 2) {
+    console.error("Slop gate: the vendored gate could not run (" +
+      (res.error ? res.error.message : (res.stderr || "").trim()) +
+      "). The scan does not pass a tree it could not read.");
+    return false;
+  }
+  const report = /^(PROPOSED-HIT|FURNITURE-HIT|QUOTE-HIT|EXEMPTED|HIT|REVIEW-FAIL|Slop gate:)/;
+  for (const line of (res.stdout || "").split("\n")) {
+    if (report.test(line)) console.log(line);
+  }
+  if (res.status !== 0) {
+    console.error("Slop gate: the scan failed — the HIT lines above " +
+      "name the pages and the sentences. Fix the words, or, for a " +
+      "literal use of a sense-limited entry, record the exemption " +
+      "the vendored README describes.");
+    return false;
+  }
+  return true;
+}
+
 function smokeStaticChecks() {
   const files = treeScriptFiles();
   const broken = [];
@@ -126,6 +357,7 @@ function smokeStaticChecks() {
     return false;
   }
   console.log("Build stamps agree: " + workerStamp + ".");
+  if (!slopGateScan()) return false;
   return true;
 }
 

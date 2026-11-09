@@ -1,0 +1,263 @@
+# The slop gate watchlist — vendored copy for certifiable.media.
+#
+# Source of record: the Site and Email Standards. This file is the copy
+# other repos copy from (rollout order set 2026-11-09: certifiable.media
+# first). Transcribed 2026-11-09 from the fleet audit "AI slop — the
+# signs, the watchlist, and an audit of two sites"
+# (~/workspace/standards-survey/ai-slop-signs-and-audit.md), whose entries
+# each stand in a checked source named there: Wikipedia, "Signs of AI
+# writing" (WikiProject AI Cleanup); Juzek and Ward, "Why Does ChatGPT
+# 'Delve' So Much?" (ACL 2025 findings); and the fleet's noslop skill.
+#
+# The list grows only by a checked source, recorded beside the entry.
+# The audit file's "Proposed additions from the side-chat review
+# round" section stands at the end of this file, in the [proposed]
+# section, with the distinction exactly as that file states it:
+# PROPOSED, unruled — nothing in that section is ruled, and each item
+# waits for the owner's judgement with the standards. Entries there
+# are scanned and reported; they never fail the gate. An item becomes
+# enforced only when the owner rules it and it moves into the ruled
+# sections above, in the same act as the standards change.
+#
+# Format: one entry per line. Blank lines and lines starting with #
+# are ignored. Entries match case-insensitively on word boundaries,
+# in the page's own words (verbatim quotes and furniture are scanned
+# into separate buckets and never fail a page — see slop-gate.py).
+#
+# An entry starting with ~ is sense-limited: the source names the word
+# only in one sense, and the literal use is not a hit ("A literal use
+# the sources exclude — a real key, a real landscape — is not a hit;
+# the abstract use is."). A match fails the gate unless an exemption
+# fingerprint for that exact sentence on that exact page stands in
+# watchlist-exemptions.json with its reason — the fleet's scanner
+# practice, used for literal uses of sense-limited entries and for
+# known findings in already-published text: an exemption covers that
+# line on that page; the same words anywhere new still block.
+#
+# An entry starting with re: is a regular expression (a stock shape).
+# An entry starting with ^ matches only at a sentence's start.
+
+[words]
+# Wikipedia master list (the audit's "Words" section)
+Additionally
+align with
+~boasts
+bolstered
+crucial
+deep dive
+delve
+emphasizing
+enduring
+enhance
+fostering
+garner
+~highlight
+interplay
+intricate
+intricacies
+~key
+~landscape
+meticulous
+meticulously
+pivotal
+robust
+showcase
+showcasing
+~tapestry
+testament
+~underscore
+valuable
+vibrant
+# Juzek and Ward focal words already above: delve, intricate, underscore
+# The noslop skill's additions. leverage is sense-limited here: the
+# filler sense is the abstract verb; a real, quantified leverage — a
+# trading game's named stat — is the literal use and is not a hit.
+seamless
+~leverage
+foster
+elevate
+~navigate
+realm
+
+[phrases]
+# Significance (Wikipedia, by section)
+is a testament
+a testament to
+stands as a testament
+serves as a testament
+stands as a reminder
+serves as a reminder
+~stands as
+~serves as
+crucial role
+pivotal role
+vital role
+significant role
+key role
+crucial moment
+pivotal moment
+key moment
+underscores its importance
+highlights its importance
+underscores the importance
+highlights the importance
+reflects broader
+reflecting broader
+symbolizing its ongoing
+symbolizing its enduring
+symbolizing its lasting
+contributing to the
+setting the stage for
+represents a shift
+marks a shift
+key turning point
+evolving landscape
+focal point
+indelible mark
+deeply rooted
+# Superficial tails (closed shapes only; the open-ended -ing tails are
+# the Layer 2 review's check 1, not fixed strings)
+valuable insights
+resonate with
+# Promotional (Wikipedia)
+boasts a
+profound
+exemplifies
+commitment to
+natural beauty
+nestled
+in the heart of
+groundbreaking
+renowned
+featuring
+diverse array
+# Copula substitutes beyond the significance shapes above
+~functions as
+~operates as
+# Vague connection (Wikipedia)
+in connection with
+in connection to
+in association with
+associated with
+# Vague attribution (Wikipedia)
+industry reports
+observers have cited
+experts argue
+some critics argue
+several sources
+several publications
+# Notability (Wikipedia)
+independent coverage
+media outlets
+trade publications
+featured in
+profiled in
+written by a leading expert
+active social media presence
+# Challenges ending (Wikipedia)
+despite these challenges
+challenges and legacy
+future outlook
+re:despite its [^.]{0,80}faces (several |many )?challenges
+# Didactic disclaimers (Wikipedia)
+it's important to note
+it is important to note
+important to remember
+important to consider
+crucial to note
+critical to note
+worth noting
+may vary
+# Section summaries (Wikipedia) — sentence start only
+^In summary
+^In conclusion
+^Overall
+# Chatbot correspondence (Wikipedia)
+I hope this helps
+Of course!
+Certainly!
+You're absolutely right
+Would you like
+is there anything else
+let me know
+^here is a
+# Cutoff and source hedging (Wikipedia)
+up to my last training update
+as of my last knowledge update
+while specific details are limited
+while specific details are scarce
+not widely available
+not widely documented
+not widely disclosed
+in the provided sources
+in the available sources
+based on available information
+# Stacked transitions at a sentence's start (the noslop skill)
+^Furthermore
+^Moreover
+^In addition
+# The noslop skill's stock phrase
+in today's fast-paced world
+# Negative parallelisms (Wikipedia) — stock shapes
+re:not only [^.]{1,120}? but (also )?
+re:it'?s not just [^.]{1,120}?, it'?s
+re:it is not just [^.]{1,120}?, it is
+re:\bno [^,.]{1,60}, no [^,.]{1,60}, just\b
+
+[proposed]
+# PROPOSED additions — unruled. Transcribed from the audit file's
+# "Proposed additions from the side-chat review round — PROPOSED,
+# unruled" section (added there 2026-11-08). Nothing in this section
+# is ruled; each item waits for the owner's judgement with the
+# standards. The gate reports these and never fails on them.
+#
+# Item 1 of that section: hat / hats, as a stock-shape entry scoped
+# to fleet copy — a role named as clothing. Source beside the entry,
+# as the audit file states it: the owner's standing rule, 2026-11-06,
+# barring the word for a role in reader-facing text. The script
+# cannot tell a role use from a clothing use; that is one more reason
+# these report only until ruled.
+hat
+hats
+# Item 2: "and more" at a list's end, and the audience-sweep shape.
+# The script matches the words wherever they stand and reports them;
+# whether the words close a list is a reader's judgement, not the
+# script's.
+and more
+# The audience-sweep shape's exemplar, quoted in the audit file from
+# its own audits ("for projects big and small"); the shape's kin are
+# not enumerated anywhere, so the exemplar is the entry.
+for projects big and small
+#
+# The rest of that section names no further script entries, exactly
+# as the audit file states each item:
+# - Legal-register signs (item 3) are proposed as signs for the
+#   judgement pass, not as watchlist words: legal archaisms and
+#   filler (hereinafter, aforementioned, "the said", "for greater
+#   certainty", "of whatsoever nature"); synonym doubling outside
+#   prescribed phrases (null and void, cease and desist, due and
+#   payable); nominalized verbs where the plain verb exists
+#   (effectuate, utilize); recital bloat (WHEREAS chains).
+# - French candidates (item 4) are none of them entries: calqued
+#   anglicisms doing abstract work; « plonger dans »; « il est
+#   important de noter que »; « en conclusion »; « que vous soyez …
+#   ou … »; « découvrir » as the default verb; « incontournable »
+#   and « riche » with abstract nouns. Until a French entry has a
+#   checked French source, it is not on the list. Em-dash density
+#   needs a French calibration.
+# - Literal-in-this-fleet's-trades annex (item 5) candidates:
+#   showcase, bolster, tapestry, highlights (paint), crafted /
+#   handcrafted. Each joins the annex only on dictionary or
+#   trade-sense evidence recorded beside the entry. (Showcase and
+#   tapestry already stand in the ruled list above, from Wikipedia.)
+# - The stacked intensifier pair (item 6): two or more intensifiers
+#   on one noun count as a cluster hit even when each word alone is
+#   unlisted. A proposed sign, to be sourced before listing — not
+#   listed here.
+# - "usually" (item 7) is proposed for the judgement pass only,
+#   never the script list: quoted statute carries the same word
+#   honestly. It is deliberately not an entry.
+# - Product-copy clichés (item 8) — streamline, unlock, intuitive
+#   and kin — do not appear in the audit file's checked sources, so
+#   under the growth discipline they cannot join the list yet. The
+#   file names the blind spot instead; they are not entries.
