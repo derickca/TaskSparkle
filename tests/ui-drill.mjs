@@ -585,13 +585,31 @@ await page.screenshot({ path: join(OUT, "board-1280.png") });
   });
   const MODE_NAMES = { system: "System", light: "Light", dark: "Dark" };
   const named = await labelOf();
+  const startMode = await modeNow();
   await page.click("#theme-toggle");
-  const landed = await modeNow();
+  // The click's save lands a breath after the paint; wait for
+  // the stored mode to stand in the named one.
+  let landed = null;
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    landed = await modeNow();
+    if (landed && MODE_NAMES[landed] === named) break;
+    await new Promise((res) => setTimeout(res, 150));
+  }
   check("topbar: the dark toggle's face names the mode a click brings",
     !!landed && MODE_NAMES[landed] === named,
     "face named " + JSON.stringify(named) + ", click landed in " + JSON.stringify(landed));
   await page.click("#theme-toggle");
   await page.click("#theme-toggle"); // the full cycle restores the starting mode
+  let restored = null;
+  const deadline2 = Date.now() + 5000;
+  while (Date.now() < deadline2) {
+    restored = await modeNow();
+    if (restored === startMode) break;
+    await new Promise((res) => setTimeout(res, 150));
+  }
+  check("topbar: the full cycle restores the starting mode",
+    restored === startMode, "started " + JSON.stringify(startMode) + ", ended " + JSON.stringify(restored));
   await page.locator(".topbar").screenshot({ path: join(OUT, "topbar-1280.png") });
   // The account place opens Settings on the Account page, where
   // the sign-out wording stands (issue #45).
