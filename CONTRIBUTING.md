@@ -23,7 +23,7 @@ Small, focused fixes are welcome as pull requests. Before sending one:
 - A bug fix starts with a test that fails without the fix. The drills in `tests/` are where tests live; `tests/README.md` explains each one.
 - Keep one change per pull request. A pull request that fixes one thing gets read quickly; one that fixes five waits.
 
-Pull requests get the same checks in GitHub (syntax, the build-stamp agreement and the drills) before anyone reads the code.
+Pull requests get the light checks in GitHub (syntax, the build-stamp agreement and the smoke tier) before anyone reads the code. The drills are not among them: they are yours to run before you push, as above.
 
 ## Bigger work
 
