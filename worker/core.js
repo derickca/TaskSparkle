@@ -1978,6 +1978,13 @@ function match(parts, pattern) {
 //   sockets. For DELETE /me it answers the Set-Cookie value
 //   that ends the person's session on that deployment, or
 //   nothing.
+// - passwordsAllowed: optional. A deployment whose sign-in
+//   takes no passwords (a hosted service whose whole door is
+//   the emailed link and passkeys) passes false: the account
+//   read then says so, the app offers no password setting, and
+//   the password route refuses. A copy that names no value
+//   takes passwords as it always has — the self-host copy's
+//   name-and-password door stands untouched.
 //
 // The handler takes and returns web-standard Request and Response
 // objects and nothing else, which is what lets the same core
@@ -2341,6 +2348,7 @@ export function createApiHandler(deps) {
 async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
     var db = deps.db;
     var env = deps.env;
+    var takePasswords = deps.passwordsAllowed !== false;
     var method = request.method;
     var p = null;
 
@@ -3909,6 +3917,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
             admin: !!account.admin,
             linked: !!owner,
             hasPassword: !!account.password_hash,
+            passwordsAllowed: takePasswords,
             proofAt: session ? Number(session.proof_at || 0) : null,
             proofVia: session ? session.proof_via : null,
             passkeys: myPasskeys.map(function (row) {
@@ -4141,6 +4150,9 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
       // off an account only by a named act.
       if ((p = match(parts, ["api", "auth", "password"]))) {
         if (method === "POST") {
+          if (!takePasswords) {
+            return error("This copy takes no passwords. Sign in with the emailed link or a passkey.");
+          }
           var pwBody = await readBody(request);
           if (!pwBody || pwBody.new_password == null) {
             return error("new_password is required.");

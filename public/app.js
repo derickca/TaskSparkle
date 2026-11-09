@@ -1516,10 +1516,15 @@ function applyTheme() {
     btn.classList.toggle("active", on);
     btn.setAttribute("aria-pressed", on ? "true" : "false");
   });
-  var label = "Theme: " + THEME_NAMES[mode];
+  // The toggle's face names the mode a click brings, the way
+  // the display button's face names its tap's step (issue #48):
+  // the glyph and the label are the next mode's, not the
+  // standing one's.
+  var nextMode = THEME_MODES[(THEME_MODES.indexOf(mode) + 1) % THEME_MODES.length];
+  var label = "Theme: " + THEME_NAMES[nextMode];
   var toggle = document.getElementById("theme-toggle");
   if (toggle) {
-    toggle.innerHTML = THEME_ICONS[mode];
+    toggle.innerHTML = THEME_ICONS[nextMode];
     toggle.setAttribute("aria-label", label);
     toggle.setAttribute("title", label);
   }
@@ -1662,6 +1667,19 @@ function chipsInUse(run) {
 
 function render() {
   if (!state) return;
+  // The header's account place carries the person's own name
+  // (issue #48): it is painted here, with the boards, so a
+  // rename repaints it with everything else.
+  var accountPlace = document.getElementById("account-open");
+  if (accountPlace) {
+    // No name, no place: an empty slot never stands in the row.
+    accountPlace.hidden = !(state.me && state.me.name);
+    if (state.me && state.me.name) {
+      accountPlace.textContent = state.me.name;
+      accountPlace.setAttribute("aria-label", "Account — " + state.me.name);
+      accountPlace.setAttribute("title", "Account — " + state.me.name);
+    }
+  }
   var board = activeBoardObj();
   var columns = columnsOf(board);
 
@@ -6977,6 +6995,10 @@ function renderAccountPassword(me) {
   var btn = document.getElementById("account-password-btn");
   var drop = document.getElementById("account-password-drop");
   if (!heading || !btn) return;
+  // A copy whose sign-in takes no passwords offers no password
+  // setting at all (issue #46): the whole section stands down.
+  var section = document.getElementById("account-password-section");
+  if (section) section.hidden = !!(me && me.passwordsAllowed === false);
   var has = !!(me && me.hasPassword);
   heading.textContent = has ? "Change password" : "Password";
   if (state) state.hidden = has;
@@ -8050,6 +8072,10 @@ function init() {
   // Settings gear and panel
   wire("settings-open", "click", function () {
     if (state) openSettings();
+  });
+  // The account place opens Settings on the Account page.
+  wire("account-open", "click", function () {
+    if (state) openSettings("settings-account");
   });
   wire("settings-close", "click", function () {
     closeSettings();

@@ -525,6 +525,125 @@ check("boards: Personal and Professional stand seeded",
 const columnHeads = await page.locator("#columns .column-head, #columns section h2, #columns section h3").allTextContents().catch(() => []);
 await page.screenshot({ path: join(OUT, "board-1280.png") });
 
+// --- The topbar's right side (issue #48) and the sign-out wording (#45) --------
+// The standard's row map: 44px targets, glyphs at the family's
+// size, and the right side standing as search, the dark toggle
+// showing the mode a click brings, the person's own name
+// leading to Settings → Account, then Settings — no empty
+// slots. The Display button is a board tool and stands with
+// the board tools, not in that set.
+{
+  // Measured off the DOM directly, so a piece that does not
+  // stand yet reads as a failed check here, never as a stalled
+  // run: this family is also the failing-first record.
+  const box = async (sel) => page.evaluate((s) => {
+    const el = document.querySelector(s);
+    if (!el || el.hidden) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.x, y: r.y, width: r.width, height: r.height };
+  }, sel);
+  const searchB = await box("#search-toggle");
+  const themeB = await box("#theme-toggle");
+  const accountB = await box("#account-open");
+  const settingsB = await box("#settings-open");
+  check("topbar: the right-side controls stand at the 44px floor",
+    [searchB, themeB, accountB, settingsB].every((b) => b && b.width >= 43.5 && b.height >= 43.5),
+    JSON.stringify([searchB, themeB, accountB, settingsB]));
+  check("topbar: the right side stands in the standard's order",
+    searchB && themeB && accountB && settingsB &&
+    searchB.x < themeB.x && themeB.x < accountB.x && accountB.x < settingsB.x,
+    "x " + [searchB, themeB, accountB, settingsB].map((b) => b && Math.round(b.x)).join(","));
+  const glyph = async (sel) => box(sel + " svg");
+  const searchG = await glyph("#search-toggle");
+  const themeG = await glyph("#theme-toggle");
+  check("topbar: the glyphs stand at the family's size",
+    [searchG, themeG].every((g) => g && g.width >= 20 && g.width <= 24 && g.height >= 20 && g.height <= 24),
+    JSON.stringify([searchG, themeG]));
+  const topB = await box(".topbar");
+  check("topbar: the bar stands in the standard's band",
+    !!topB && topB.height >= 56 && topB.height <= 80, "height " + (topB && topB.height));
+  const homes = await page.evaluate(() => ({
+    displayInActions: !!document.querySelector(".board-row-actions #display-toggle"),
+    displayInHeader: !!document.querySelector(".header-actions #display-toggle"),
+    accountName: (document.getElementById("account-open") || {}).textContent || "",
+  }));
+  check("topbar: Display stands with the board tools, not in the right-side set",
+    homes.displayInActions && !homes.displayInHeader, JSON.stringify(homes));
+  check("topbar: the account place carries the person's name",
+    homes.accountName.trim() === String(PERSON_NAME || "").trim(),
+    "place " + JSON.stringify(homes.accountName) + " name " + JSON.stringify(PERSON_NAME));
+  // The toggle's face names the mode a click brings: read the
+  // name it shows, click, and the app must stand in that mode.
+  const labelOf = async () => page.evaluate(() => {
+    const t = document.getElementById("theme-toggle");
+    return (t.getAttribute("aria-label") || t.getAttribute("title") || "").replace(/^Theme:\s*/, "");
+  });
+  const modeNow = async () => page.evaluate(async () => {
+    const r = await fetch("/api/v1/state");
+    const j = await r.json().catch(() => null);
+    return j && j.theme;
+  });
+  const MODE_NAMES = { system: "System", light: "Light", dark: "Dark" };
+  const named = await labelOf();
+  const startMode = await modeNow();
+  await page.click("#theme-toggle");
+  // The click's save lands a breath after the paint; wait for
+  // the stored mode to stand in the named one.
+  let landed = null;
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    landed = await modeNow();
+    if (landed && MODE_NAMES[landed] === named) break;
+    await new Promise((res) => setTimeout(res, 150));
+  }
+  check("topbar: the dark toggle's face names the mode a click brings",
+    !!landed && MODE_NAMES[landed] === named,
+    "face named " + JSON.stringify(named) + ", click landed in " + JSON.stringify(landed));
+  await page.click("#theme-toggle");
+  await page.click("#theme-toggle"); // the full cycle restores the starting mode
+  let restored = null;
+  const deadline2 = Date.now() + 5000;
+  while (Date.now() < deadline2) {
+    restored = await modeNow();
+    if (restored === startMode) break;
+    await new Promise((res) => setTimeout(res, 150));
+  }
+  check("topbar: the full cycle restores the starting mode",
+    restored === startMode, "started " + JSON.stringify(startMode) + ", ended " + JSON.stringify(restored));
+  await page.locator(".topbar").screenshot({ path: join(OUT, "topbar-1280.png") });
+  // The account place opens Settings on the Account page, where
+  // the sign-out wording stands (issue #45).
+  if (await page.locator("#account-open").count()) {
+    await page.click("#account-open");
+    await page.waitForSelector("#settings-account:not([hidden])", { timeout: 10000 }).catch(() => {});
+  }
+  const accountWords = await page.evaluate(() => {
+    const sec = document.getElementById("settings-account");
+    return {
+      visible: !!sec && !sec.hidden && getComputedStyle(sec).display !== "none" &&
+        sec.getBoundingClientRect().height > 0,
+      logout: (document.getElementById("logout-link") || {}).textContent || "",
+      anyLogOut: !!sec && /Log out/.test(sec.textContent || ""),
+    };
+  });
+  check("topbar: the account place opens Settings on the Account page",
+    accountWords.visible, JSON.stringify(accountWords));
+  check("sign-out wording: the Account page says Sign out, never Log out",
+    accountWords.logout.trim() === "Sign out (this device)" && !accountWords.anyLogOut,
+    JSON.stringify(accountWords));
+  if (await page.locator("#settings-backdrop:not([hidden])").count()) {
+    await page.click("#settings-close").catch(() => {});
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  const accountPhone = await box("#account-open");
+  const topPhone = await box(".topbar");
+  check("topbar: at phone width the account place stands and the two rows hold their height",
+    !!accountPhone && accountPhone.height >= 43.5 && !!topPhone && topPhone.height >= 90 && topPhone.height <= 115,
+    JSON.stringify([accountPhone, topPhone]));
+  await page.locator(".topbar").screenshot({ path: join(OUT, "topbar-390.png") });
+  await page.setViewportSize({ width: 1280, height: 900 });
+}
+
 const TITLE = "UI drill card " + Date.now();
 await page.click('button[data-add-to="inbox"]');
 await page.waitForSelector("#editor-backdrop:not([hidden])", { timeout: 10000 });

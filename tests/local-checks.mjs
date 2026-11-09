@@ -204,6 +204,32 @@ console.log("Standalone sign-in routes: every address the sign-in, " +
   console.log("Terms record: the schema, both entry points and the app's gate stand wired.");
 }
 
+// The sign-out wording (issue #45) and the stylesheet's version
+// pin (issue #49): the app says Sign out everywhere — the words
+// Log out stand nowhere in it — and the app's stylesheet address
+// carries the build stamp as its version, so a new build never
+// serves a stale sheet under an old address. Both are read off
+// the files themselves, the way the terms wiring above is.
+{
+  const index = readFileSync(join(ROOT, "public", "index.html"), "utf8");
+  const core = readFileSync(join(ROOT, "worker", "core.js"), "utf8");
+  const stamp = (core.match(/var BUILD_ID = "([^"]*)"/) || [])[1] || null;
+  const pin = (index.match(/href="styles\.css\?v=([^"]*)"/) || [])[1] || null;
+  const missing = [];
+  if (index.includes("Log out")) {
+    missing.push("public/index.html still says Log out");
+  }
+  if (!pin || pin !== stamp) {
+    missing.push("the stylesheet's version pin in public/index.html is " +
+      (pin || "missing") + ", the build stamp is " + (stamp || "missing"));
+  }
+  if (missing.length) {
+    console.error("The wording and stylesheet pins are off: " + missing.join("; ") + ".");
+    process.exit(1);
+  }
+  console.log("Wording and stylesheet pin: Sign out stands, and the sheet is pinned to " + stamp + ".");
+}
+
 // The Standard theme's hairlines (issue #142, Derick's ruling
 // on sweep row THM-03): the border colour --line against the
 // page background --bg must clear 3:1 in both default
