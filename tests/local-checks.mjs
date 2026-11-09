@@ -230,6 +230,84 @@ console.log("Standalone sign-in routes: every address the sign-in, " +
   console.log("Wording and stylesheet pin: Sign out stands, and the sheet is pinned to " + stamp + ".");
 }
 
+// The glyphs are Lucide's own drawings (deploy issue #198,
+// Derick's ruling of 2026-11-08, Option B): the path data
+// below is copied character for character from the lucide
+// repo's icon files (lucide-icons/lucide, icons/book-open.svg,
+// message-square.svg, circle-question-mark.svg, search.svg,
+// columns-3.svg, calendar.svg, arrow-up.svg, sun-moon.svg,
+// sun.svg, moon.svg, layout-list.svg,
+// text-align-justify-start.svg and star.svg). The header
+// glyphs stand in worker/auth.js's HEAD_GLYPHS and, in a
+// deployment's layer, on the site's pages — the check below
+// further down holds the two copies equal where both stand.
+// The topbar's drawings stand in public/index.html's markup,
+// and the theme and display buttons' faces in public/app.js.
+// A hand drawing swapped back in fails here.
+{
+  const LUCIDE = {
+    terms: '<svg viewBox="0 0 24 24" width="44" height="44" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v16"/><path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"/></svg>',
+    feedback: '<svg viewBox="0 0 24 24" width="44" height="44" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/></svg>',
+    help: '<svg viewBox="0 0 24 24" width="44" height="44" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>',
+    overview: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>',
+    schedule: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>',
+    topSearch: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>',
+    backToTop: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>',
+    themeSystem: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715"/><path d="M16 12a4 4 0 0 0-4-4"/><path d="m19 5-1.256 1.256"/><path d="M20 12h2"/></svg>',
+    themeLight: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>',
+    themeDark: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>',
+    displayBoth: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/><path d="M14 4h7"/><path d="M14 9h7"/><path d="M14 15h7"/><path d="M14 20h7"/></svg>',
+    displayWords: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18"/><path d="M3 12h18"/><path d="M3 19h10"/></svg>',
+    displayIcons: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.123 2.123 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg>',
+  };
+  const index = readFileSync(join(ROOT, "public", "index.html"), "utf8");
+  const app = readFileSync(join(ROOT, "public", "app.js"), "utf8");
+  const auth = readFileSync(join(ROOT, "worker", "auth.js"), "utf8");
+  const glyphSpan = auth.slice(auth.indexOf("var HEAD_GLYPHS = {"),
+    auth.indexOf("};", auth.indexOf("var HEAD_GLYPHS = {")));
+  const glyphOf = (name) => {
+    const m = glyphSpan.match(new RegExp(name + ": \"((?:[^\"\\\\]|\\\\.)*)\""));
+    return m ? m[1].replace(/\\"/g, "\"").replace(/\\\\/g, "\\") : "";
+  };
+  const faceOf = (text, name) => {
+    const m = text.match(new RegExp(name + ": '(<svg[\\s\\S]*?)'(?=[,\\n])"));
+    return m ? m[1] : "";
+  };
+  const drift = [];
+  for (const name of ["terms", "feedback", "help"]) {
+    if (glyphOf(name) !== LUCIDE[name]) {
+      drift.push("worker/auth.js's " + name + " heading glyph is not Lucide's own drawing");
+    }
+  }
+  for (const name of ["overview", "schedule", "topSearch", "backToTop"]) {
+    if (!index.includes(LUCIDE[name])) {
+      drift.push("public/index.html's " + name + " topbar glyph is not Lucide's own drawing");
+    }
+  }
+  if (index.includes('viewBox="0 0 16 16"')) {
+    drift.push("public/index.html still carries a glyph drawn on the 16 grid");
+  }
+  for (const [key, name] of [["themeSystem", "system"], ["themeLight", "light"], ["themeDark", "dark"]]) {
+    if (faceOf(app, name) !== LUCIDE[key]) {
+      drift.push("public/app.js's " + name + " theme face is not Lucide's own drawing");
+    }
+  }
+  for (const [key, name] of [["displayBoth", "both"], ["displayWords", "words"], ["displayIcons", "icons"]]) {
+    if (faceOf(app, name) !== LUCIDE[key]) {
+      drift.push("public/app.js's " + name + " display face is not Lucide's own drawing");
+    }
+  }
+  if (drift.length) {
+    console.error("The glyphs have drifted from Lucide's own drawings " +
+      "(deploy issue #198): " + drift.join("; ") + ". The path data " +
+      "stands in the lucide repo's icon files; copy it character " +
+      "for character, never redraw it.");
+    process.exit(1);
+  }
+  console.log("Glyphs: the heading, topbar, theme and display drawings " +
+    "are Lucide's own path data (deploy issue #198).");
+}
+
 // The Standard theme's hairlines (issue #142, Derick's ruling
 // on sweep row THM-03): the border colour --line against the
 // page background --bg must clear 3:1 in both default

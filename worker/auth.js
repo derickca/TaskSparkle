@@ -1791,9 +1791,9 @@ var BRAND_MARK = "<svg viewBox=\"0 0 124 124\" width=\"34\" height=\"34\" aria-h
   "<polygon fill=\"#00EEB9\" points=\"62,14 70.6,52.4 105,62 70.6,71.6 62,110 53.4,71.6 19,62 53.4,52.4\"/>" +
   "<circle cx=\"62\" cy=\"62\" r=\"5\" fill=\"#FFFFFF\"/></svg>";
 var HEAD_GLYPHS = {
-  terms: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 6.2C10.3 4.95 7.7 4.45 4.8 4.9v11.6c2.9-.45 5.5.05 7.2 1.3\"/><path d=\"M12 6.2c1.7-1.25 4.3-1.75 7.2-1.3v11.6c-2.9-.45-5.5.05-7.2 1.3\"/><path d=\"M12 6.2v11.6\"/></svg>",
-  feedback: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4.5 4.5h15V15H10l-5.5 4.5z\"/><path d=\"M8 9h8M8 12h5\"/></svg>",
-  help: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"8.5\"/><path d=\"M9.7 9.4c.2-1.3 1.15-2.1 2.3-2.1 1.25 0 2.3.9 2.3 2.05 0 1.6-2.3 1.9-2.3 3.35v.55\"/><path d=\"M12 16.6h.01\"/></svg>",
+  terms: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 5v16\"/><path d=\"M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z\"/></svg>",
+  feedback: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z\"/></svg>",
+  help: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3\"/><path d=\"M12 17h.01\"/></svg>",
 };
 
 /* The Feedback entry's settling, the site pages' own
