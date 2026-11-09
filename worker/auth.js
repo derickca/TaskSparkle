@@ -1189,12 +1189,16 @@ export async function sessionByToken(authDb, token) {
 }
 
 // Stamps last-seen at most hourly, so an active session is not
-// a write per request.
+// a write per request. The same stamp renews the session
+// (issue #47): use moves the session's end out to the standing
+// length from the activity, so a person who keeps using the
+// service is not signed out on a fixed day. The renewal never
+// shortens a session — MAX keeps whichever end stands later.
 export async function touchSession(authDb, row) {
   var stamp = nowMs();
   if (stamp - Number(row.last_seen_at || 0) < 60 * 60 * 1000) return;
-  await authDb.prepare("UPDATE sessions SET last_seen_at = ? WHERE token_hash = ?")
-    .bind(stamp, row.token_hash).run();
+  await authDb.prepare("UPDATE sessions SET last_seen_at = ?, expires_at = MAX(expires_at, ?) WHERE token_hash = ?")
+    .bind(stamp, stamp + SESSION_MS, row.token_hash).run();
 }
 
 // Rotates the session's token: the old row goes, a fresh token
@@ -1633,7 +1637,7 @@ var PAGE_STYLE = [
   ":root[data-look=\"midnight\"] { color-scheme: light; --bg: #e7edfc; --column-bg: #d3defa; --ink: #16213d; --accent: #2b4acb; --accent-ink: #ffffff; --field-bg: #fbfcff; --danger-bg: #f6d9d2; --danger-ink: #8f1306; --danger-border: #e0a08f; --font: -apple-system, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif; --font-display: \"Avenir Next\", \"Segoe UI\", Roboto, sans-serif; }",
   ":root[data-look=\"midnight\"][data-theme=\"dark\"] { color-scheme: dark; --bg: #050914; --column-bg: #111c36; --ink: #e3ebff; --accent: #7aa2ff; --accent-ink: #0a1430; --field-bg: #111c36; --danger-bg: #2e0f0c; --danger-ink: #ffab9e; --danger-border: #5e2a24; }",
   "body { margin: 0; font-family: var(--font);",
-  "  background: var(--bg); color: var(--ink); line-height: 1.4; }",
+  "  background: var(--bg); color: var(--ink); line-height: 1.375; }",
   /* The one frame every logged-out page stands in: the
      reading column (46em wide, 14px of side padding),
      centred, flush to the top of the page — the same box
@@ -1840,6 +1844,9 @@ function pageHtml(title, body, cfg) {
     "<title>" + escapeHtml(title) + "</title>\n" +
     "<link rel=\"icon\" type=\"image/svg+xml\" href=\"/icons/icon.svg\">\n" +
     "<link rel=\"icon\" type=\"image/png\" sizes=\"64x64\" href=\"/icons/icon-64.png\">\n" +
+    // The wordmark's font, preloaded so the name never paints
+    // in a fallback face first (issue #49).
+    "<link rel=\"preload\" as=\"font\" type=\"font/woff2\" href=\"/fonts/comfortaa-bold.woff2\" crossorigin>\n" +
     PAGE_BOOT + "\n" +
     "<style>\n" + PAGE_STYLE + "\n</style>\n" +
     "</head>\n<body>\n<div class=\"static-wrap\">\n" + pageHead(cfg) +
