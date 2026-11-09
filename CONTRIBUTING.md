@@ -25,6 +25,10 @@ Small, focused fixes are welcome as pull requests. Before sending one:
 
 Pull requests get the light checks in GitHub (syntax, the build-stamp agreement and the smoke tier) before anyone reads the code. The drills are not among them: they are yours to run before you push, as above.
 
+## Text changes
+
+Reader-facing text is checked the way code is. Any change to a text-bearing file puts that file's extracted reader-facing strings in front of a reviewer who did not write them, under the antagonistic text review, before the change ships. Text-bearing files in this repo are `public/*.html`, `public/app.js` and `worker/auth.js`. The review runs on the extracted strings — the words a reader sees — not on the raw file.
+
 ## Bigger work
 
 Anything larger than a small fix starts as an issue conversation, not a pull request. The roadmap is the maintainer's, and a large pull request that arrives unannounced may be declined even when the code is good — not from ingratitude, but because every feature here is one the maintainer then supports. Talk first and the work has a home before it is written.
