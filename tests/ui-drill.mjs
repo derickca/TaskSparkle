@@ -533,7 +533,15 @@ await page.screenshot({ path: join(OUT, "board-1280.png") });
 // slots. The Display button is a board tool and stands with
 // the board tools, not in that set.
 {
-  const box = async (sel) => page.locator(sel).boundingBox();
+  // Measured off the DOM directly, so a piece that does not
+  // stand yet reads as a failed check here, never as a stalled
+  // run: this family is also the failing-first record.
+  const box = async (sel) => page.evaluate((s) => {
+    const el = document.querySelector(s);
+    if (!el || el.hidden) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.x, y: r.y, width: r.width, height: r.height };
+  }, sel);
   const searchB = await box("#search-toggle");
   const themeB = await box("#theme-toggle");
   const accountB = await box("#account-open");
@@ -545,7 +553,7 @@ await page.screenshot({ path: join(OUT, "board-1280.png") });
     searchB && themeB && accountB && settingsB &&
     searchB.x < themeB.x && themeB.x < accountB.x && accountB.x < settingsB.x,
     "x " + [searchB, themeB, accountB, settingsB].map((b) => b && Math.round(b.x)).join(","));
-  const glyph = async (sel) => page.locator(sel + " svg").boundingBox();
+  const glyph = async (sel) => box(sel + " svg");
   const searchG = await glyph("#search-toggle");
   const themeG = await glyph("#theme-toggle");
   check("topbar: the glyphs stand at the family's size",
@@ -587,12 +595,15 @@ await page.screenshot({ path: join(OUT, "board-1280.png") });
   await page.locator(".topbar").screenshot({ path: join(OUT, "topbar-1280.png") });
   // The account place opens Settings on the Account page, where
   // the sign-out wording stands (issue #45).
-  await page.click("#account-open");
-  await page.waitForSelector("#settings-account:not([hidden])", { timeout: 10000 }).catch(() => {});
+  if (await page.locator("#account-open").count()) {
+    await page.click("#account-open");
+    await page.waitForSelector("#settings-account:not([hidden])", { timeout: 10000 }).catch(() => {});
+  }
   const accountWords = await page.evaluate(() => {
     const sec = document.getElementById("settings-account");
     return {
-      visible: !!sec && !sec.hidden && sec.offsetParent !== null,
+      visible: !!sec && !sec.hidden && getComputedStyle(sec).display !== "none" &&
+        sec.getBoundingClientRect().height > 0,
       logout: (document.getElementById("logout-link") || {}).textContent || "",
       anyLogOut: !!sec && /Log out/.test(sec.textContent || ""),
     };
@@ -602,7 +613,9 @@ await page.screenshot({ path: join(OUT, "board-1280.png") });
   check("sign-out wording: the Account page says Sign out, never Log out",
     accountWords.logout.trim() === "Sign out (this device)" && !accountWords.anyLogOut,
     JSON.stringify(accountWords));
-  await page.click("#settings-close").catch(() => {});
+  if (await page.locator("#settings-backdrop:not([hidden])").count()) {
+    await page.click("#settings-close").catch(() => {});
+  }
   await page.setViewportSize({ width: 390, height: 844 });
   const accountPhone = await box("#account-open");
   const topPhone = await box(".topbar");
