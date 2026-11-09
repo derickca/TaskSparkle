@@ -1195,6 +1195,9 @@ function realId(id) {
 function reloadState() {
   return api("GET", "/api/state").then(function (fresh) {
     adoptState(fresh);
+    // A terms change that landed while this tab stood open
+    // gates the boards the same way it gates a fresh load.
+    if (fresh.termsUpdate) { showTermsGate(fresh.termsUpdate); return; }
     render();
     applyTheme();
     var backdrop = document.getElementById("settings-backdrop");
@@ -9000,6 +9003,64 @@ function showUnlinked(me) {
   }).catch(function () { /* the waiting words above stand */ });
 }
 
+// The terms gate (issue #43): the note a terms change leaves
+// standing inside, before the boards. It states only the
+// date the terms changed, links to the Terms page in a new
+// tab, and waits on an unticked box: Continue posts the new
+// agreement, and the boards load behind it. The box starts
+// unticked every time the gate stands — the agreement is
+// this press's, never a remembered one.
+var termsGateWired = false;
+function showTermsGate(update) {
+  var loading = byId("loading-state");
+  if (loading) loading.hidden = true;
+  var boardUi = byId("board-ui");
+  if (boardUi) boardUi.hidden = true;
+  var unlinked = byId("unlinked-state");
+  if (unlinked) unlinked.hidden = true;
+  var box = byId("terms-state");
+  if (!box) { loadInitial(); return; }
+  var note = byId("terms-note");
+  if (note) {
+    note.textContent = "The terms changed on " + termsDateWords(update.changedOn) + ".";
+  }
+  var agree = byId("terms-agree");
+  var cont = byId("terms-continue");
+  if (agree) agree.checked = false;
+  if (cont) cont.disabled = true;
+  box.hidden = false;
+  if (!termsGateWired) {
+    termsGateWired = true;
+    if (agree && cont) {
+      agree.addEventListener("change", function () { cont.disabled = !agree.checked; });
+    }
+    if (cont) {
+      cont.addEventListener("click", function () {
+        if (!agree || !agree.checked) return;
+        cont.disabled = true;
+        api("POST", "/api/terms/agree", { agreed: true }).then(function () {
+          box.hidden = true;
+          loadInitial();
+        }).catch(function () {
+          showApiError();
+          cont.disabled = false;
+        });
+      });
+    }
+  }
+}
+
+// The standing's date in the words the Terms page prints it:
+// the version is the page's "Last updated" date in ISO form,
+// and the note speaks it in full — "November 7, 2026".
+var TERMS_MONTHS = ["January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"];
+function termsDateWords(iso) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+  if (!m) return String(iso || "");
+  return TERMS_MONTHS[Number(m[2]) - 1] + " " + Number(m[3]) + ", " + m[1];
+}
+
 function renderUnlinkedClaims(me, data) {
   var wrap = byId("unlinked-claims");
   if (!wrap) return;
@@ -9076,6 +9137,9 @@ function loadInitial() {
     clearTimeout(timer);
     adoptState(fresh);
     if (loading) loading.hidden = true;
+    // The terms gate stands before the boards: the boards
+    // load only once the standing is answered (issue #43).
+    if (fresh.termsUpdate) { showTermsGate(fresh.termsUpdate); return; }
     if (boardUi) boardUi.hidden = false;
     render();
     applyTheme();

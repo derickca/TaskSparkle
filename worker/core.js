@@ -87,7 +87,8 @@ import {
   verifyPassword, hashPassword, isCurrentHash, passwordProblem,
   verifyRegistration, verifyAssertion, nameKey, nameProblem,
   sessionCookieValue, expiredSessionCookieValue, viewCookieValue,
-  eraseAccountCredentials, PROOF_FRESH_MS, CHALLENGE_MS, SESSION_COOKIE,
+  eraseAccountCredentials, recordAgreement, latestAgreement,
+  PROOF_FRESH_MS, CHALLENGE_MS, SESSION_COOKIE,
   b64uDecode
 } from "./auth.js";
 
@@ -1337,6 +1338,7 @@ function writeFieldsFor(method, parts) {
     if (rest.length === 2 && rest[1] === "claim") return ["owner_id", "account_key"];
     return [];
   }
+  if (rest[0] === "terms" && rest.length === 2 && rest[1] === "agree" && method === "POST") return ["agreed"];
   if (rest[0] === "me" && rest.length === 1 && method === "PATCH") return ["theme", "name"];
   if (rest[0] === "me" && rest.length === 2 && rest[1] === "token") {
     return method === "POST" ? ["name"] : [];
@@ -2417,7 +2419,56 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
 
     if ((p = match(parts, ["api", "state"]))) {
       if (method === "GET") {
-        return json(await buildState(db, owner, env, via));
+        var stateAnswer = await buildState(db, owner, env, via);
+        // The terms standing (issue #43): where the deployment
+        // names a Terms version, a person whose newest recorded
+        // agreement is older than it reads the standing here —
+        // the new version, which the app speaks as the date the
+        // terms changed — and the app stands its note before
+        // the boards. A person with no row reads nothing: the
+        // record began with a tick they never gave, and a key
+        // reads nothing either — the standing is a person's,
+        // carried only on the answer their own sign-in reads.
+        if (deps.termsVersion && caller && caller.account) {
+          var latestTerms = await latestAgreement(deps.authDb || deps.db, caller.account.key);
+          if (latestTerms && latestTerms.terms_version < deps.termsVersion) {
+            stateAnswer.termsUpdate = { changedOn: deps.termsVersion };
+          }
+        }
+        return json(stateAnswer);
+      }
+    }
+
+    // The re-tick (issue #43): the person's answer to the
+    // standing the state carried. It writes only to the auth
+    // store — no board changes, so it stands outside the
+    // boards' version machinery like the key routes beside
+    // it — and it is a person's own act: a key can neither
+    // see the standing nor answer it. The tick itself is
+    // enforced here, not trusted to the page: a press without
+    // it is refused and writes nothing. Where the deployment
+    // names no Terms version the route does not stand at all.
+    if ((p = match(parts, ["api", "terms", "agree"]))) {
+      if (method === "POST") {
+        if (!deps.termsVersion) {
+          return error("This copy keeps no terms record.", 404);
+        }
+        if (via === "agent-token" || !caller || !caller.account) {
+          return error("The terms agreement is the person's own act, in the app.", 403);
+        }
+        var termsBody = await readBody(request);
+        if (!termsBody || termsBody.agreed !== true) {
+          return error("Tick the box to agree to the Terms first.", 400);
+        }
+        var termsAuthDb = deps.authDb || deps.db;
+        var standingTerms = await latestAgreement(termsAuthDb, caller.account.key);
+        if (!standingTerms) {
+          return error("No agreement stands for this account to renew.", 400);
+        }
+        if (standingTerms.terms_version < deps.termsVersion) {
+          await recordAgreement(termsAuthDb, caller.account.key, deps.termsVersion, "retick");
+        }
+        return json({ ok: true });
       }
     }
 

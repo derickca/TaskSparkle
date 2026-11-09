@@ -3424,6 +3424,21 @@ function doorCallerFor(cookie) {
   }
 }
 
+// --- The terms record, unconfigured (issue #43) -------------------------------
+// Neither standing rig names a Terms version, so the record
+// the version would drive is simply not there: the person's
+// state carries no terms standing, and the agree route does
+// not stand. The configured shape — the standing in the
+// state, the re-tick's row — is drilled where a config can
+// name the version, in tests/server-drill.mjs.
+res = await a.call("GET", "/api/v1/state");
+check("#43: an unconfigured copy's state carries no terms standing",
+  res.status === 200 && !!res.json && !("termsUpdate" in res.json),
+  "status " + res.status);
+res = await a.call("POST", "/api/v1/terms/agree", { agreed: true });
+check("#43: an unconfigured copy has no agree route standing",
+  res.status === 404, "status " + res.status);
+
 // --- The last two spend-refusal shapes (issue #147) ---------------------------
 // A common password and the account's own name are refused
 // as themselves, not as a generic failure. The presses ride

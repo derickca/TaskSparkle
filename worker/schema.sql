@@ -256,6 +256,26 @@ CREATE TABLE IF NOT EXISTS sessions (
   via TEXT NOT NULL
 );
 
+-- The terms agreements (issue #43): one row for each tick a
+-- person has given, naming the account, the Terms version
+-- the tick accepted, when it was given, and how the row came
+-- to stand — "join" for the tick at joining, "retick" for
+-- the tick a later change asked for, "backfill" for a row
+-- an operator placed for an account made before the record
+-- stood. Rows stand only where a deployment names a Terms
+-- version; a copy that names none keeps no rows and nothing
+-- in its behaviour changes. The pair is the key — one row
+-- per person per version — so a second tick at the same
+-- version can never stand beside the first. An erased
+-- person's rows go with their credentials (worker/auth.js).
+CREATE TABLE IF NOT EXISTS agreements (
+  account_key TEXT NOT NULL,
+  terms_version TEXT NOT NULL,
+  agreed_at INTEGER NOT NULL,
+  source TEXT NOT NULL,
+  PRIMARY KEY (account_key, terms_version)
+);
+
 -- The doors' audit trail. Rows name accounts only by their
 -- opaque accounts.id, never by sign-in name, so an erased
 -- person's name dies with their account row and the tombstones
@@ -288,6 +308,7 @@ CREATE TABLE IF NOT EXISTS auth_meta (
   value INTEGER NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS idx_agreements_account ON agreements (account_key, agreed_at);
 CREATE INDEX IF NOT EXISTS idx_passkeys_account ON passkeys (account_key);
 CREATE INDEX IF NOT EXISTS idx_sessions_account ON sessions (account_key);
 CREATE INDEX IF NOT EXISTS idx_auth_challenges_hash ON auth_challenges (challenge_hash);
