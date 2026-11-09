@@ -1,0 +1,240 @@
+[
+  {
+    "page": "blog/bitcoin-design/index.html",
+    "entry": "leverage",
+    "sentence_sha256": "78b3ed753e425f1b8265e749017e38a2d4780b8b35d2327bc9e15b4d6c7e3551",
+    "sentence": "Landing correctly closes the position at a profit, amplified by your current Leverage.",
+    "reason": "Literal use: Leverage is the game's named, quantified stat in the Bitcoin game this published design post documents (steps up by 1 per landing, floored at 1x, a 1000x achievement). Not the abstract filler sense. Pre-existing published post; recorded 2026-11-09 when the gate landed."
+  },
+  {
+    "page": "blog/bitcoin-design/index.html",
+    "entry": "leverage",
+    "sentence_sha256": "f732c793d98d2ecfe6efe5c8d285fa451172ff712e19d95862ff3a2dafe0a6ee",
+    "sentence": "Leverage steps up by 1 on every correct guess with no ceiling \u2014 a hot streak can compound into an enormous position \u2014 and steps down on every miss, floored at 1x so a bad run can't zero out your exposure.",
+    "reason": "Literal use: Leverage is the game's named, quantified stat in the Bitcoin game this published design post documents (steps up by 1 per landing, floored at 1x, a 1000x achievement). Not the abstract filler sense. Pre-existing published post; recorded 2026-11-09 when the gate landed."
+  },
+  {
+    "page": "blog/bitcoin-design/index.html",
+    "entry": "leverage",
+    "sentence_sha256": "2155fc94192ea9a066d93c4f71bb128003ed5529f04dcb3cef197375551d0589",
+    "sentence": "Dice pickups scattered across the terrain multiply Leverage outright on a 1-6 roll, a much bigger and riskier swing than the steady per-landing step.",
+    "reason": "Literal use: Leverage is the game's named, quantified stat in the Bitcoin game this published design post documents (steps up by 1 per landing, floored at 1x, a 1000x achievement). Not the abstract filler sense. Pre-existing published post; recorded 2026-11-09 when the gate landed."
+  },
+  {
+    "page": "blog/bitcoin-design/index.html",
+    "entry": "leverage",
+    "sentence_sha256": "01f01996e6aa78264db933d9c9f75211e5480154c471a5fe5243bd3adf47f39f",
+    "sentence": "The game's difficulty curve is about timing and leverage now, not accidents of Bitcoin's own price history.",
+    "reason": "Literal use: Leverage is the game's named, quantified stat in the Bitcoin game this published design post documents (steps up by 1 per landing, floored at 1x, a 1000x achievement). Not the abstract filler sense. Pre-existing published post; recorded 2026-11-09 when the gate landed."
+  },
+  {
+    "page": "blog/bitcoin-design/index.html",
+    "entry": "leverage",
+    "sentence_sha256": "ca0980de721a88cc539fcd4e9c1f626b19a2d8cca0634d6b99db21e47d320ad7",
+    "sentence": "One achievement \u2014 1000x Leverage \u2014 is live today.",
+    "reason": "Literal use: Leverage is the game's named, quantified stat in the Bitcoin game this published design post documents (steps up by 1 per landing, floored at 1x, a 1000x achievement). Not the abstract filler sense. Pre-existing published post; recorded 2026-11-09 when the gate landed."
+  },
+  {
+    "page": "blog/bitcoin-design/index.html",
+    "entry": "leverage",
+    "sentence_sha256": "f3dab4b1d71e5338149d213091180ec47078d184d018200172562cfc7e023958",
+    "sentence": "If you're playtesting: the run is 90 seconds, there's no way to lose, and the interesting failure mode is getting greedy with Leverage right before a level's biggest swing goes the wrong way.",
+    "reason": "Literal use: Leverage is the game's named, quantified stat in the Bitcoin game this published design post documents (steps up by 1 per landing, floored at 1x, a 1000x achievement). Not the abstract filler sense. Pre-existing published post; recorded 2026-11-09 when the gate landed."
+  },
+  {
+    "page": "blog/liza-design/index.html",
+    "entry": "key",
+    "sentence_sha256": "f2163033dff0c1d3fa44e94710fe875c0c82d8bcbfc36f0b0a743cffee60b3e6",
+    "sentence": "Key finding: chatbot input follows a Zipf distribution \u2014 write your best replies for the small high-frequency set first.",
+    "reason": "Known pre-existing finding in a published design post: 'Key finding:' is the post's own standing heading phrase, from before the gate (recorded 2026-11-09). Blog posts are the owner's published writing; this build changes no page content. The same words in new text still block."
+  },
+  {
+    "page": "blog/where-is-your-second-brain/index.html",
+    "entry": "navigate",
+    "sentence_sha256": "a54bf84b29569a1f1a9c3bd2b8aa446185b37690bd02468dc948d4cbd1e519d1",
+    "sentence": "Several years ago I used OneNote for all of my notes, and made a lot of notes there, but they became big and cumbersome and took too long to navigate and use.",
+    "reason": "Literal use: taking too long to navigate notes in OneNote \u2014 moving through the notes themselves, not the abstract sense the source names. Pre-existing published post; recorded 2026-11-09."
+  },
+  {
+    "page": "blog/where-is-your-second-brain/index.html",
+    "entry": "key",
+    "sentence_sha256": "bc72fb5edb277c1f6772817566478918519640f71cd742ff2b460f30b057300d",
+    "sentence": "I'm not sure where I got the advice, perhaps it was Claude, but I came across a recommendation to create a CLAUDE markdown file in every key folder in your vault, with instructions for Claude Code about how things work in that area.",
+    "reason": "Known pre-existing finding in a published post: 'every key folder in your vault' is the owner's own standing phrase, from before the gate (recorded 2026-11-09). The same words in new text still block."
+  },
+  {
+    "page": "blog/where-is-your-second-brain/index.html",
+    "entry": "in conclusion",
+    "sentence_sha256": "78e4ffc327bac25fedd1b1439dc7ad2e2559211105360ddfe80967e0ba4f50fc",
+    "sentence": "In Conclusion",
+    "reason": "Known pre-existing finding in a published post: 'In Conclusion' is the post's own closing heading, standing text from before the gate (recorded 2026-11-09). The same words in new text still block."
+  },
+  {
+    "page": "public/index.html",
+    "entry": "key",
+    "sentence_sha256": "2a73fca70d20a969ae9c4fd57191554f43694687347f19a4d998602fe037375a",
+    "sentence": "Add a key",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "public/index.html",
+    "entry": "key",
+    "sentence_sha256": "6199f1ec0d8e43b90066f5427de15f0efc84e050be829838864eb3aa77c38ce3",
+    "sentence": "Copy key",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "public/index.html",
+    "entry": "key",
+    "sentence_sha256": "4419a7879d5c86454027857aea85d3968d16f5083e1a0fc0bf9edeb971760f04",
+    "sentence": "Delete key",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "public/index.html",
+    "entry": "key",
+    "sentence_sha256": "2b726a6bf48ba894d2f83f16e6e9aa4d15311028eb61be79094f3c73eca2fabb",
+    "sentence": "Each card names whose next step it is; a key's cards wait in its queue until it writes on one.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "public/index.html",
+    "entry": "key",
+    "sentence_sha256": "705c457b2a872d756eced3ee7cfd5201efbd2fb0c6e633003d1972893633a225",
+    "sentence": "One key per agent; deleting one never touches another.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "public/index.html",
+    "entry": "key",
+    "sentence_sha256": "7e2ca24bc27855beaabfc1c8a9fa8eb5b3e4c276d9091caa79e502de6ca31220",
+    "sentence": "Your agent reads the full directions with its key.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "public/index.html",
+    "entry": "key",
+    "sentence_sha256": "e2d189e72a9bf920f0752cc17608a331600f4a37bf8cfaeb3a9171c7329aa609",
+    "sentence": "Your new TaskSparkle key",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "public/index.html",
+    "entry": "key",
+    "sentence_sha256": "1daa13ea13c08497bbef4e3976e84b76bde9626216e866f4f7bf56728317593c",
+    "sentence": "Your new key",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "a0998076bba419664ef6371ce9923a3a70cd972600ccb13ced4d2b8d47bef5db",
+    "sentence": "/directions with my key, and follow what they say.",
+    "reason": "Literal use, in a fragment of a composed string: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "c8feb9f68681358ac1da7026f850b28895ca31bae31af8f38feadf627a6f1e2f",
+    "sentence": "Adding a key did not work.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "60bb1bed6a389eb4bf656bafbab12394d9d8edbf8fa53c56c6ecd8e259dc082c",
+    "sentence": "Delete the key \u201c",
+    "reason": "Literal use, in a fragment of a composed string: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "ebb7f20c247414db84bacead121c24013287ad64729ca88a49a654e787c6a97b",
+    "sentence": "Deleting the key did not work.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "d26a7180960aae3ff0aa930e88be13a2776875f6771e10e727d56f4250d46499",
+    "sentence": "If I have no key yet, tell me to add one in TaskSparkle under Settings, then Set Up Agent: tap Add a key, give it a name, and paste you the key it shows me.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "d52207bf86d97cd5164febbc5181954ee413cd084c3a3f65fb8e9801f2af33e5",
+    "sentence": "If a request comes back 401 or 403, tell me, and I will check the key in TaskSparkle under Settings, then Set Up Agent.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "866849f96a78093786f68d1401ec5470ea6a66b5a42fe331c40e5cbba4939fb9",
+    "sentence": "Keep my key secret and never show it back to me in full.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "05b186c04d84715e811fca0c409dd8f145a93c6b596105b43c59ec2e74fe0162",
+    "sentence": "Name for the key ending in",
+    "reason": "Literal use, in a fragment of a composed string: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "dabc00c8cf5509c42fde9f7ca9f0d337771f91cb1d1d43b7bf6146c1416a8155",
+    "sentence": "Renaming the key did not work.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "ea1a29f7ba80b6a6bc67e918e2fe01041b870a8048d5a49eda33bd768b83bfa9",
+    "sentence": "The key is shown once, so I copy it then.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "e381e9e912ed5738b80e44f2ca9f80e28a795fdad2d5f6681c0793941fb7431f",
+    "sentence": "The key reaches only my boards.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "56f7f40e20c50e107e49759020f4565843a189e22f6a73fe087b49b4a310ed38",
+    "sentence": "When you set up the connection, ask me for my TaskSparkle key and save it in the secure secret field.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/worker-auth.html",
+    "entry": "key",
+    "sentence_sha256": "bf58e6260a695024b5b4a33d1550556ec020f2c6aef974facd425df1461e2e18",
+    "sentence": "The ES256 key is incomplete.",
+    "reason": "Literal use: a cryptographic key in a WebAuthn error message. The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/worker-auth.html",
+    "entry": "key",
+    "sentence_sha256": "3e3744343637b7a5ce8251d857c0fbb728776d9b015a3e171b13a08f8be40e78",
+    "sentence": "The EdDSA key is incomplete.",
+    "reason": "Literal use: a cryptographic key in a WebAuthn error message. The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/worker-auth.html",
+    "entry": "key",
+    "sentence_sha256": "0f2d6c762548de93795ba9b1391dc5fc4fe34a4fbb6b4e701a39d0d41957b299",
+    "sentence": "The RS256 key is incomplete.",
+    "reason": "Literal use: a cryptographic key in a WebAuthn error message. The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/worker-auth.html",
+    "entry": "key",
+    "sentence_sha256": "a956d5ebf81256949c084380246a8f502cae1602449ddc7753a00c56f956941f",
+    "sentence": "The public key is not a COSE map.",
+    "reason": "Literal use: a cryptographic key in a WebAuthn error message. The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  }
+]
