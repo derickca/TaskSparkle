@@ -581,7 +581,7 @@ await page.screenshot({ path: join(OUT, "board-1280.png") });
   const modeNow = async () => page.evaluate(async () => {
     const r = await fetch("/api/v1/state");
     const j = await r.json().catch(() => null);
-    return j && j.settings && j.settings.theme;
+    return j && j.theme;
   });
   const MODE_NAMES = { system: "System", light: "Light", dark: "Dark" };
   const named = await labelOf();
