@@ -559,8 +559,14 @@ body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--ink);
-  line-height: 1.4;
+  line-height: 1.375;
 }
+
+/* The text rhythm stands once, in the base rules (issue #50):
+   22px lines on the 16px base, and a 1em gap between
+   paragraphs. A component that needs tighter text says so in
+   its own rule. */
+p { margin: 1em 0; }
 
 /* Headings wear the look's display font. Form controls do not
    inherit the body font on their own, so in any look but
@@ -662,26 +668,46 @@ h1 {
 
 
 
-/* The small header buttons are smaller than the shared round base
-   above: all four are 32 by 32 with a 16 pixel icon. The search,
-   theme and display buttons' icons are svgs; the settings
-   button's icon is its gear character, sized by the font-size
-   below. */
-#search-toggle,
-#theme-toggle,
-#display-toggle,
-#settings-open {
+/* The header's right-side set stands at the shared base above —
+   44px targets with their glyphs at the family's size (issue
+   #48): the search and theme buttons' glyphs are svgs, the
+   settings button's is its gear character, sized by the base's
+   font-size. The display button stands with the board tools
+   now, at their size, in the board row's action group. */
+#search-toggle svg,
+#theme-toggle svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+  margin: 0 auto;
+}
+
+.board-row-actions #display-toggle {
   width: 32px;
   height: 32px;
 }
 
-#search-toggle svg,
-#theme-toggle svg,
-#display-toggle svg {
+.board-row-actions #display-toggle svg {
   display: block;
   width: 16px;
   height: 16px;
   margin: 0 auto;
+}
+
+/* The account place: the person's own name, standing between
+   the theme button and the gear, leading to Settings → Account.
+   Its width is its name's, capped so a long name ellipsises
+   instead of crowding the row. */
+.account-btn {
+  width: auto;
+  max-width: 11em;
+  padding: 0 13px;
+  border-radius: 999px;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* The search button wears the inverted colours while the search
@@ -892,15 +918,16 @@ h1 {
 }
 
 /* The board row: a wrapper around the board buttons and the
-   two icon buttons that stand beside them. On a wide screen the
-   wrapper and its inner group step aside (display: contents),
-   so the header row lays its pieces out as it always has and
-   the Schedule icon joins the header's own buttons. On a phone
-   the wrapper becomes the header's second row itself: the board
-   buttons scroll inside the room it leaves, and the two buttons
-   stand pinned at its right margin, outside the scrolling run,
-   so no board button can slide underneath them (see the phone
-   block at the end of this file). */
+   board tools that stand beside them (See all columns, Schedule
+   and the display button). On a wide screen the wrapper and its
+   inner group step aside (display: contents), so the header row
+   lays its pieces out as it always has and the tools join the
+   header row beside the board buttons. On a phone the wrapper
+   becomes the header's second row itself: the board buttons
+   scroll inside the room it leaves, and the tools stand pinned
+   at its right margin, outside the scrolling run, so no board
+   button can slide underneath them (see the phone block at the
+   end of this file). */
 .board-row { display: contents; }
 
 .board-row-actions { display: contents; }
@@ -2410,10 +2437,10 @@ textarea.copy-field { resize: vertical; }
     flex: 0 0 auto;
     margin-left: auto;
   }
-  /* Every header button on a phone is the same small size: the
-     board buttons stand at the 32 pixels the theme, display and
-     gear buttons already are, so the heading reads as one family
-     across its two rows. */
+  /* The board buttons stand small on a phone — 32 pixels — while
+     the header's right-side set keeps the 44px floor on the
+     first row (issue #48); the board row's own tool buttons
+     stand at the board buttons' size beside them. */
   .board-tab { padding: 0 8px; height: 32px; min-height: 32px; }
   .board-tab-icon { font-size: 17px; }
 }
