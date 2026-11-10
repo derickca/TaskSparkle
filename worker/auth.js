@@ -2631,20 +2631,64 @@ function authRedirect(location, headers) {
   return new Response(null, { status: 302, headers: all });
 }
 
-function authHtml(html) {
-  return new Response(html, {
-    status: 200,
-    headers: {
-      "content-type": "text/html; charset=utf-8",
-      "cache-control": "no-cache",
-      "content-security-policy":
-        "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; " +
-        "font-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
-      "x-content-type-options": "nosniff",
-      "x-frame-options": "DENY",
-      "referrer-policy": "same-origin",
-    },
-  });
+// The pages' freshness shape (Site and Email Standards,
+// Part 8): a page answer states the revalidation line and a
+// weak tag made from the page's own bytes, and a revalidation
+// carrying the tag answers 304 with no body. The tag is
+// worked out once per distinct page body and kept — the same
+// bytes earn the same tag, changed bytes a new one. An
+// answer that will carry a cookie stands outside the rule:
+// its caller passes no request, and the answer goes in full
+// with no tag.
+var pageTags = new Map();
+function pageTag(html) {
+  var tag = pageTags.get(html);
+  if (tag) return tag;
+  var hash = 0x811c9dc5;
+  for (var i = 0; i < html.length; i++) {
+    hash ^= html.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  tag = "W/\"" + html.length.toString(36) + "-" + hash.toString(36) + "\"";
+  if (pageTags.size >= 64) pageTags.clear();
+  pageTags.set(html, tag);
+  return tag;
+}
+
+function ifNoneMatchHits(header, tag) {
+  if (!header) return false;
+  var mine = tag.slice(2);
+  var parts = header.split(",");
+  for (var i = 0; i < parts.length; i++) {
+    var part = parts[i].trim();
+    if (part === "*") return true;
+    if (part.replace(/^W\//, "") === mine) return true;
+  }
+  return false;
+}
+
+function authHtml(html, request) {
+  var headers = {
+    "content-type": "text/html; charset=utf-8",
+    "cache-control": "max-age=0, must-revalidate, no-transform",
+    "content-security-policy":
+      "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; " +
+      "font-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "referrer-policy": "same-origin",
+  };
+  if (request) {
+    var tag = pageTag(html);
+    headers.etag = tag;
+    if ((request.method === "GET" || request.method === "HEAD") &&
+        ifNoneMatchHits(request.headers.get("if-none-match"), tag)) {
+      var bare = Object.assign({}, headers);
+      delete bare["content-type"];
+      return new Response(null, { status: 304, headers: bare });
+    }
+  }
+  return new Response(html, { status: 200, headers: headers });
 }
 
 export function createAuthHandlers(deps) {
@@ -3316,7 +3360,7 @@ export function createAuthHandlers(deps) {
         if (standing) return authRedirect("/");
         if ((await countAccounts(authDb)) === 0) {
           return authHtml(setupPageHtml(cfg, url.searchParams.get("error") || "",
-            secureAddress(url)));
+            secureAddress(url)), request);
         }
         var names = cfg.listNames ? await listAccounts(authDb) : null;
         // The attempted name stands for this rendering only
@@ -3325,7 +3369,8 @@ export function createAuthHandlers(deps) {
         var attemptedName = attemptedNameFromRequest(request);
         var loginAnswer = authHtml(loginPageHtml(cfg, url.searchParams.get("error") || "",
           names, rememberedNameFromRequest(request), secureAddress(url),
-          rememberedViewFromRequest(request), attemptedName));
+          rememberedViewFromRequest(request), attemptedName),
+          attemptedName ? null : request);
         if (attemptedName) {
           loginAnswer.headers.append("Set-Cookie",
             expiredAttemptCookieValue(cfg.cookieSecure(request)));
@@ -3372,7 +3417,7 @@ export function createAuthHandlers(deps) {
       if (method === "POST") return handleRedeem(request, code);
       if (method === "GET") {
         var row = await findInvite(authDb, code);
-        if (!inviteUsable(row)) return authHtml(inviteRefusedHtml(cfg));
+        if (!inviteUsable(row)) return authHtml(inviteRefusedHtml(cfg), request);
         var target = await getAccount(authDb, row.key);
         var secure = secureAddress(url);
         // The page follows the account's own shape (A.6): a
@@ -3380,10 +3425,10 @@ export function createAuthHandlers(deps) {
         // by ceremony, never a password form.
         if (target && !target.password_hash) {
           return authHtml(recoveryPageHtml(cfg, row, code,
-            url.searchParams.get("error") || "", secure));
+            url.searchParams.get("error") || "", secure), request);
         }
         return authHtml(invitePageHtml(cfg, row, code, !!target,
-          url.searchParams.get("error") || "", secure));
+          url.searchParams.get("error") || "", secure), request);
       }
     }
     if (path === "/invite-code" && method === "POST") {

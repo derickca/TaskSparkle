@@ -14,10 +14,12 @@
 # revalidate on every load; unchanged files still answer 304.
 /boot.js
   Cache-Control: no-cache
+# The front page itself is a page (Site and Email Standards,
+# Part 8): it states the revalidation line in full.
 /
-  Cache-Control: no-cache
+  Cache-Control: max-age=0, must-revalidate, no-transform
 /index.html
-  Cache-Control: no-cache
+  Cache-Control: max-age=0, must-revalidate, no-transform
 /app.js
   Cache-Control: no-cache
 /styles.css
