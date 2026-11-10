@@ -695,7 +695,7 @@ function cssVarOf(block, name, tokenMap) {
   // the light accent, and the places a literal colour must
   // stand — the manifest and the app page's theme colour.
   const spark = readFileSync(join(ROOT, "design", "system", "icons", "spark.svg"), "utf8");
-  const sparkPath = (spark.match(/d="([^"]+)"/) || [])[1];
+  const sparkPath = (spark.match(/<path[^>]* d="([^"]+)"/) || [])[1];
   const icon = readFileSync(join(ROOT, "public", "icons", "icon.svg"), "utf8");
   if (!sparkPath || !icon.includes('d="' + sparkPath + '"')) {
     failures.push("public/icons/icon.svg does not carry the family spark drawing");
