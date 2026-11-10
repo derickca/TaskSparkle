@@ -1864,8 +1864,11 @@ function pageHead(cfg) {
   if (!base) {
     return "<header class=\"site-head\">" + brand + "</header>";
   }
-  var links = "<span class=\"pilot-tag\">Pilot</span>" +
-    "<nav class=\"site-links\" aria-label=\"Site\">" +
+  // The Pilot tag stands inside the home link, part of
+  // the brand unit beside the name (Part 2, issue #221).
+  brand = brand.replace("</a>",
+    "<span class=\"pilot-tag\">Pilot</span></a>");
+  var links = "<nav class=\"site-links\" aria-label=\"Site\">" +
     "<a class=\"site-link\" href=\"" + base + "/help\" aria-label=\"Help\">" + HEAD_GLYPHS.help + "</a>" + "<button type=\"button\" class=\"site-link\" data-theme-toggle aria-label=\"Theme: Light\">" + HEAD_GLYPHS.themeLight + "</button></nav>";
   return "<header class=\"site-head\">" + brand + links +
     "</header>\n" + HEAD_THEME;

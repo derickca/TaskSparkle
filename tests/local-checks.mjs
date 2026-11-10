@@ -942,6 +942,48 @@ function cssVarOf(block, name, tokenMap) {
     "copy sticks to the top.");
 }
 
+
+{
+  // Standards round 3 (deploy issue #221). Part 2: the
+  // Pilot tag stands inside the name-and-logo home link —
+  // part of the brand unit, not its own element in the
+  // header row split off by the header's gap. The sign-in
+  // pages' header copy and the front page's landing header
+  // carry the grouping here; the reading pages' copies
+  // stand in the deployment tree, held there the same way.
+  const failures = [];
+  const auth = readFileSync(join(ROOT, "worker", "auth.js"), "utf8");
+  const index = readFileSync(join(ROOT, "public", "index.html"), "utf8");
+  const headFn = auth.slice(auth.indexOf("function pageHead"),
+    auth.indexOf("\nfunction ", auth.indexOf("function pageHead") + 10));
+  const tagAt = headFn.indexOf("pilot-tag");
+  const linksAt = headFn.indexOf("var links");
+  if (!(tagAt > headFn.indexOf("BRAND_MARK") && tagAt < linksAt) ||
+      headFn.slice(linksAt).includes("pilot-tag")) {
+    failures.push("worker/auth.js's Pilot tag does not stand " +
+      "inside the name-and-logo home link");
+  }
+  const headAt = index.indexOf('<header class="site-head">');
+  if (headAt >= 0) {
+    const head = index.slice(headAt, index.indexOf("</header>", headAt));
+    const brandAt = head.indexOf('<a class="site-brand"');
+    const brandEnd = head.indexOf("</a>", brandAt);
+    const headTagAt = head.indexOf("pilot-tag");
+    if (!(headTagAt > brandAt && headTagAt < brandEnd)) {
+      failures.push("the front page's Pilot tag does not stand " +
+        "inside the name-and-logo home link");
+    }
+  }
+  if (failures.length) {
+    console.error("Standards round 3 (deploy issue #221): " +
+      failures.join("; ") + ".");
+    process.exit(1);
+  }
+  console.log("Standards round 3: the Pilot tag stands inside " +
+    "the name-and-logo home link in the sign-in pages' copy " +
+    "and on the front page.");
+}
+
 // The account pages' palette, boot script and heading
 // drawings are copies of the site's own (public/styles.css,
 // public/boot.js, the site pages' heading), standing inline
