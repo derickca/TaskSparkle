@@ -1612,6 +1612,12 @@ var PAGE_STYLE = [
   /* The palette: the colours the site's pages paint with,
      look by look, light and dark, copied from
      public/styles.css for the variables these pages use.
+     The standard look's colours are the Spark family tokens
+     (design/system/tokens.css): styles.css reads them from
+     the tokens file, and this copy carries the few values
+     it needs inline, as --ms- variables of its own, because
+     these pages may not load a stylesheet; the local checks
+     hold the inline values equal to the tokens file.
      These pages' policy allows no stylesheet but this
      inline one, so the palette stands here; the local
      checks hold the two copies equal, variable by
@@ -1620,8 +1626,8 @@ var PAGE_STYLE = [
      before the page paints, exactly as public/boot.js
      does for the site's pages, so a visitor's colours
      never change between the site's pages and these. */
-  ":root { color-scheme: light; --bg: #f4f5f2; --column-bg: #e9ebe6; --ink: #191c19; --accent: #1f5c3d; --accent-ink: #ffffff; --field-bg: #ffffff; --danger-bg: #fbe3e0; --danger-ink: #7d1f14; --danger-border: #e3b3ad; --font: -apple-system, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; --font-display: -apple-system, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; }",
-  ":root[data-theme=\"dark\"] { color-scheme: dark; --bg: #131512; --column-bg: #262b26; --ink: #eceee9; --field-bg: #262b26; --danger-bg: #3d1f1b; --danger-ink: #f0a49c; --danger-border: #7a4038; }",
+  ":root { color-scheme: light; --ms-color-page: #faf8f3; --ms-color-surface: #ffffff; --ms-color-surface-muted: #f1eee6; --ms-color-text: #142a5c; --ms-color-line-strong: #858072; --ms-color-accent: #2b5fc7; --ms-color-on-accent: #ffffff; --ms-color-danger: #b3261e; --ms-color-badge-lapsed-bg: #fbe7e4; --bg: var(--ms-color-page); --column-bg: var(--ms-color-surface-muted); --ink: var(--ms-color-text); --accent: var(--ms-color-accent); --accent-ink: var(--ms-color-on-accent); --field-bg: var(--ms-color-surface); --danger-bg: var(--ms-color-badge-lapsed-bg); --danger-ink: var(--ms-color-danger); --danger-border: var(--ms-color-line-strong); --font: -apple-system, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; --font-display: -apple-system, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; }",
+  ":root[data-theme=\"dark\"] { color-scheme: dark; --ms-color-page: #10121f; --ms-color-surface: #1f2238; --ms-color-surface-muted: #262a45; --ms-color-text: #f3f4f8; --ms-color-line-strong: #737793; --ms-color-accent: #3a6fd8; --ms-color-on-accent: #ffffff; --ms-color-danger: #ff8a80; --ms-color-badge-lapsed-bg: #4d1f1a; --bg: var(--ms-color-page); --column-bg: var(--ms-color-surface-muted); --ink: var(--ms-color-text); --field-bg: var(--ms-color-surface); --danger-bg: var(--ms-color-badge-lapsed-bg); --danger-ink: var(--ms-color-danger); --danger-border: var(--ms-color-line-strong); }",
   ":root[data-look=\"comic\"] { color-scheme: light; --bg: #fff3c4; --column-bg: #ffe08a; --ink: #232323; --accent: #2050c8; --accent-ink: #ffffff; --field-bg: #ffffff; --danger-bg: #ffd9d2; --danger-ink: #8f1306; --danger-border: #e8a396; --font: \"Comic Sans MS\", \"Comic Neue\", \"Chalkboard SE\", \"Segoe UI\", sans-serif; --font-display: \"Comic Sans MS\", \"Comic Neue\", \"Chalkboard SE\", \"Segoe UI\", sans-serif; }",
   ":root[data-look=\"comic\"][data-theme=\"dark\"] { color-scheme: dark; --bg: #1d1b2e; --column-bg: #332f52; --ink: #fdf6d8; --accent: #ffd23e; --accent-ink: #231f00; --field-bg: #332f52; --danger-bg: #47201c; --danger-ink: #ffb3a7; --danger-border: #7a4038; }",
   ":root[data-look=\"console\"] { color-scheme: light; --bg: #f2f5ec; --column-bg: #e2ead3; --ink: #0d2812; --accent: #0e7a2f; --accent-ink: #ffffff; --field-bg: #fbfdf7; --danger-bg: #f9dcd6; --danger-ink: #8f1306; --danger-border: #dfa89e; --font: ui-monospace, \"Cascadia Mono\", Consolas, Menlo, monospace; --font-display: ui-monospace, \"Cascadia Mono\", Consolas, Menlo, monospace; }",
@@ -1787,9 +1793,8 @@ var PAGE_BOOT = [
    are the site pages' own; the local checks hold them
    equal so the copies cannot drift. */
 var BRAND_MARK = "<svg viewBox=\"0 0 124 124\" width=\"34\" height=\"34\" aria-hidden=\"true\" focusable=\"false\">" +
-  "<rect x=\"1.5\" y=\"1.5\" width=\"121\" height=\"121\" rx=\"29\" fill=\"#372F8F\" stroke=\"#00EEB9\" stroke-width=\"3\"/>" +
-  "<polygon fill=\"#00EEB9\" points=\"62,14 70.6,52.4 105,62 70.6,71.6 62,110 53.4,71.6 19,62 53.4,52.4\"/>" +
-  "<circle cx=\"62\" cy=\"62\" r=\"5\" fill=\"#FFFFFF\"/></svg>";
+  "<rect x=\"1.5\" y=\"1.5\" width=\"121\" height=\"121\" rx=\"34\" fill=\"#2b5fc7\"/>" +
+  "<svg x=\"24\" y=\"24\" width=\"76\" height=\"76\" viewBox=\"0 0 24 24\"><path fill=\"#ffffff\" d=\"M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z\"/></svg></svg>";
 var HEAD_GLYPHS = {
   terms: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 5v16\"/><path d=\"M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z\"/></svg>",
   feedback: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z\"/></svg>",
@@ -1839,7 +1844,7 @@ export function escapeHtml(value) {
 }
 
 function pageHtml(title, body, cfg) {
-  return "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n" +
+  return "<!DOCTYPE html>\n<html lang=\"en\" data-product=\"tasksparkle\">\n<head>\n<meta charset=\"utf-8\">\n" +
     "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n" +
     "<title>" + escapeHtml(title) + "</title>\n" +
     "<link rel=\"icon\" type=\"image/svg+xml\" href=\"/icons/icon.svg\">\n" +

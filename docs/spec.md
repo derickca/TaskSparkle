@@ -30,9 +30,11 @@ Agents are helpers, not account holders. An agent works on a person's boards thr
 
 ## Look and mark
 
-The product mark is a mint four-point sparkle with a white centre dot on a deep violet rounded tile.
+The product mark is the Spark family's mark: a white four-point spark on a rounded tile of the product's accent, the drawing the MemberSpark design system pins (design/system/icons/spark.svg).
 
-The sparkle colour is `#00EEB9`. The tile colour is `#372F8F`. The wordmark uses Comfortaa Bold. It stands in the app header and at the top of the standalone sign-in pages.
+The spark is white. The tile is this product's accent, `#2b5fc7` in the light theme. The wordmark uses Comfortaa Bold. It stands in the app header and at the top of the standalone sign-in pages.
+
+The default look (Standard, of the eight looks a reader can choose) takes its colours from the same design system: dark blue on off-white in the light theme, and the system's dark theme after dark. The tokens stand pinned at design/system/ in this repo; the other seven looks keep their own palettes.
 
 ## Core model
 

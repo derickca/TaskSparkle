@@ -22,6 +22,8 @@
   Cache-Control: no-cache
 /styles.css
   Cache-Control: no-cache
+/tokens.css
+  Cache-Control: no-cache
 # The installable-app files follow the same rule: the manifest, the
 # worker script and the icons revalidate rather than sit in a cache,
 # so a new release is what every open gets. The manifest also names

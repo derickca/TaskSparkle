@@ -544,7 +544,11 @@ console.log("Standalone sign-in routes: every address the sign-in, " +
 // on sweep row THM-03): the border colour --line against the
 // page background --bg must clear 3:1 in both default
 // palettes, measured from the stylesheet itself — so a softer
-// value cannot drift back in unmeasured.
+// value cannot drift back in unmeasured. The standard look's
+// colours are the Spark family tokens now (issue #59): the
+// stylesheet names them as var(--ms-…) references, so the
+// reading resolves each reference through public/tokens.css
+// before measuring.
 function hexLuminance(hex) {
   const chan = (i) => {
     const v = parseInt(hex.slice(i, i + 2), 16) / 255;
@@ -562,18 +566,43 @@ function themeBlockOf(css, selectorRe) {
   const open = css.indexOf("{", m.index);
   return css.slice(open, css.indexOf("}", open));
 }
-function cssVarOf(block, name) {
-  const m = block && block.match(new RegExp("--" + name + ":\\s*(#[0-9a-fA-F]{6})"));
-  return m ? m[1] : null;
+function cssVarRaw(block, name) {
+  const m = block && block.match(new RegExp("--" + name + ":\\s*([^;]+);"));
+  return m ? m[1].trim() : null;
+}
+// The family tokens for one theme, read from public/tokens.css:
+// the theme's own colours with this product's accent laid over
+// them, the way the stylesheet's cascade settles them.
+function tokenMapOf(tokensCss, theme) {
+  const themeBlock = theme === "dark"
+    ? themeBlockOf(tokensCss, /^:root\[data-theme="dark"\] \{/m)
+    : themeBlockOf(tokensCss, /^:root \{/m);
+  const productBlock = theme === "dark"
+    ? themeBlockOf(tokensCss, /^:root\[data-theme="dark"\]\[data-product="tasksparkle"\] \{/m)
+    : themeBlockOf(tokensCss, /^:root\[data-product="tasksparkle"\] \{/m);
+  const map = {};
+  for (const block of [themeBlock, productBlock]) {
+    if (!block) continue;
+    for (const m of block.matchAll(/(--ms-[\w-]+):\s*(#[0-9a-fA-F]{6})/g)) map[m[1]] = m[2];
+  }
+  return map;
+}
+function cssVarOf(block, name, tokenMap) {
+  const raw = cssVarRaw(block, name);
+  if (!raw) return null;
+  if (/^#[0-9a-fA-F]{6}$/.test(raw)) return raw;
+  const ref = raw.match(/^var\((--ms-[\w-]+)\)$/);
+  return ref && tokenMap ? tokenMap[ref[1]] || null : null;
 }
 {
   const css = readFileSync(join(ROOT, "public", "styles.css"), "utf8");
+  const tokensCss = readFileSync(join(ROOT, "public", "tokens.css"), "utf8");
   const readings = [
-    ["Standard light", themeBlockOf(css, /^:root \{/m)],
-    ["Standard dark", themeBlockOf(css, /^:root\[data-theme="dark"\] \{/m)],
-  ].map(([label, block]) => {
-    const bg = cssVarOf(block, "bg");
-    const line = cssVarOf(block, "line");
+    ["Standard light", themeBlockOf(css, /^:root \{/m), tokenMapOf(tokensCss, "light")],
+    ["Standard dark", themeBlockOf(css, /^:root\[data-theme="dark"\] \{/m), tokenMapOf(tokensCss, "dark")],
+  ].map(([label, block, tokenMap]) => {
+    const bg = cssVarOf(block, "bg", tokenMap);
+    const line = cssVarOf(block, "line", tokenMap);
     return { label, bg, line, ratio: bg && line ? contrastRatio(line, bg) : 0 };
   });
   if (readings.some((r) => !(r.ratio >= 3))) {
@@ -585,6 +614,114 @@ function cssVarOf(block, name) {
   console.log("Standard theme hairlines: " +
     readings.map((r) => r.label + " " + r.ratio.toFixed(2) + ":1").join(", ") +
     " — both clear 3:1 (issue #142).");
+}
+
+// The Spark family adoption (issue #59, MemberSpark#61): the
+// pinned design system at design/system/ is the source; the
+// served tokens copy, the product mark and the few values
+// that must stand as literals are held to it here, so a
+// drift in any copy fails the run instead of reaching a
+// visitor. The pairs measured are the ones this product
+// paints with: the product accent under its on-accent, in
+// both themes, at the text bar of 4.5:1.
+{
+  const failures = [];
+  const pinned = readFileSync(join(ROOT, "design", "system", "tokens.css"), "utf8");
+  const served = readFileSync(join(ROOT, "public", "tokens.css"), "utf8");
+  if (pinned !== served) {
+    failures.push("public/tokens.css differs from the pinned design/system/tokens.css");
+  }
+  const light = tokenMapOf(served, "light");
+  const dark = tokenMapOf(served, "dark");
+  for (const [label, map] of [["light", light], ["dark", dark]]) {
+    const accent = map["--ms-color-accent"];
+    const onAccent = map["--ms-color-on-accent"];
+    if (!accent || !onAccent || contrastRatio(onAccent, accent) < 4.5) {
+      failures.push("the tasksparkle " + label + " accent pair (on-accent " +
+        onAccent + " on accent " + accent + ") is under 4.5:1");
+    }
+  }
+  const css = readFileSync(join(ROOT, "public", "styles.css"), "utf8");
+  const standardLight = themeBlockOf(css, /^:root \{/m);
+  if (cssVarRaw(standardLight, "bg") !== "var(--ms-color-page)" ||
+      cssVarRaw(standardLight, "accent") !== "var(--ms-color-accent)") {
+    failures.push("public/styles.css's standard look no longer reads the family tokens");
+  }
+  for (const [block, map, label] of [
+    [themeBlockOf(css, /^:root \{/m), light, "light"],
+    [themeBlockOf(css, /^:root\[data-theme="dark"\] \{/m), dark, "dark"],
+  ]) {
+    const swatch = ".look-swatch-standard-" + label +
+      " { background: linear-gradient(135deg, " + map["--ms-color-page"] +
+      " 0 55%, " + map["--ms-color-accent"] + " 55% 100%); }";
+    if (!css.includes(swatch)) {
+      failures.push("the standard " + label + " look swatch in public/styles.css " +
+        "does not carry the family page and accent colours");
+    }
+    void block;
+  }
+  // The sign-in pages' inline token subset (worker/auth.js's
+  // PAGE_STYLE standard blocks): every --ms- value standing
+  // there must be the tokens file's own value for that theme.
+  const auth = readFileSync(join(ROOT, "worker", "auth.js"), "utf8");
+  const pageStyleSpan = auth.slice(auth.indexOf("var PAGE_STYLE = ["),
+    auth.indexOf("].join(", auth.indexOf("var PAGE_STYLE = [")));
+  const literals = [...pageStyleSpan.matchAll(/"((?:[^"\\]|\\.)*)"/g)]
+    .map((m) => m[1].replace(/\\"/g, "\"").replace(/\\\\/g, "\\")).join("\n");
+  const subsetOf = (re) => {
+    const block = themeBlockOf(literals, re);
+    const out = {};
+    if (block) {
+      for (const m of block.matchAll(/(--ms-[\w-]+):\s*(#[0-9a-fA-F]{6})/g)) out[m[1]] = m[2];
+    }
+    return out;
+  };
+  for (const [re, map, label] of [
+    [/^:root \{/m, light, "light"],
+    [/^:root\[data-theme="dark"\] \{/m, dark, "dark"],
+  ]) {
+    const subset = subsetOf(re);
+    if (!Object.keys(subset).length) {
+      failures.push("worker/auth.js's " + label + " sign-in palette carries no inline token subset");
+    }
+    for (const [name, value] of Object.entries(subset)) {
+      if (map[name] !== value) {
+        failures.push("worker/auth.js's inline " + name + " (" + label + ") is " +
+          value + ", the tokens file carries " + (map[name] || "no value"));
+      }
+    }
+  }
+  // The product mark: the family's spark drawing on a tile of
+  // the light accent, and the places a literal colour must
+  // stand — the manifest and the app page's theme colour.
+  const spark = readFileSync(join(ROOT, "design", "system", "icons", "spark.svg"), "utf8");
+  const sparkPath = (spark.match(/<path[^>]* d="([^"]+)"/) || [])[1];
+  const icon = readFileSync(join(ROOT, "public", "icons", "icon.svg"), "utf8");
+  if (!sparkPath || !icon.includes('d="' + sparkPath + '"')) {
+    failures.push("public/icons/icon.svg does not carry the family spark drawing");
+  }
+  if (!icon.includes('fill="' + light["--ms-color-accent"] + '"')) {
+    failures.push("public/icons/icon.svg's tile is not the tasksparkle light accent");
+  }
+  const manifest = JSON.parse(readFileSync(join(ROOT, "public", "manifest.webmanifest"), "utf8"));
+  if (manifest.theme_color !== light["--ms-color-accent"]) {
+    failures.push("the manifest's theme_color is not the tasksparkle light accent");
+  }
+  if (manifest.background_color !== light["--ms-color-page"]) {
+    failures.push("the manifest's background_color is not the family page colour");
+  }
+  const index = readFileSync(join(ROOT, "public", "index.html"), "utf8");
+  if (!index.includes('<meta name="theme-color" content="' + light["--ms-color-accent"] + '">')) {
+    failures.push("public/index.html's theme colour is not the tasksparkle light accent");
+  }
+  if (failures.length) {
+    console.error("Spark family adoption drift (issue #59): " + failures.join("; ") + ".");
+    process.exit(1);
+  }
+  console.log("Spark family adoption: the served tokens match the pinned " +
+    "design/system copy, both accent pairs clear 4.5:1, the sign-in " +
+    "pages' inline subset matches the tokens, and the mark and the " +
+    "standing colours carry the family values.");
 }
 
 // The account pages' palette, boot script and heading

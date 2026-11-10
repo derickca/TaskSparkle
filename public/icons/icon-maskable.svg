@@ -1,9 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 124 124">
-  <!-- The maskable form of the TaskSparkle mark: the violet tile
+  <!-- The maskable form of the Spark family mark: the accent tile
        runs to the edges so a launcher mask of any shape crops
-       background only. The sparkle and centre dot are the
-       brand mark's own (see tasksparkle-brand/BRAND.md). -->
-  <rect x="0" y="0" width="124" height="124" fill="#372F8F"/>
-  <polygon fill="#00EEB9" points="62,14 70.6,52.4 105,62 70.6,71.6 62,110 53.4,71.6 19,62 53.4,52.4"/>
-  <circle cx="62" cy="62" r="5" fill="#FFFFFF"/>
+       background only. The spark is the design system's own
+       drawing (design/system/icons/spark.svg), kept inside the
+       mask's safe circle. -->
+  <rect x="0" y="0" width="124" height="124" fill="#2b5fc7"/>
+  <svg x="28" y="28" width="68" height="68" viewBox="0 0 24 24"><path fill="#ffffff" d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/></svg>
 </svg>
