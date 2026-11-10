@@ -699,9 +699,10 @@ function cssVarOf(block, name, tokenMap) {
       }
     }
   }
-  // The product mark: the family's spark drawing on a tile of
-  // the light accent, and the places a literal colour must
-  // stand — the manifest and the app page's theme colour.
+  // The browser icon: MemberSpark's construction — the bare
+  // family spark in the product's light accent, no tile (deploy
+  // issue #223) — and the places a literal colour must stand,
+  // the manifest and the app page's theme colour.
   const spark = readFileSync(join(ROOT, "design", "system", "icons", "spark.svg"), "utf8");
   const sparkPath = (spark.match(/<path[^>]* d="([^"]+)"/) || [])[1];
   const icon = readFileSync(join(ROOT, "public", "icons", "icon.svg"), "utf8");
@@ -709,7 +710,10 @@ function cssVarOf(block, name, tokenMap) {
     failures.push("public/icons/icon.svg does not carry the family spark drawing");
   }
   if (!icon.includes('fill="' + light["--ms-color-accent"] + '"')) {
-    failures.push("public/icons/icon.svg's tile is not the tasksparkle light accent");
+    failures.push("public/icons/icon.svg's spark is not the tasksparkle light accent");
+  }
+  if (icon.includes("<rect")) {
+    failures.push("public/icons/icon.svg carries a tile; the browser icon is the bare spark");
   }
   const manifest = JSON.parse(readFileSync(join(ROOT, "public", "manifest.webmanifest"), "utf8"));
   if (manifest.theme_color !== light["--ms-color-accent"]) {
@@ -1093,7 +1097,6 @@ function paletteBlocksOf(css) {
   const glyphSpan = auth.slice(auth.indexOf("var HEAD_GLYPHS = {"),
     auth.indexOf("};", auth.indexOf("var HEAD_GLYPHS = {")));
   const terms = readFileSync(termsPath, "utf8");
-  const icon = readFileSync(join(ROOT, "public", "icons", "icon.svg"), "utf8");
   const svgOf = (html, label) => {
     const m = html.match(new RegExp("aria-label=\\\"" + label + "\\\"[^>]*><svg[^>]*>[\\s\\S]*?</svg>"));
     return m ? m[0].slice(m[0].indexOf("<svg")) : "";
@@ -1118,8 +1121,20 @@ function paletteBlocksOf(css) {
     const open = svg.indexOf(">");
     return open === -1 ? "" : squash(svg.slice(open + 1, svg.lastIndexOf("</svg>")));
   };
-  if (!brandOf() || innerOf(brandOf()) !== innerOf(icon)) {
-    drift.push("the brand mark differs from public/icons/icon.svg");
+  // The brand mark keeps the shared spark tile (the browser
+  // icon's move to the bare spark, deploy issue #223, does not
+  // reach it): the tile is the family spark in white on a tile
+  // of the light accent, built here from the design drawing.
+  const spark = readFileSync(join(ROOT, "design", "system", "icons", "spark.svg"), "utf8");
+  const sparkPath = (spark.match(/<path[^>]* d="([^"]+)"/) || [])[1];
+  const servedTokens = readFileSync(join(ROOT, "public", "tokens.css"), "utf8");
+  const accent = tokenMapOf(servedTokens, "light")["--ms-color-accent"];
+  const tile = '<svg viewBox="0 0 124 124">' +
+    '<rect x="1.5" y="1.5" width="121" height="121" rx="34" fill="' + accent + '"/>' +
+    '<svg x="24" y="24" width="76" height="76" viewBox="0 0 24 24">' +
+    '<path fill="#ffffff" d="' + sparkPath + '"/></svg></svg>';
+  if (!brandOf() || innerOf(brandOf()) !== innerOf(tile)) {
+    drift.push("the brand mark differs from the shared spark tile");
   }
   if (drift.length) {
     console.error("The account pages' heading drawings have drifted: " +
