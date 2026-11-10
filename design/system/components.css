@@ -1,0 +1,540 @@
+/*
+  MemberSpark design system: components.
+  Load tokens.css first. Every colour, size and font here comes from a --ms-
+  token, so the light and dark themes need nothing of their own.
+  tests/design-system-check.ps1 holds the 44px floor and the token-only rule.
+*/
+
+/* --- Page basics ----------------------------------------------------------- */
+/* The text rhythm is stated once, here (site-standards, Room to tap and read, Rec 2).
+   :where() keeps these base rules below any component rule. */
+
+.ms-page {
+  margin: 0;
+  background: var(--ms-color-page);
+  color: var(--ms-color-text);
+  font-family: var(--ms-type-font-body);
+  font-size: var(--ms-type-size-base);
+  line-height: var(--ms-type-line-height);
+}
+
+:where(.ms-page) p {
+  margin: 1em 0;
+}
+
+.ms-page h1,
+.ms-page h2,
+.ms-page h3 {
+  font-family: var(--ms-type-font-display);
+  line-height: var(--ms-type-line-height-tight);
+  font-weight: var(--ms-type-weight-heavy);
+}
+
+.ms-page h1 { font-size: var(--ms-type-size-h1); margin: 0.2rem 0 1rem; }
+.ms-page h2 { font-size: var(--ms-type-size-h2); margin: 1.8rem 0 0.7rem; }
+.ms-page h3 { font-size: var(--ms-type-size-h3); margin: 0.7rem 0 0.2rem; }
+
+:where(.ms-page) a {
+  color: var(--ms-color-link);
+}
+
+:where(.ms-page) a:hover {
+  color: var(--ms-color-link-hover);
+}
+
+.ms-wrap {
+  max-width: var(--ms-size-page);
+  margin: 0 auto;
+  padding: 0 var(--ms-space-gutter);
+}
+
+.ms-reading {
+  max-width: var(--ms-size-reading);
+}
+
+.ms-page :focus-visible {
+  outline: 3px solid var(--ms-color-focus);
+  outline-offset: 2px;
+}
+
+/* The four-point spark mark. It takes its colour from the accent. */
+.ms-spark {
+  width: 1.5em;
+  height: 1.5em;
+  color: var(--ms-color-accent);
+  flex: none;
+}
+
+/* --- Header -------------------------------------------------------------- */
+/*
+  Desktop: one row, 56-80px. Brand left, tabs in words after it, then the
+  right-hand group together with no gaps: Help door, dark toggle, account,
+  settings. Phone: row 1 is the same minus the tabs; row 2 carries every tab.
+  (site-standards, Header standard, The rows, defined.)
+*/
+
+.ms-header {
+  background: var(--ms-color-surface);
+  border-bottom: 1px solid var(--ms-color-line);
+}
+
+.ms-header__row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: var(--ms-size-header-row-min);
+  max-height: var(--ms-size-header-row-max);
+  max-width: var(--ms-size-page);
+  margin: 0 auto;
+  padding: 0 var(--ms-space-gutter);
+}
+
+.ms-header__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ms-space-2);
+  min-height: var(--ms-size-tap);
+  color: var(--ms-color-text);
+  font-family: var(--ms-type-font-display);
+  font-size: var(--ms-type-size-lg);
+  font-weight: var(--ms-type-weight-heavy);
+  text-decoration: none;
+  min-width: 0;
+}
+
+/* On a narrow phone the name gives way, never the 44px buttons beside it. */
+.ms-header__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ms-header__tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.ms-header__group {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin-left: auto;
+  flex: none;
+}
+
+/* Row 2 stands only on a phone, and carries the whole tab set. */
+.ms-header__row--tabs {
+  display: none;
+}
+
+@media (max-width: 40rem) {
+  .ms-header__row .ms-header__tabs {
+    display: none;
+  }
+
+  .ms-header__row--tabs {
+    display: flex;
+    overflow: hidden;
+  }
+
+  .ms-header__row--tabs .ms-header__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+}
+
+.ms-tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ms-size-tap);
+  padding: 0 var(--ms-space-4);
+  border-radius: var(--ms-radius-pill);
+  color: var(--ms-color-text-muted);
+  font-weight: var(--ms-type-weight-medium);
+  text-decoration: none;
+}
+
+.ms-tab:hover,
+.ms-tab[aria-current="page"] {
+  background: var(--ms-color-surface-muted);
+  color: var(--ms-color-text);
+}
+
+/* An icon-only control: the Help door, the dark toggle, settings. A 20px
+   Lucide drawing in a 44px circle. It carries a spoken name (aria-label). */
+.ms-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  min-width: var(--ms-size-tap);
+  min-height: var(--ms-size-tap);
+  padding: 0;
+  border: 0;
+  border-radius: var(--ms-radius-pill);
+  background: transparent;
+  color: var(--ms-color-text);
+  cursor: pointer;
+}
+
+.ms-icon-btn:hover {
+  background: var(--ms-color-surface-muted);
+}
+
+.ms-icon-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* SVG ignores the hidden attribute unless a rule says so. A button holding
+   several faces (the theme button) shows only the one not hidden. */
+.ms-icon-btn svg[hidden] {
+  display: none;
+}
+
+
+/* --- Buttons --------------------------------------------------------------- */
+/* One filled primary per view. A danger button names what it destroys. */
+
+.ms-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ms-space-2);
+  min-height: var(--ms-size-tap);
+  padding: 0.65rem 1.2rem;
+  border: 1px solid transparent;
+  border-radius: var(--ms-radius-pill);
+  font: inherit;
+  font-weight: var(--ms-type-weight-bold);
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.ms-btn:disabled,
+.ms-btn[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The main button is the product's accent (data-product), not the page's primary. */
+.ms-btn--primary {
+  background: var(--ms-color-accent);
+  color: var(--ms-color-on-accent);
+}
+
+.ms-btn--primary:hover {
+  box-shadow: var(--ms-shadow-raised);
+}
+
+.ms-btn--secondary {
+  background: var(--ms-color-surface);
+  border-color: var(--ms-color-line-strong);
+  color: var(--ms-color-text);
+}
+
+.ms-btn--secondary:hover {
+  border-color: var(--ms-color-text);
+}
+
+.ms-btn--quiet {
+  background: transparent;
+  color: var(--ms-color-text);
+}
+
+.ms-btn--quiet:hover {
+  background: var(--ms-color-surface-muted);
+}
+
+.ms-btn--danger {
+  background: var(--ms-color-surface);
+  border-color: var(--ms-color-danger);
+  color: var(--ms-color-danger);
+}
+
+.ms-btn--danger:hover {
+  background: var(--ms-color-danger);
+  color: var(--ms-color-surface);
+}
+
+/* --- Cards ----------------------------------------------------------------- */
+
+.ms-card {
+  background: var(--ms-color-surface);
+  border: 1px solid var(--ms-color-line);
+  border-radius: var(--ms-radius-lg);
+  box-shadow: var(--ms-shadow-card);
+  padding: var(--ms-space-5);
+}
+
+.ms-card--muted {
+  background: var(--ms-color-surface-muted);
+  box-shadow: none;
+}
+
+/* --- Fields ---------------------------------------------------------------- */
+/* A field's error stands beside that field, in plain words. */
+
+.ms-field {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 0.55rem;
+}
+
+.ms-label {
+  font-weight: var(--ms-type-weight-medium);
+}
+
+.ms-input {
+  min-height: var(--ms-size-tap);
+  padding: 0 var(--ms-space-3);
+  border: 1px solid var(--ms-color-line-strong);
+  border-radius: var(--ms-radius-md);
+  background: var(--ms-color-surface);
+  color: var(--ms-color-text);
+  font: inherit;
+}
+
+textarea.ms-input {
+  padding: var(--ms-space-3);
+}
+
+.ms-input[aria-invalid="true"] {
+  border-color: var(--ms-color-danger);
+}
+
+.ms-hint {
+  color: var(--ms-color-text-muted);
+  font-size: var(--ms-type-size-sm);
+}
+
+.ms-error {
+  color: var(--ms-color-danger);
+  font-size: var(--ms-type-size-sm);
+  font-weight: var(--ms-type-weight-medium);
+}
+
+/* --- Badges ---------------------------------------------------------------- */
+
+.ms-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--ms-radius-pill);
+  font-size: var(--ms-type-size-sm);
+  font-weight: var(--ms-type-weight-bold);
+  white-space: nowrap;
+}
+
+.ms-badge--paid {
+  background: var(--ms-color-badge-paid-bg);
+  color: var(--ms-color-badge-paid-fg);
+}
+
+.ms-badge--due {
+  background: var(--ms-color-badge-due-bg);
+  color: var(--ms-color-badge-due-fg);
+}
+
+.ms-badge--lapsed {
+  background: var(--ms-color-badge-lapsed-bg);
+  color: var(--ms-color-badge-lapsed-fg);
+}
+
+/* --- Tables ---------------------------------------------------------------- */
+
+.ms-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ms-table th {
+  padding: var(--ms-space-2);
+  border-bottom: 1px solid var(--ms-color-line);
+  color: var(--ms-color-text-muted);
+  font-size: var(--ms-type-size-sm);
+  font-weight: var(--ms-type-weight-medium);
+  text-align: left;
+}
+
+.ms-table td {
+  padding: var(--ms-space-3) var(--ms-space-2);
+  border-bottom: 1px solid var(--ms-color-line);
+}
+
+.ms-table tr:last-child td {
+  border-bottom: 0;
+}
+
+/* A list of people shows 10 at a time; Show all renders the whole list
+   (site-standards, Room to tap and read, Rec 5). */
+.ms-show-all {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--ms-size-tap);
+  border: 0;
+  border-top: 1px solid var(--ms-color-line);
+  background: transparent;
+  color: var(--ms-color-link);
+  font: inherit;
+  font-weight: var(--ms-type-weight-bold);
+  cursor: pointer;
+}
+
+.ms-show-all:hover {
+  background: var(--ms-color-surface-muted);
+}
+
+/* --- Product tiles ----------------------------------------------------------- */
+
+.ms-tile {
+  display: inline-grid;
+  place-items: center;
+  width: var(--ms-size-tile);
+  height: var(--ms-size-tile);
+  flex: none;
+  border-radius: var(--ms-radius-sm);
+  background: var(--ms-color-accent);
+  color: var(--ms-color-on-accent);
+  font-weight: var(--ms-type-weight-heavy);
+}
+
+/* A coloured tile that is not the product's own: take it from the splash tiles. */
+.ms-tile--gold,
+.ms-tile--blue,
+.ms-tile--violet,
+.ms-tile--green,
+.ms-tile--coral { color: var(--ms-color-on-tile); }
+.ms-tile--gold { background: var(--ms-color-tile-gold); }
+
+.ms-tile--blue { background: var(--ms-color-tile-blue); }
+.ms-tile--violet { background: var(--ms-color-tile-violet); }
+.ms-tile--green { background: var(--ms-color-tile-green); }
+.ms-tile--coral { background: var(--ms-color-tile-coral); }
+
+/*
+  The product logo: the spark in the on-accent colour on a tile of the
+  product's accent, so every Spark product shares one mark and one shape.
+*/
+.ms-logo {
+  display: inline-grid;
+  place-items: center;
+  width: var(--ms-size-tile);
+  height: var(--ms-size-tile);
+  flex: none;
+  border-radius: var(--ms-radius-sm);
+  background: var(--ms-color-accent);
+  color: var(--ms-color-on-accent);
+}
+
+.ms-logo svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* A chip: a short count or state, in the product's accent. */
+.ms-chip {
+  display: inline-block;
+  padding: 0.15rem 0.65rem;
+  border-radius: var(--ms-radius-pill);
+  background: var(--ms-color-accent);
+  color: var(--ms-color-on-accent);
+  font-size: var(--ms-type-size-sm);
+  font-weight: var(--ms-type-weight-bold);
+}
+
+/* --- Footer closing block ---------------------------------------------------- */
+/*
+  The site's link line, the seven-stripe bar, then three lines:
+  <Product> (c) <year> / By MemberSpark [flag], a BC non-profit / the motto.
+  The motto comes from --ms-brand-motto, so it is changed in one place.
+  The flag is an SVG at text height, never an emoji.
+  (site-standards, Site footer standard.)
+*/
+
+.ms-footer {
+  padding: var(--ms-space-6) 0 var(--ms-space-7);
+  color: var(--ms-color-text-muted);
+}
+
+.ms-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--ms-space-2);
+  margin: 0 0 var(--ms-space-4);
+  padding: 0;
+  list-style: none;
+}
+
+.ms-footer__links li + li::before {
+  content: "\00b7";
+  margin-right: var(--ms-space-2);
+}
+
+.ms-footer__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ms-size-tap);
+  color: var(--ms-color-text-muted);
+}
+
+.ms-footer__bar {
+  height: 6px;
+  margin-bottom: var(--ms-space-4);
+  border-radius: var(--ms-radius-pill);
+  background: linear-gradient(90deg,
+    var(--ms-brand-stripe-1) 0 14.29%,
+    var(--ms-brand-stripe-2) 14.29% 28.57%,
+    var(--ms-brand-stripe-3) 28.57% 42.86%,
+    var(--ms-brand-stripe-4) 42.86% 57.14%,
+    var(--ms-brand-stripe-5) 57.14% 71.43%,
+    var(--ms-brand-stripe-6) 71.43% 85.71%,
+    var(--ms-brand-stripe-7) 85.71% 100%);
+}
+
+.ms-footer__closing {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.ms-footer__closing p {
+  margin: 0;
+}
+
+.ms-footer__closing a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ms-size-tap);
+  color: var(--ms-color-link);
+}
+
+.ms-footer__product {
+  color: var(--ms-color-text);
+  font-weight: var(--ms-type-weight-bold);
+}
+
+.ms-footer__flag {
+  width: auto;
+  height: 1em;
+  margin-left: 0.25em;
+  vertical-align: -0.125em;
+}
+
+.ms-footer__motto::before {
+  content: var(--ms-brand-motto);
+}
+
+/* A centred site centres the block; a left-aligned site leaves it left. */
+.ms-footer--center {
+  text-align: center;
+}
+
+.ms-footer--center .ms-footer__links {
+  justify-content: center;
+}

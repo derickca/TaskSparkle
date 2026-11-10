@@ -1,0 +1,308 @@
+<title>Spark Family Colours</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;600;700&display=swap">
+<style>
+/* Layout: one column of labelled sections; each app is a small live "screen" card in a responsive grid. */
+:root {
+  --font-display: 'Bricolage Grotesque', Figtree, 'Segoe UI', system-ui, sans-serif;
+  --font-body: Figtree, 'Segoe UI', system-ui, -apple-system, sans-serif;
+
+  /* Proposed light: dark blue on off-white */
+  --page: #faf8f3;
+  --surface: #ffffff;
+  --surface-muted: #f1eee6;
+  --line: #e4dfd3;
+  --line-strong: #858072;
+  --text: #142a5c;
+  --muted: #4b5878;
+  --primary: #1d3a8a;
+  --on-primary: #ffffff;
+  --link: #2050c8;
+  --on-tile: #15172a;
+
+  /* App accents (tile colours from the MemberSpark design system) */
+  --acc-memberspark: #f5a623;
+  --acc-galleryspark: #6b4fc8;
+  --acc-fundingspark: #6b4fc8;
+  --acc-tasksparkle: #2b5fc7;
+  --acc-societyspark: #2a7a3f;
+  --acc-grabaspot: #0f6e64;
+
+  /* The seven-colour bar */
+  --bar-1: #a4bc45; --bar-2: #00eeb9; --bar-3: #07b9a7; --bar-4: #372f8f;
+  --bar-5: #eb208c; --bar-6: #f9552c; --bar-7: #fa8c2e;
+
+  /* Before (today's light) */
+  --old-page: #f3f4f8; --old-surface: #ffffff; --old-text: #15172a; --old-muted: #4a4e66; --old-primary: #15172a; --old-line: #dfe2ec;
+
+  --shadow: 0 1px 2px rgba(20, 42, 92, 0.06), 0 8px 24px rgba(20, 42, 92, 0.07);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #10121f; --surface: #1f2238; --surface-muted: #262a45; --line: #33375a; --line-strong: #737793;
+    --text: #f3f4f8; --muted: #9ea4c4; --primary: #f5a623; --on-primary: #15172a; --link: #9ec2ff;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #10121f; --surface: #1f2238; --surface-muted: #262a45; --line: #33375a; --line-strong: #737793;
+  --text: #f3f4f8; --muted: #9ea4c4; --primary: #f5a623; --on-primary: #15172a; --link: #9ec2ff;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+}
+
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--text); font-family: var(--font-body); font-size: 1rem; line-height: 1.45; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 2.5rem 4rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 3rem; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); font-weight: 800; line-height: 1.1; color: var(--primary); }
+h2 { font-size: 1.6rem; font-weight: 800; }
+h3 { font-size: 1.1rem; font-weight: 600; }
+p { margin: 0; max-width: 65ch; }
+.lede { color: var(--muted); font-size: 1.1rem; }
+.eyebrow { text-transform: uppercase; letter-spacing: .08em; font-size: .78rem; font-weight: 700; color: var(--muted); }
+section { display: grid; gap: 1.25rem; }
+.head { display: grid; gap: .5rem; }
+a { color: var(--link); }
+.bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; }
+.bar span { flex: 1; }
+
+/* App screen cards: each product shown twice, light and dark, whatever the viewer's theme */
+.scope-light { --page: #faf8f3; --surface: #ffffff; --surface-muted: #f1eee6; --line: #e4dfd3; --line-strong: #858072;
+  --text: #142a5c; --muted: #4b5878; --primary: #1d3a8a; --on-primary: #ffffff; --link: #2050c8;
+  --shadow: 0 1px 2px rgba(20,42,92,.06), 0 8px 24px rgba(20,42,92,.07); color-scheme: light; }
+.scope-dark { --page: #10121f; --surface: #1f2238; --surface-muted: #262a45; --line: #33375a; --line-strong: #737793;
+  --text: #f3f4f8; --muted: #9ea4c4; --primary: #f5a623; --on-primary: #15172a; --link: #9ec2ff;
+  --acc-galleryspark: #7b5fd8; --acc-fundingspark: #7b5fd8; --acc-tasksparkle: #3a6fd8; --acc-societyspark: #2e7d32;
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3); color-scheme: dark; }
+.apps { display: grid; gap: 2rem; }
+.product { display: grid; gap: .6rem; }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 1rem; }
+.stage { background: var(--page); color: var(--text); border-radius: 18px; padding: 1rem; display: grid; gap: .5rem; border: 1px solid var(--line); min-width: 0; }
+.stage .tag { color: var(--muted); }
+.app { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; display: grid; min-width: 0; }
+.app-top { display: flex; align-items: center; gap: .65rem; padding: .85rem 1rem; border-bottom: 1px solid var(--line); }
+.tile { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--acc); color: var(--on-acc, var(--on-tile)); flex: none; }
+.tile svg { width: 22px; height: 22px; }
+.word { font-family: var(--font-display); font-weight: 800; font-size: 1.15rem; letter-spacing: -.01em; }
+.domain { margin-left: auto; font-size: .8rem; color: var(--muted); }
+.app-body { padding: 1rem; display: grid; gap: .85rem; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.chip { background: var(--acc); color: var(--on-acc, var(--on-tile)); font-size: .8rem; font-weight: 700; padding: .2rem .6rem; border-radius: 999px; }
+.btn { font: inherit; font-weight: 700; border: 0; border-radius: 12px; padding: .6rem 1rem; background: var(--acc, var(--primary)); color: var(--on-acc, var(--on-tile)); min-height: 44px; cursor: pointer; }
+.tags { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.tags .chip { font-size: .85rem; }
+.btn:focus-visible { outline: 3px solid var(--link); outline-offset: 2px; }
+.btn.btn-2 { background: transparent; color: var(--text); border: 1px solid var(--line-strong); }
+.item { display: flex; justify-content: space-between; gap: .5rem; padding: .55rem .7rem; border-radius: 10px; background: var(--surface-muted); font-size: .92rem; }
+.item b { font-weight: 600; }
+.accent-line { height: 4px; background: var(--acc); }
+.note { font-size: .85rem; color: var(--muted); }
+
+/* Before / after */
+.ba { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1.25rem; }
+.mock { border-radius: 16px; padding: 1.25rem; display: grid; gap: .8rem; border: 1px solid; }
+.mock.old { background: var(--old-page); color: var(--old-text); border-color: var(--old-line); }
+.mock.new { background: #faf8f3; color: #142a5c; border-color: #e4dfd3; }
+.mock .t { font-family: var(--font-display); font-weight: 800; font-size: 1.35rem; }
+.mock.old .t { color: var(--old-primary); }
+.mock.new .t { color: #1d3a8a; }
+.mock .card { background: #fff; border-radius: 12px; padding: .9rem; display: grid; gap: .5rem; }
+.mock.old .card { border: 1px solid var(--old-line); }
+.mock.new .card { border: 1px solid #e4dfd3; }
+.mock .m { font-size: .9rem; }
+.mock.old .m { color: var(--old-muted); }
+.mock.new .m { color: #4b5878; }
+.mock .b { justify-self: start; border-radius: 12px; padding: .55rem 1rem; font-weight: 700; color: #fff; }
+.mock.old .b { background: var(--old-primary); }
+.mock.new .b { background: #1d3a8a; }
+.mock .lnk { font-size: .9rem; text-decoration: underline; }
+.mock.old .lnk { color: #1d3a8a; }
+.mock.new .lnk { color: #2050c8; }
+.tag { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+
+/* Swatch table */
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: .9rem; }
+.sw { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); min-width: 0; }
+.sw .chipbig { height: 72px; display: flex; align-items: flex-end; padding: .5rem .6rem; font-weight: 700; font-size: .85rem; }
+.sw .meta { padding: .55rem .65rem; display: grid; gap: .15rem; font-size: .8rem; }
+.sw .meta code { font-size: .8rem; }
+.sw .ok { color: var(--muted); font-variant-numeric: tabular-nums; }
+.legend { overflow-x: auto; }
+table { border-collapse: collapse; font-size: .9rem; min-width: 520px; }
+th, td { text-align: left; padding: .5rem .75rem; border-bottom: 1px solid var(--line); }
+th { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+td.num { font-variant-numeric: tabular-nums; }
+.dot { display: inline-block; width: .9rem; height: .9rem; border-radius: 4px; vertical-align: -2px; margin-right: .4rem; border: 1px solid var(--line); }
+.splash-demo { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 1rem; }
+.splash { border-radius: 16px; padding: 1rem; background: var(--surface); border: 1px solid var(--line); display: grid; gap: .6rem; min-width: 0; }
+.bars { display: flex; align-items: flex-end; gap: 6px; height: 90px; }
+.bars span { flex: 1; border-radius: 6px 6px 0 0; }
+.confetti { position: relative; height: 90px; border-radius: 12px; background: var(--surface-muted); overflow: hidden; display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; font-size: 1.2rem; }
+.confetti i { position: absolute; width: 10px; height: 10px; border-radius: 2px; }
+@media (prefers-reduced-motion: no-preference) { .btn { transition: transform .15s; } .btn:hover { transform: translateY(-1px); } }
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <div class="bar" aria-hidden="true"><span style="background:var(--bar-1)"></span><span style="background:var(--bar-2)"></span><span style="background:var(--bar-3)"></span><span style="background:var(--bar-4)"></span><span style="background:var(--bar-5)"></span><span style="background:var(--bar-6)"></span><span style="background:var(--bar-7)"></span></div>
+    <span class="eyebrow">MemberSpark design system · proposal</span>
+    <h1>One family, six products</h1>
+    <p class="lede">The Spark products share one spark logo, one layout and one dark blue on off-white light style. Each gets its own accent colour. GrabASpot keeps its own logo. The seven-colour bar is for splashes of colour in any of them.</p>
+  </header>
+
+  <section>
+    <div class="head"><span class="eyebrow">Accent colours</span><h2>Each product's own colour</h2>
+      <p class="note">Each product is shown in its light style and its dark style. The accent fills the logo tile, the main button, chips and a thin top line. Headings and text stay dark blue in light and near-white in dark in every product, so the family still reads as one. Second buttons are outlined. Accent colours sit behind text, never as text on the page.</p></div>
+    <div class="apps" id="apps"></div>
+  </section>
+
+  <section>
+    <div class="head"><span class="eyebrow">Splashes of colour</span><h2>The seven-colour bar</h2>
+      <p class="note">Any product can use these for charts, illustrations, celebrations, dividers and empty states. Whether they also colour extra buttons or tags is each product's own choice. The figures show which text colour can sit on each one; the check is worked out live from the colours on this page.</p></div>
+    <div class="swatches" id="bar"></div>
+    <div class="splash-demo">
+      <div class="splash"><h3>Chart: dues paid by month</h3>
+        <div class="bars" aria-label="Seven bars in the bar colours">
+          <span style="height:40%;background:var(--bar-1)"></span><span style="height:55%;background:var(--bar-2)"></span><span style="height:62%;background:var(--bar-3)"></span><span style="height:88%;background:var(--bar-4)"></span><span style="height:70%;background:var(--bar-5)"></span><span style="height:52%;background:var(--bar-6)"></span><span style="height:46%;background:var(--bar-7)"></span>
+        </div>
+        <span class="note">May to November. Label values in text beside a chart, not in colour alone.</span>
+      </div>
+      <div class="splash"><h3>Celebration: all spots taken</h3>
+        <div class="confetti" id="confetti">Full house!</div>
+        <span class="note">Confetti and dividers are decoration, so any of the seven works.</span>
+      </div>
+      <div class="splash"><h3>Divider and section mark</h3>
+        <div class="bar" aria-hidden="true"><span style="background:var(--bar-1)"></span><span style="background:var(--bar-2)"></span><span style="background:var(--bar-3)"></span><span style="background:var(--bar-4)"></span><span style="background:var(--bar-5)"></span><span style="background:var(--bar-6)"></span><span style="background:var(--bar-7)"></span></div>
+        <span class="note">The full bar, used once per page at most: the header, the footer, or a big moment.</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="eyebrow">Check</span><h2>Readability of the new light style</h2>
+      <p class="note">The standard asks for 4.5 to 1 for text and 3 to 1 for borders and large shapes.</p></div>
+    <div class="legend"><table id="pairs"><thead><tr><th>Pair</th><th>Contrast</th><th>Needs</th><th>Result</th></tr></thead><tbody></tbody></table></div>
+  </section>
+</div>
+
+<script>
+const SPARK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/></svg>';
+const GRAB = '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true"><rect x="0" y="0" width="16" height="16" rx="2" fill="#0f6e64"/><g fill="#fbf8f3"><rect x="5" y="1" width="1" height="1"/><rect x="10" y="1" width="1" height="1"/><rect x="3" y="2" width="10" height="2"/><rect x="3" y="5" width="10" height="1"/><rect x="3" y="6" width="1" height="3"/><rect x="7" y="6" width="2" height="3"/><rect x="12" y="6" width="1" height="3"/><rect x="5" y="7" width="1" height="1"/><rect x="10" y="7" width="1" height="1"/><rect x="3" y="9" width="10" height="1"/><rect x="3" y="10" width="1" height="3"/><rect x="7" y="10" width="2" height="3"/><rect x="12" y="10" width="1" height="3"/><rect x="5" y="11" width="1" height="1"/><rect x="3" y="13" width="10" height="1"/></g></svg>';
+
+const apps = [
+  { name: 'MemberSpark', domain: 'memberspark.ca', acc: '--acc-memberspark', colour: 'Gold', chip: 'Signed in',
+    title: 'Your memberships', items: [['Westside Potters', 'Paid'], ['Coastal Quilters', 'Due 1 Dec'], ['Film club', 'Paid']], btn: 'Manage sign-in' },
+  { name: 'GallerySpark', domain: 'galleryspark.ca', acc: '--acc-galleryspark', colour: 'Deep purple', onAcc: '#ffffff', chip: '12 works',
+    title: "Spring members' show", items: [['Tide Pools, watercolour', '$240'], ['Kiln Study No. 4', 'Sold'], ['North Shore at dusk', '$410']], btn: 'Add artwork' },
+  { name: 'FundingSpark', domain: 'fundingspark.ca', acc: '--acc-fundingspark', colour: 'Deep purple', onAcc: '#ffffff', chip: '3 closing',
+    title: 'Grants closing this week', items: [['Community arts project', 'Fri 14 Nov'], ['Emerging artist award', 'Sat 15 Nov'], ['Studio equipment fund', 'Sun 16 Nov']], btn: 'Save to my list' },
+  { name: 'TaskSparkle', domain: 'tasksparkle.com', acc: '--acc-tasksparkle', colour: 'Deep blue', onAcc: '#ffffff', chip: '4 today',
+    title: 'Board tasks', items: [['Send AGM minutes', 'Today'], ['Book the hall', 'Thu'], ['Renew insurance', 'Next week']], btn: 'Add a task' },
+  { name: 'SocietySpark', domain: 'societyspark.ca', acc: '--acc-societyspark', colour: 'Deep green', onAcc: '#ffffff', chip: '6 due',
+    title: 'Dues for 2027', items: [['Paid', '41 members'], ['Due', '6 members'], ['Collected', '$1,640']], btn: 'Send reminders' },
+  { name: 'GrabASpot', domain: 'grabaspot.ca', acc: '--acc-grabaspot', colour: 'Teal (its own)', onAcc: '#ffffff', chip: '2 left', grab: true,
+    title: 'Tuesday wheel throwing', items: [['6:30 pm', '2 spots left'], ['7:45 pm', 'Full'], ['Sign-up sheet: bring a towel', '3 of 8']], btn: 'Grab a spot' },
+];
+
+const root = document.getElementById('apps');
+for (const a of apps) {
+  const product = document.createElement('div');
+  product.className = 'product';
+  product.innerHTML = `<h3>${a.name} <span class="note">· ${a.colour}</span></h3><div class="pair"></div>`;
+  root.appendChild(product);
+  for (const mode of ['light', 'dark']) {
+  const stage = document.createElement('div');
+  stage.className = `stage scope-${mode}`;
+  stage.innerHTML = `<span class="tag">${mode === 'light' ? 'Light' : 'Dark'}</span>`;
+  product.querySelector('.pair').appendChild(stage);
+  const el = document.createElement('article');
+  el.className = 'app';
+  el.style.setProperty('--acc', `var(${a.acc})`);
+  if (a.onAcc) el.style.setProperty('--on-acc', a.onAcc);
+  const tile = a.grab ? `<span class="tile" style="background:transparent">${GRAB}</span>` : `<span class="tile">${SPARK}</span>`;
+  const chip = `<span class="chip">${a.chip}</span>`;
+  el.innerHTML = `<div class="accent-line"></div>
+    <div class="app-top">${tile}<span class="word">${a.name}</span><span class="domain">${a.domain}</span></div>
+    <div class="app-body">
+      <div class="row"><h3>${a.title}</h3>${chip}</div>
+      ${a.items.map(([l, r]) => `<div class="item"><b>${l}</b><span>${r}</span></div>`).join('')}
+      <div class="row"><button class="btn" type="button">${a.btn}</button><button class="btn btn-2" type="button">More</button></div>
+    </div>`;
+  stage.appendChild(el);
+  }
+}
+
+// Contrast, WCAG relative luminance
+function lum(hex) {
+  const n = hex.replace('#', '');
+  const c = [0, 2, 4].map(i => parseInt(n.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+function ratio(a, b) { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); }
+const css = getComputedStyle(document.documentElement);
+const tok = n => css.getPropertyValue(n).trim();
+
+// Bar swatches: which text colour works on each
+const barRoot = document.getElementById('bar');
+const NAVY = '#142a5c', WHITE = '#ffffff';
+for (let i = 1; i <= 7; i++) {
+  const hex = tok(`--bar-${i}`);
+  const rn = ratio(hex, NAVY), rw = ratio(hex, WHITE);
+  const best = rn >= rw ? { c: NAVY, n: 'dark blue', r: rn } : { c: WHITE, n: 'white', r: rw };
+  const onPage = ratio(hex, '#faf8f3');
+  const d = document.createElement('div');
+  d.className = 'sw';
+  d.innerHTML = `<div class="chipbig" style="background:${hex};color:${best.c}">Aa ${best.n}</div>
+    <div class="meta"><code>${hex}</code>
+    <span class="ok">${best.n} text ${best.r.toFixed(1)}:1 ${best.r >= 4.5 ? '✓' : (best.r >= 3 ? 'large only' : '✗')}</span>
+    <span class="ok">as a shape on off-white ${onPage.toFixed(1)}:1 ${onPage >= 3 ? '✓' : '✗'}</span></div>`;
+  barRoot.appendChild(d);
+}
+
+// Confetti, placed deterministically
+const conf = document.getElementById('confetti');
+for (let i = 0; i < 28; i++) {
+  const s = document.createElement('i');
+  s.style.background = `var(--bar-${(i % 7) + 1})`;
+  s.style.left = `${(i * 37) % 100}%`;
+  s.style.top = `${(i * 53) % 90}%`;
+  s.style.transform = `rotate(${(i * 29) % 90}deg)`;
+  conf.appendChild(s);
+}
+
+// Pair table (proposed light values, fixed)
+const L = { page: '#faf8f3', surface: '#ffffff', muted_bg: '#f1eee6', text: '#142a5c', muted: '#4b5878', primary: '#1d3a8a', link: '#2050c8', line: '#858072' };
+const pairs = [
+  ['Body text on off-white', L.text, L.page, 4.5],
+  ['Body text on white card', L.text, L.surface, 4.5],
+  ['Quiet text on off-white', L.muted, L.page, 4.5],
+  ['Quiet text on grey row', L.muted, L.muted_bg, 4.5],
+  ['Headings and buttons on off-white', L.primary, L.page, 4.5],
+  ['White on a dark blue button', '#ffffff', L.primary, 4.5],
+  ['Links on off-white', L.link, L.page, 4.5],
+  ['Field borders on white', L.line, L.surface, 3],
+  ['Dark text on gold tile', '#15172a', '#f5a623', 4.5],
+  ['White on GallerySpark and FundingSpark purple', '#ffffff', '#6b4fc8', 4.5],
+  ['White on TaskSparkle blue', '#ffffff', '#2b5fc7', 4.5],
+  ['White on SocietySpark green', '#ffffff', '#2a7a3f', 4.5],
+  ['Dark mode: white on purple', '#ffffff', '#7b5fd8', 4.5],
+  ['Dark mode: white on blue', '#ffffff', '#3a6fd8', 4.5],
+  ['Dark mode: white on green', '#ffffff', '#2e7d32', 4.5],
+  ['Dark mode: purple button against the card', '#7b5fd8', '#1f2238', 3],
+  ['Dark mode: blue button against the card', '#3a6fd8', '#1f2238', 3],
+  ['Dark mode: green button against the card', '#2e7d32', '#1f2238', 3],
+  ['White on GrabASpot teal', '#ffffff', '#0f6e64', 4.5],
+];
+const tb = document.querySelector('#pairs tbody');
+for (const [name, fg, bg, need] of pairs) {
+  const r = ratio(fg, bg);
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td><span class="dot" style="background:${bg}"></span><span class="dot" style="background:${fg}"></span>${name}</td><td class="num">${r.toFixed(1)}:1</td><td class="num">${need}:1</td><td>${r >= need ? 'Passes' : 'Fails'}</td>`;
+  tb.appendChild(tr);
+}
+</script>

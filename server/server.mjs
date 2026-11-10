@@ -596,7 +596,7 @@ const CONTENT_TYPES = {
 // The files public/_headers declares no-cache for on Cloudflare,
 // plus the icons it names: the app must never be served stale.
 const NO_CACHE = new Set([
-  "/", "/index.html", "/boot.js", "/app.js", "/styles.css", "/manifest.webmanifest", "/sw.js",
+  "/", "/index.html", "/boot.js", "/app.js", "/styles.css", "/tokens.css", "/manifest.webmanifest", "/sw.js",
   "/icons/icon-192.png", "/icons/icon-512.png", "/icons/icon-maskable-512.png", "/icons/icon-180.png",
   "/icons/icon-64.png", "/icons/icon.svg", "/fonts/comfortaa-bold.woff2",
 ]);

@@ -1,39 +1,47 @@
 /* Theme colours. Light is the default set. The dark set hangs off the
    data-theme attribute that the early script and app.js keep on <html>.
    The chosen mode (system, light or dark) resolves to one of these. */
+
+/* The Spark family tokens (MemberSpark design system, pinned
+   at design/system/ in this repo; the served copy stands at
+   public/tokens.css and the local checks hold the two equal).
+   The standard look below reads its colours from these tokens;
+   the named looks that follow carry their own palettes and do
+   not read them. */
+@import url("tokens.css");
 :root {
   color-scheme: light;
-  --bg: #f4f5f2;
-  --panel: #ffffff;
-  --column-bg: #e9ebe6;
-  --ink: #191c19;
-  --muted: #4c524c;
+  --bg: var(--ms-color-page);
+  --panel: var(--ms-color-surface);
+  --column-bg: var(--ms-color-surface-muted);
+  --ink: var(--ms-color-text);
+  --muted: var(--ms-color-text-muted);
   /* The hairline clears 3:1 against the page background
      (issue #142) — the local checks measure it, so a softer
      value fails the run. */
-  --line: #83887d;
-  --accent: #1f5c3d;
-  --accent-ink: #ffffff;
-  --field-bg: #ffffff;
-  --copy-bg: #f8f8f5;
-  --tag-bg: #ffffff;
-  --invert-bg: #191c19;
-  --invert-ink: #ffffff;
-  --card-hover: #9aa392;
-  --good: #234d20;
-  --due-soon: #7d1f14;
-  --flag: #b34700;
-  --flag-bg: #fdeadb;
-  --flag-border: #eec39a;
-  --late-bg: #fbe3e0;
-  --late-ink: #7d1f14;
-  --late-border: #e3b3ad;
-  --warn-bg: #fdf0d9;
-  --warn-ink: #6b4b00;
-  --warn-border: #e4cf9e;
-  --danger-bg: #fbe3e0;
-  --danger-ink: #7d1f14;
-  --danger-border: #e3b3ad;
+  --line: var(--ms-color-line-strong);
+  --accent: var(--ms-color-accent);
+  --accent-ink: var(--ms-color-on-accent);
+  --field-bg: var(--ms-color-surface);
+  --copy-bg: var(--ms-color-surface-muted);
+  --tag-bg: var(--ms-color-surface);
+  --invert-bg: var(--ms-color-text);
+  --invert-ink: var(--ms-color-page);
+  --card-hover: var(--ms-color-line-strong);
+  --good: var(--ms-color-badge-paid-fg);
+  --due-soon: var(--ms-color-badge-due-fg);
+  --flag: var(--ms-color-badge-due-fg);
+  --flag-bg: var(--ms-color-badge-due-bg);
+  --flag-border: var(--ms-color-line-strong);
+  --late-bg: var(--ms-color-badge-lapsed-bg);
+  --late-ink: var(--ms-color-badge-lapsed-fg);
+  --late-border: var(--ms-color-line-strong);
+  --warn-bg: var(--ms-color-badge-due-bg);
+  --warn-ink: var(--ms-color-badge-due-fg);
+  --warn-border: var(--ms-color-line-strong);
+  --danger-bg: var(--ms-color-badge-lapsed-bg);
+  --danger-ink: var(--ms-color-danger);
+  --danger-border: var(--ms-color-line-strong);
   --radius: 10px;
   /* The Standard look's fonts. Every named look below carries
      its own pair; the stacks name fonts already on people's
@@ -44,33 +52,33 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #131512;
-  --panel: #1f231f;
-  --column-bg: #262b26;
-  --ink: #eceee9;
-  --muted: #a7aea4;
+  --bg: var(--ms-color-page);
+  --panel: var(--ms-color-surface);
+  --column-bg: var(--ms-color-surface-muted);
+  --ink: var(--ms-color-text);
+  --muted: var(--ms-color-text-muted);
   /* The dark hairline clears the same 3:1 bar (issue #142). */
-  --line: #6c776c;
-  --field-bg: #262b26;
-  --copy-bg: #262b26;
-  --tag-bg: #2c332c;
-  --invert-bg: #eceee9;
-  --invert-ink: #171917;
-  --card-hover: #5f6a5f;
-  --good: #a9d6a4;
-  --due-soon: #ffa79a;
-  --flag: #ffa25e;
-  --flag-bg: #40260e;
-  --flag-border: #7a4d1c;
-  --late-bg: #3d1f1b;
-  --late-ink: #f0a49c;
-  --late-border: #7a4038;
-  --warn-bg: #3a2f14;
-  --warn-ink: #f0cd7e;
-  --warn-border: #6e5a24;
-  --danger-bg: #3d1f1b;
-  --danger-ink: #f0a49c;
-  --danger-border: #7a4038;
+  --line: var(--ms-color-line-strong);
+  --field-bg: var(--ms-color-surface);
+  --copy-bg: var(--ms-color-surface-muted);
+  --tag-bg: var(--ms-color-surface);
+  --invert-bg: var(--ms-color-text);
+  --invert-ink: var(--ms-color-page);
+  --card-hover: var(--ms-color-line-strong);
+  --good: var(--ms-color-badge-paid-fg);
+  --due-soon: var(--ms-color-badge-due-fg);
+  --flag: var(--ms-color-badge-due-fg);
+  --flag-bg: var(--ms-color-badge-due-bg);
+  --flag-border: var(--ms-color-line-strong);
+  --late-bg: var(--ms-color-badge-lapsed-bg);
+  --late-ink: var(--ms-color-badge-lapsed-fg);
+  --late-border: var(--ms-color-line-strong);
+  --warn-bg: var(--ms-color-badge-due-bg);
+  --warn-ink: var(--ms-color-badge-due-fg);
+  --warn-border: var(--ms-color-line-strong);
+  --danger-bg: var(--ms-color-badge-lapsed-bg);
+  --danger-ink: var(--ms-color-danger);
+  --danger-border: var(--ms-color-line-strong);
 }
 
 /* Named looks. Each look carries two authored palettes, light
@@ -2129,8 +2137,8 @@ body.dragging-card { cursor: grabbing; }
 
 .look-swatch + .look-swatch { margin-left: -6px; }
 
-.look-swatch-standard-light { background: linear-gradient(135deg, #f4f5f2 0 55%, #1f5c3d 55% 100%); }
-.look-swatch-standard-dark { background: linear-gradient(135deg, #131512 0 55%, #1f5c3d 55% 100%); }
+.look-swatch-standard-light { background: linear-gradient(135deg, #faf8f3 0 55%, #2b5fc7 55% 100%); }
+.look-swatch-standard-dark { background: linear-gradient(135deg, #10121f 0 55%, #3a6fd8 55% 100%); }
 .look-swatch-comic-light { background: linear-gradient(135deg, #fff3c4 0 55%, #2050c8 55% 100%); }
 .look-swatch-comic-dark { background: linear-gradient(135deg, #1d1b2e 0 55%, #ffd23e 55% 100%); }
 .look-swatch-console-light { background: linear-gradient(135deg, #f2f5ec 0 55%, #0e7a2f 55% 100%); }

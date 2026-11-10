@@ -1,0 +1,306 @@
+/*
+  MemberSpark design system: tokens.
+  Mirrors tokens.json: the two files carry the same values, and
+  tests/design-system-check.ps1 holds them together. Change tokens.json first.
+
+  Light is the default. A visitor whose system asks for dark gets dark,
+  unless the page sets data-theme="light" on <html>. data-theme="dark"
+  forces dark.
+*/
+
+:root {
+  color-scheme: light dark;
+  --ms-type-font-display: 'Bricolage Grotesque', Figtree, 'Segoe UI', system-ui, sans-serif;
+  --ms-type-font-body: Figtree, 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --ms-type-size-sm: 0.875rem;
+  --ms-type-size-base: 1rem;
+  --ms-type-size-lg: 1.125rem;
+  --ms-type-size-h3: 1.25rem;
+  --ms-type-size-h2: 1.75rem;
+  --ms-type-size-h1: 2.5rem;
+  --ms-type-size-display: 3.25rem;
+  --ms-type-line-height: 1.375;
+  --ms-type-line-height-tight: 1.15;
+  --ms-type-weight-regular: 400;
+  --ms-type-weight-medium: 600;
+  --ms-type-weight-bold: 700;
+  --ms-type-weight-heavy: 800;
+  --ms-space-1: 0.25rem;
+  --ms-space-2: 0.5rem;
+  --ms-space-3: 0.75rem;
+  --ms-space-4: 1rem;
+  --ms-space-5: 1.5rem;
+  --ms-space-6: 2rem;
+  --ms-space-7: 3rem;
+  --ms-space-8: 4rem;
+  --ms-space-gutter: clamp(1.1rem, 4vw, 3rem);
+  --ms-radius-sm: 10px;
+  --ms-radius-md: 12px;
+  --ms-radius-lg: 16px;
+  --ms-radius-xl: 18px;
+  --ms-radius-pill: 999px;
+  --ms-size-tap: 44px;
+  --ms-size-header-row-min: 56px;
+  --ms-size-header-row-max: 80px;
+  --ms-size-icon: 24px;
+  --ms-size-tile: 36px;
+  --ms-size-reading: 46rem;
+  --ms-size-page: 1180px;
+  --ms-brand-name: "MemberSpark";
+  --ms-brand-motto: "Crafted by makers, for makers.";
+  --ms-brand-stripe-1: #a4bc45;
+  --ms-brand-stripe-2: #00eeb9;
+  --ms-brand-stripe-3: #07b9a7;
+  --ms-brand-stripe-4: #372f8f;
+  --ms-brand-stripe-5: #eb208c;
+  --ms-brand-stripe-6: #f9552c;
+  --ms-brand-stripe-7: #fa8c2e;
+
+  --ms-color-page: #faf8f3;
+  --ms-color-surface: #ffffff;
+  --ms-color-surface-muted: #f1eee6;
+  --ms-color-line: #e4dfd3;
+  --ms-color-line-strong: #858072;
+  --ms-color-text: #142a5c;
+  --ms-color-text-muted: #4b5878;
+  --ms-color-link: #2050c8;
+  --ms-color-link-hover: #0f2463;
+  --ms-color-focus: #1d3a8a;
+  --ms-color-accent: #f5a623;
+  --ms-color-on-accent: #15172a;
+  --ms-color-primary: #1d3a8a;
+  --ms-color-on-primary: #ffffff;
+  --ms-color-danger: #b3261e;
+  --ms-color-badge-paid-bg: #e3f4ea;
+  --ms-color-badge-paid-fg: #17603c;
+  --ms-color-badge-due-bg: #fff3dc;
+  --ms-color-badge-due-fg: #7a4a00;
+  --ms-color-badge-lapsed-bg: #fbe7e4;
+  --ms-color-badge-lapsed-fg: #8f2a20;
+  --ms-color-tile-gold: #f5a623;
+  --ms-color-tile-blue: #7fb3ff;
+  --ms-color-tile-violet: #c7a6ff;
+  --ms-color-tile-green: #8fe0b4;
+  --ms-color-tile-coral: #ff7a59;
+  --ms-color-on-tile: #15172a;
+  --ms-shadow-card: 0 1px 2px rgba(20, 42, 92, 0.06), 0 8px 24px rgba(20, 42, 92, 0.06);
+  --ms-shadow-raised: 0 2px 4px rgba(20, 42, 92, 0.08), 0 12px 32px rgba(20, 42, 92, 0.12);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ms-color-page: #faf8f3;
+  --ms-color-surface: #ffffff;
+  --ms-color-surface-muted: #f1eee6;
+  --ms-color-line: #e4dfd3;
+  --ms-color-line-strong: #858072;
+  --ms-color-text: #142a5c;
+  --ms-color-text-muted: #4b5878;
+  --ms-color-link: #2050c8;
+  --ms-color-link-hover: #0f2463;
+  --ms-color-focus: #1d3a8a;
+  --ms-color-accent: #f5a623;
+  --ms-color-on-accent: #15172a;
+  --ms-color-primary: #1d3a8a;
+  --ms-color-on-primary: #ffffff;
+  --ms-color-danger: #b3261e;
+  --ms-color-badge-paid-bg: #e3f4ea;
+  --ms-color-badge-paid-fg: #17603c;
+  --ms-color-badge-due-bg: #fff3dc;
+  --ms-color-badge-due-fg: #7a4a00;
+  --ms-color-badge-lapsed-bg: #fbe7e4;
+  --ms-color-badge-lapsed-fg: #8f2a20;
+  --ms-color-tile-gold: #f5a623;
+  --ms-color-tile-blue: #7fb3ff;
+  --ms-color-tile-violet: #c7a6ff;
+  --ms-color-tile-green: #8fe0b4;
+  --ms-color-tile-coral: #ff7a59;
+  --ms-color-on-tile: #15172a;
+  --ms-shadow-card: 0 1px 2px rgba(20, 42, 92, 0.06), 0 8px 24px rgba(20, 42, 92, 0.06);
+  --ms-shadow-raised: 0 2px 4px rgba(20, 42, 92, 0.08), 0 12px 32px rgba(20, 42, 92, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ms-color-page: #10121f;
+    --ms-color-surface: #1f2238;
+    --ms-color-surface-muted: #262a45;
+    --ms-color-line: #33375a;
+    --ms-color-line-strong: #737793;
+    --ms-color-text: #f3f4f8;
+    --ms-color-text-muted: #9ea4c4;
+    --ms-color-link: #9ec2ff;
+    --ms-color-link-hover: #c7dbff;
+    --ms-color-focus: #ffd27a;
+    --ms-color-accent: #f5a623;
+    --ms-color-on-accent: #15172a;
+    --ms-color-primary: #f5a623;
+    --ms-color-on-primary: #15172a;
+    --ms-color-danger: #ff8a80;
+    --ms-color-badge-paid-bg: #173d2a;
+    --ms-color-badge-paid-fg: #8fe0b4;
+    --ms-color-badge-due-bg: #45320a;
+    --ms-color-badge-due-fg: #ffd27a;
+    --ms-color-badge-lapsed-bg: #4d1f1a;
+    --ms-color-badge-lapsed-fg: #ffb4a8;
+    --ms-color-tile-gold: #f5a623;
+    --ms-color-tile-blue: #7fb3ff;
+    --ms-color-tile-violet: #c7a6ff;
+    --ms-color-tile-green: #8fe0b4;
+    --ms-color-tile-coral: #ff7a59;
+    --ms-color-on-tile: #15172a;
+    --ms-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+    --ms-shadow-raised: 0 2px 4px rgba(0, 0, 0, 0.45), 0 12px 32px rgba(0, 0, 0, 0.4);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ms-color-page: #10121f;
+  --ms-color-surface: #1f2238;
+  --ms-color-surface-muted: #262a45;
+  --ms-color-line: #33375a;
+  --ms-color-line-strong: #737793;
+  --ms-color-text: #f3f4f8;
+  --ms-color-text-muted: #9ea4c4;
+  --ms-color-link: #9ec2ff;
+  --ms-color-link-hover: #c7dbff;
+  --ms-color-focus: #ffd27a;
+  --ms-color-accent: #f5a623;
+  --ms-color-on-accent: #15172a;
+  --ms-color-primary: #f5a623;
+  --ms-color-on-primary: #15172a;
+  --ms-color-danger: #ff8a80;
+  --ms-color-badge-paid-bg: #173d2a;
+  --ms-color-badge-paid-fg: #8fe0b4;
+  --ms-color-badge-due-bg: #45320a;
+  --ms-color-badge-due-fg: #ffd27a;
+  --ms-color-badge-lapsed-bg: #4d1f1a;
+  --ms-color-badge-lapsed-fg: #ffb4a8;
+  --ms-color-tile-gold: #f5a623;
+  --ms-color-tile-blue: #7fb3ff;
+  --ms-color-tile-violet: #c7a6ff;
+  --ms-color-tile-green: #8fe0b4;
+  --ms-color-tile-coral: #ff7a59;
+  --ms-color-on-tile: #15172a;
+  --ms-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+  --ms-shadow-raised: 0 2px 4px rgba(0, 0, 0, 0.45), 0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+/*
+  Product accents. A product sets data-product="name" on <html> (or on one element, to show
+  several products on a page) and takes --ms-color-accent and --ms-color-on-accent: the main button, the logo tile and
+  the chips. These blocks come after the theme blocks and are more specific, so
+  the dark ones beat the theme's own dark accent. An accent is a fill, never
+  the colour of text on the page.
+*/
+:root [data-product="memberspark"],
+:root[data-product="memberspark"] {
+  --ms-color-accent: #f5a623;
+  --ms-color-on-accent: #15172a;
+}
+
+:root [data-product="galleryspark"],
+:root[data-product="galleryspark"] {
+  --ms-color-accent: #6b4fc8;
+  --ms-color-on-accent: #ffffff;
+}
+
+:root [data-product="fundingspark"],
+:root[data-product="fundingspark"] {
+  --ms-color-accent: #6b4fc8;
+  --ms-color-on-accent: #ffffff;
+}
+
+:root [data-product="tasksparkle"],
+:root[data-product="tasksparkle"] {
+  --ms-color-accent: #2b5fc7;
+  --ms-color-on-accent: #ffffff;
+}
+
+:root [data-product="societyspark"],
+:root[data-product="societyspark"] {
+  --ms-color-accent: #2a7a3f;
+  --ms-color-on-accent: #ffffff;
+}
+
+:root [data-product="grabaspot"],
+:root[data-product="grabaspot"] {
+  --ms-color-accent: #0f6e64;
+  --ms-color-on-accent: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) [data-product="memberspark"],
+  :root:not([data-theme="light"])[data-product="memberspark"] {
+    --ms-color-accent: #f5a623;
+    --ms-color-on-accent: #15172a;
+  }
+
+  :root:not([data-theme="light"]) [data-product="galleryspark"],
+  :root:not([data-theme="light"])[data-product="galleryspark"] {
+    --ms-color-accent: #7b5fd8;
+    --ms-color-on-accent: #ffffff;
+  }
+
+  :root:not([data-theme="light"]) [data-product="fundingspark"],
+  :root:not([data-theme="light"])[data-product="fundingspark"] {
+    --ms-color-accent: #7b5fd8;
+    --ms-color-on-accent: #ffffff;
+  }
+
+  :root:not([data-theme="light"]) [data-product="tasksparkle"],
+  :root:not([data-theme="light"])[data-product="tasksparkle"] {
+    --ms-color-accent: #3a6fd8;
+    --ms-color-on-accent: #ffffff;
+  }
+
+  :root:not([data-theme="light"]) [data-product="societyspark"],
+  :root:not([data-theme="light"])[data-product="societyspark"] {
+    --ms-color-accent: #2e7d32;
+    --ms-color-on-accent: #ffffff;
+  }
+
+  :root:not([data-theme="light"]) [data-product="grabaspot"],
+  :root:not([data-theme="light"])[data-product="grabaspot"] {
+    --ms-color-accent: #168075;
+    --ms-color-on-accent: #ffffff;
+  }
+}
+
+:root[data-theme="dark"] [data-product="memberspark"],
+:root[data-theme="dark"][data-product="memberspark"] {
+  --ms-color-accent: #f5a623;
+  --ms-color-on-accent: #15172a;
+}
+
+:root[data-theme="dark"] [data-product="galleryspark"],
+:root[data-theme="dark"][data-product="galleryspark"] {
+  --ms-color-accent: #7b5fd8;
+  --ms-color-on-accent: #ffffff;
+}
+
+:root[data-theme="dark"] [data-product="fundingspark"],
+:root[data-theme="dark"][data-product="fundingspark"] {
+  --ms-color-accent: #7b5fd8;
+  --ms-color-on-accent: #ffffff;
+}
+
+:root[data-theme="dark"] [data-product="tasksparkle"],
+:root[data-theme="dark"][data-product="tasksparkle"] {
+  --ms-color-accent: #3a6fd8;
+  --ms-color-on-accent: #ffffff;
+}
+
+:root[data-theme="dark"] [data-product="societyspark"],
+:root[data-theme="dark"][data-product="societyspark"] {
+  --ms-color-accent: #2e7d32;
+  --ms-color-on-accent: #ffffff;
+}
+
+:root[data-theme="dark"] [data-product="grabaspot"],
+:root[data-theme="dark"][data-product="grabaspot"] {
+  --ms-color-accent: #168075;
+  --ms-color-on-accent: #ffffff;
+}

@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MemberSpark design system: preview</title>
+<meta name="description" content="Every token and component of the MemberSpark design system, in light and dark.">
+<script>
+  // Set the stored theme before the stylesheets are read, so a dark visitor
+  // never paints light first. ?theme=light or ?theme=dark overrides it.
+  (function () {
+    var t = new URLSearchParams(location.search).get('theme');
+    try { t = t || localStorage.getItem('ms-theme'); } catch (e) {}
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&amp;family=Figtree:wght@400;600;700&amp;display=swap" media="print" onload="this.media='all'">
+<style>
+  /* Preview layout only; nothing here is part of the design system. */
+  .pv-section { margin: var(--ms-space-6) 0; }
+  .pv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: var(--ms-space-3); margin: 0; padding: 0; list-style: none; }
+  .pv-grid li { display: flex; align-items: center; gap: var(--ms-space-3); min-width: 0; }
+  .pv-grid code { font-size: var(--ms-type-size-sm); color: var(--ms-color-text-muted); overflow-wrap: anywhere; }
+  .pv-chip { width: 2.5rem; height: 2.5rem; flex: none; border-radius: var(--ms-radius-sm); border: 1px solid var(--ms-color-line); }
+  .pv-bar { display: inline-block; height: 0.75rem; flex: none; background: var(--ms-color-accent); border-radius: 2px; }
+  .pv-box { width: 3rem; height: 3rem; flex: none; background: var(--ms-color-surface); border: 1px solid var(--ms-color-line); }
+  .pv-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ms-space-3); }
+  .pv-stack { display: grid; gap: var(--ms-space-5); grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); }
+</style>
+</head>
+<body class="ms-page">
+
+<header class="ms-header">
+  <div class="ms-header__row">
+    <a class="ms-header__brand" href="#">
+      <svg class="ms-spark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/></svg>
+      <span class="ms-header__name">MemberSpark</span>
+    </a>
+    <nav class="ms-header__tabs" aria-label="Sections">
+      <a class="ms-tab" href="#tokens" aria-current="page">Tokens</a>
+      <a class="ms-tab" href="#components">Components</a>
+      <a class="ms-tab" href="#people">People</a>
+    </nav>
+    <div class="ms-header__group">
+      <a class="ms-icon-btn" href="#" aria-label="Help" title="Help">
+        <svg class="lucide lucide-circle-question-mark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      </a>
+      <a class="ms-icon-btn" href="#" aria-label="Feedback" title="Feedback">
+        <svg class="lucide lucide-square-pen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg>
+      </a>
+      <button class="ms-icon-btn" type="button" id="pv-theme" aria-label="Theme" title="Theme">
+        <svg data-face="light" class="lucide lucide-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+        <svg data-face="dark" hidden class="lucide lucide-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+        <svg data-face="default" hidden class="lucide lucide-monitor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+      </button>
+      <a class="ms-icon-btn" href="#" aria-label="Account" title="Account">
+        <svg class="lucide lucide-user" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </a>
+      <a class="ms-icon-btn" href="#" aria-label="Settings" title="Settings">
+        <svg class="lucide lucide-settings" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>
+      </a>
+    </div>
+  </div>
+  <div class="ms-header__row ms-header__row--tabs">
+    <nav class="ms-header__tabs" aria-label="Sections">
+      <a class="ms-tab" href="#tokens" aria-current="page">Tokens</a>
+      <a class="ms-tab" href="#components">Components</a>
+      <a class="ms-tab" href="#people">People</a>
+    </nav>
+  </div>
+</header>
+
+<main class="ms-wrap">
+  <section class="pv-section ms-reading">
+    <h1>MemberSpark design system</h1>
+    <p>Every token and component, as a product would use them. The theme button in the header cycles Default, Light and Dark, and shows the mode a click brings. Add <code>?theme=dark</code> or <code>?theme=light</code> to the address to open in one.</p>
+  </section>
+
+  <section class="pv-section" id="tokens">
+    <h2>Tokens</h2>
+
+    <h3>Colours</h3>
+    <ul class="pv-grid">
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-page)"></span><code>--ms-color-page</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-surface)"></span><code>--ms-color-surface</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-surface-muted)"></span><code>--ms-color-surface-muted</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-line)"></span><code>--ms-color-line</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-line-strong)"></span><code>--ms-color-line-strong</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-text)"></span><code>--ms-color-text</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-text-muted)"></span><code>--ms-color-text-muted</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-link)"></span><code>--ms-color-link</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-link-hover)"></span><code>--ms-color-link-hover</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-focus)"></span><code>--ms-color-focus</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-accent)"></span><code>--ms-color-accent</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-on-accent)"></span><code>--ms-color-on-accent</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-primary)"></span><code>--ms-color-primary</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-on-primary)"></span><code>--ms-color-on-primary</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-danger)"></span><code>--ms-color-danger</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-badge-paid-bg)"></span><code>--ms-color-badge-paid-bg</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-badge-paid-fg)"></span><code>--ms-color-badge-paid-fg</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-badge-due-bg)"></span><code>--ms-color-badge-due-bg</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-badge-due-fg)"></span><code>--ms-color-badge-due-fg</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-badge-lapsed-bg)"></span><code>--ms-color-badge-lapsed-bg</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-badge-lapsed-fg)"></span><code>--ms-color-badge-lapsed-fg</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-tile-gold)"></span><code>--ms-color-tile-gold</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-tile-blue)"></span><code>--ms-color-tile-blue</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-tile-violet)"></span><code>--ms-color-tile-violet</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-tile-green)"></span><code>--ms-color-tile-green</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-tile-coral)"></span><code>--ms-color-tile-coral</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-color-on-tile)"></span><code>--ms-color-on-tile</code></li>
+    </ul>
+
+    <h3>The seven-colour bar: splashes of colour</h3>
+    <p>The footer bar's seven colours are also each product's splashes of colour, for charts, illustrations, celebrations, dividers and empty states.</p>
+    <ul class="pv-grid">
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-brand-stripe-1)"></span><code>--ms-brand-stripe-1</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-brand-stripe-2)"></span><code>--ms-brand-stripe-2</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-brand-stripe-3)"></span><code>--ms-brand-stripe-3</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-brand-stripe-4)"></span><code>--ms-brand-stripe-4</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-brand-stripe-5)"></span><code>--ms-brand-stripe-5</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-brand-stripe-6)"></span><code>--ms-brand-stripe-6</code></li>
+        <li class="pv-swatch"><span class="pv-chip" style="background: var(--ms-brand-stripe-7)"></span><code>--ms-brand-stripe-7</code></li>
+    </ul>
+
+    <h3>Type</h3>
+    <ul class="pv-grid">
+        <li><span style="font-family: var(--ms-type-font-display)">One account for everything we make.</span> <code>--ms-type-font-display</code></li>
+        <li><span style="font-family: var(--ms-type-font-body)">One account for everything we make.</span> <code>--ms-type-font-body</code></li>
+        <li><span style="font-family: var(--ms-type-font-display); font-size: var(--ms-type-size-sm)">Aa</span> <code>--ms-type-size-sm</code></li>
+        <li><span style="font-family: var(--ms-type-font-display); font-size: var(--ms-type-size-base)">Aa</span> <code>--ms-type-size-base</code></li>
+        <li><span style="font-family: var(--ms-type-font-display); font-size: var(--ms-type-size-lg)">Aa</span> <code>--ms-type-size-lg</code></li>
+        <li><span style="font-family: var(--ms-type-font-display); font-size: var(--ms-type-size-h3)">Aa</span> <code>--ms-type-size-h3</code></li>
+        <li><span style="font-family: var(--ms-type-font-display); font-size: var(--ms-type-size-h2)">Aa</span> <code>--ms-type-size-h2</code></li>
+        <li><span style="font-family: var(--ms-type-font-display); font-size: var(--ms-type-size-h1)">Aa</span> <code>--ms-type-size-h1</code></li>
+        <li><span style="font-family: var(--ms-type-font-display); font-size: var(--ms-type-size-display)">Aa</span> <code>--ms-type-size-display</code></li>
+        <li><span style="line-height: var(--ms-type-line-height)">Two lines<br>of text</span> <code>--ms-type-line-height</code></li>
+        <li><span style="line-height: var(--ms-type-line-height-tight)">Two lines<br>of text</span> <code>--ms-type-line-height-tight</code></li>
+        <li><span style="font-weight: var(--ms-type-weight-regular)">Members</span> <code>--ms-type-weight-regular</code></li>
+        <li><span style="font-weight: var(--ms-type-weight-medium)">Members</span> <code>--ms-type-weight-medium</code></li>
+        <li><span style="font-weight: var(--ms-type-weight-bold)">Members</span> <code>--ms-type-weight-bold</code></li>
+        <li><span style="font-weight: var(--ms-type-weight-heavy)">Members</span> <code>--ms-type-weight-heavy</code></li>
+    </ul>
+
+    <h3>Spacing</h3>
+    <ul class="pv-grid">
+        <li><span class="pv-bar" style="width: var(--ms-space-1)"></span> <code>--ms-space-1</code></li>
+        <li><span class="pv-bar" style="width: var(--ms-space-2)"></span> <code>--ms-space-2</code></li>
+        <li><span class="pv-bar" style="width: var(--ms-space-3)"></span> <code>--ms-space-3</code></li>
+        <li><span class="pv-bar" style="width: var(--ms-space-4)"></span> <code>--ms-space-4</code></li>
+        <li><span class="pv-bar" style="width: var(--ms-space-5)"></span> <code>--ms-space-5</code></li>
+        <li><span class="pv-bar" style="width: var(--ms-space-6)"></span> <code>--ms-space-6</code></li>
+        <li><span class="pv-bar" style="width: var(--ms-space-7)"></span> <code>--ms-space-7</code></li>
+        <li><span class="pv-bar" style="width: var(--ms-space-8)"></span> <code>--ms-space-8</code></li>
+        <li><span class="pv-bar" style="width: var(--ms-space-gutter)"></span> <code>--ms-space-gutter</code></li>
+    </ul>
+
+    <h3>Radii</h3>
+    <ul class="pv-grid">
+        <li><span class="pv-box" style="border-radius: var(--ms-radius-sm)"></span> <code>--ms-radius-sm</code></li>
+        <li><span class="pv-box" style="border-radius: var(--ms-radius-md)"></span> <code>--ms-radius-md</code></li>
+        <li><span class="pv-box" style="border-radius: var(--ms-radius-lg)"></span> <code>--ms-radius-lg</code></li>
+        <li><span class="pv-box" style="border-radius: var(--ms-radius-xl)"></span> <code>--ms-radius-xl</code></li>
+        <li><span class="pv-box" style="border-radius: var(--ms-radius-pill)"></span> <code>--ms-radius-pill</code></li>
+    </ul>
+
+    <h3>Sizes</h3>
+    <ul class="pv-grid">
+        <li><span class="pv-bar" style="width: min(8rem, var(--ms-size-tap))"></span> <code>--ms-size-tap</code></li>
+        <li><span class="pv-bar" style="width: min(8rem, var(--ms-size-header-row-min))"></span> <code>--ms-size-header-row-min</code></li>
+        <li><span class="pv-bar" style="width: min(8rem, var(--ms-size-header-row-max))"></span> <code>--ms-size-header-row-max</code></li>
+        <li><span class="pv-bar" style="width: min(8rem, var(--ms-size-icon))"></span> <code>--ms-size-icon</code></li>
+        <li><span class="pv-bar" style="width: min(8rem, var(--ms-size-tile))"></span> <code>--ms-size-tile</code></li>
+        <li><span class="pv-bar" style="width: min(8rem, var(--ms-size-reading))"></span> <code>--ms-size-reading</code></li>
+        <li><span class="pv-bar" style="width: min(8rem, var(--ms-size-page))"></span> <code>--ms-size-page</code></li>
+    </ul>
+
+    <h3>Shadows</h3>
+    <ul class="pv-grid">
+        <li><span class="pv-box" style="box-shadow: var(--ms-shadow-card)"></span> <code>--ms-shadow-card</code></li>
+        <li><span class="pv-box" style="box-shadow: var(--ms-shadow-raised)"></span> <code>--ms-shadow-raised</code></li>
+    </ul>
+
+    <h3>Brand</h3>
+    <ul class="pv-grid">
+      <li><span style="font-family: var(--ms-type-font-display); font-weight: var(--ms-type-weight-heavy)">MemberSpark</span> <code>--ms-brand-name</code></li>
+      <li><span class="ms-footer__motto"></span> <code>--ms-brand-motto</code></li>
+    </ul>
+    <p class="ms-hint">The name and the motto are tokens so that a change is one line. The motto shows here through <code>var(--ms-brand-motto)</code>; the name token is <code>var(--ms-brand-name)</code>, for a product that draws it from CSS.</p>
+  </section>
+
+  <section class="pv-section" id="components">
+    <h2>Components</h2>
+
+    <h3>Buttons</h3>
+    <div class="pv-row">
+      <button class="ms-btn ms-btn--primary" type="button">Save changes</button>
+      <button class="ms-btn ms-btn--secondary" type="button">Invite a member</button>
+      <button class="ms-btn ms-btn--quiet" type="button">Cancel</button>
+      <button class="ms-btn ms-btn--danger" type="button">Remove this member</button>
+      <button class="ms-btn ms-btn--secondary" type="button" disabled>Not available</button>
+    </div>
+
+    <h3>Cards and fields</h3>
+    <div class="pv-stack">
+      <div class="ms-card">
+        <h3>Your account</h3>
+        <div class="ms-field">
+          <label class="ms-label" for="pv-name">Name</label>
+          <input class="ms-input" id="pv-name" value="Robin Example">
+        </div>
+        <div class="ms-field">
+          <label class="ms-label" for="pv-email">Email</label>
+          <input class="ms-input" id="pv-email" type="email" value="robin@" aria-invalid="true" aria-describedby="pv-email-error">
+          <span class="ms-error" id="pv-email-error">Add the part after the @, like robin@example.org.</span>
+        </div>
+        <div class="ms-field">
+          <label class="ms-label" for="pv-note">A note for the organizers</label>
+          <textarea class="ms-input" id="pv-note" rows="3" aria-describedby="pv-note-hint"></textarea>
+          <span class="ms-hint" id="pv-note-hint">Up to 500 characters.</span>
+        </div>
+      </div>
+      <div class="ms-card ms-card--muted">
+        <h3>Your products</h3>
+        <ul class="pv-grid">
+          <li data-product="fundingspark"><span class="ms-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/></svg></span> FundingSpark</li>
+          <li data-product="galleryspark"><span class="ms-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/></svg></span> GallerySpark</li>
+          <li data-product="tasksparkle"><span class="ms-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/></svg></span> TaskSparkle</li>
+          <li data-product="societyspark"><span class="ms-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/></svg></span> SocietySpark</li>
+          <li data-product="grabaspot"><span class="ms-tile">G</span> GrabASpot</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Product accents</h3>
+    <p>A product sets <code>data-product</code> and gets <code>--ms-color-accent</code> and <code>--ms-color-on-accent</code>: the main button, the logo tile and the chips. The second button stays outlined. Extra buttons and tags drawn from the seven-colour bar are each product's own choice.</p>
+    <div class="pv-stack">
+      <div class="ms-card" data-product="memberspark">
+        <div class="pv-row"><span class="ms-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/></svg></span> <strong>MemberSpark</strong> <span class="ms-chip">Signed in</span></div>
+        <p>Gold</p>
+        <div class="pv-row">
+          <button class="ms-btn ms-btn--primary" type="button">Manage sign-in</button>
+          <button class="ms-btn ms-btn--secondary" type="button">More</button>
+        </div>
+      </div>
+      <div class="ms-card" data-product="galleryspark">
+        <div class="pv-row"><span class="ms-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/></svg></span> <strong>GallerySpark</strong> <span class="ms-chip">12 works</span></div>
+        <p>Deep purple</p>
+        <div class="pv-row">
+          <button class="ms-btn ms-btn--primary" type="button">Add artwork</button>
+          <button class="ms-btn ms-btn--secondary" type="button">More</button>
+        </div>
+      </div>
+      <div class="ms-card" data-product="fundingspark">
+        <div class="pv-row"><span class="ms-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/></svg></span> <strong>FundingSpark</strong> <span class="ms-chip">3 closing</span></div>
+        <p>Deep purple</p>
+        <div class="pv-row">
+          <button class="ms-btn ms-btn--primary" type="button">Save to my list</button>
+          <button class="ms-btn ms-btn--secondary" type="button">More</button>
+        </div>
+      </div>
+      <div class="ms-card" data-product="tasksparkle">
+        <div class="pv-row"><span class="ms-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/></svg></span> <strong>TaskSparkle</strong> <span class="ms-chip">4 today</span></div>
+        <p>Deep blue</p>
+        <div class="pv-row">
+          <button class="ms-btn ms-btn--primary" type="button">Add a task</button>
+          <button class="ms-btn ms-btn--secondary" type="button">More</button>
+        </div>
+      </div>
+      <div class="ms-card" data-product="societyspark">
+        <div class="pv-row"><span class="ms-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/></svg></span> <strong>SocietySpark</strong> <span class="ms-chip">6 due</span></div>
+        <p>Deep green</p>
+        <div class="pv-row">
+          <button class="ms-btn ms-btn--primary" type="button">Send reminders</button>
+          <button class="ms-btn ms-btn--secondary" type="button">More</button>
+        </div>
+      </div>
+      <div class="ms-card" data-product="grabaspot">
+        <div class="pv-row"><span class="ms-tile">G</span> <strong>GrabASpot</strong> <span class="ms-chip">2 left</span></div>
+        <p>Teal, its own logo</p>
+        <div class="pv-row">
+          <button class="ms-btn ms-btn--primary" type="button">Grab a spot</button>
+          <button class="ms-btn ms-btn--secondary" type="button">More</button>
+        </div>
+      </div>
+    </div>
+
+    <h3>Badges</h3>
+    <div class="pv-row">
+      <span class="ms-badge ms-badge--paid">Paid</span>
+      <span class="ms-badge ms-badge--due">Due</span>
+      <span class="ms-badge ms-badge--lapsed">Lapsed</span>
+    </div>
+  </section>
+
+  <section class="pv-section" id="people">
+    <h2>A list of people</h2>
+    <p>Ten at a time, with Show all. The people are invented.</p>
+    <div class="ms-card">
+      <table class="ms-table" data-people>
+        <thead><tr><th scope="col">Name</th><th scope="col">Joined</th><th scope="col">Membership</th></tr></thead>
+        <tbody>
+          <tr><td>Avery Example</td><td>2024</td><td><span class="ms-badge ms-badge--paid">Paid</span></td></tr>
+          <tr><td>Blake Example</td><td>2025</td><td><span class="ms-badge ms-badge--due">Due</span></td></tr>
+          <tr><td>Casey Example</td><td>2023</td><td><span class="ms-badge ms-badge--paid">Paid</span></td></tr>
+          <tr><td>Devon Example</td><td>2026</td><td><span class="ms-badge ms-badge--lapsed">Lapsed</span></td></tr>
+          <tr><td>Emery Example</td><td>2022</td><td><span class="ms-badge ms-badge--paid">Paid</span></td></tr>
+          <tr><td>Finley Example</td><td>2025</td><td><span class="ms-badge ms-badge--paid">Paid</span></td></tr>
+          <tr><td>Harper Example</td><td>2024</td><td><span class="ms-badge ms-badge--due">Due</span></td></tr>
+          <tr><td>Jordan Example</td><td>2026</td><td><span class="ms-badge ms-badge--paid">Paid</span></td></tr>
+          <tr><td>Kendall Example</td><td>2023</td><td><span class="ms-badge ms-badge--lapsed">Lapsed</span></td></tr>
+          <tr><td>Logan Example</td><td>2025</td><td><span class="ms-badge ms-badge--paid">Paid</span></td></tr>
+          <tr hidden><td>Morgan Example</td><td>2024</td><td><span class="ms-badge ms-badge--paid">Paid</span></td></tr>
+          <tr hidden><td>Quinn Example</td><td>2026</td><td><span class="ms-badge ms-badge--due">Due</span></td></tr>
+        </tbody>
+      </table>
+      <button class="ms-show-all" type="button" id="pv-show-all">Show all 12</button>
+    </div>
+  </section>
+</main>
+
+<footer class="ms-footer">
+  <div class="ms-wrap">
+    <ul class="ms-footer__links">
+      <li><a href="#">Terms</a></li>
+      <li><a href="#">Help</a></li>
+      <li><a href="#">Feedback</a></li>
+      <li><a href="#">About</a></li>
+    </ul>
+    <div class="ms-footer__bar"></div>
+    <div class="ms-footer__closing">
+      <p class="ms-footer__product">MemberSpark © <span id="pv-year">2026</span></p>
+      <p>By <a href="https://memberspark.ca">MemberSpark</a><svg class="ms-footer__flag" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 12" width="24" height="12" role="img" aria-labelledby="ms-flag-ca-title"><title id="ms-flag-ca-title">Canada</title><rect width="24" height="12" fill="#d52b1e"/><rect x="6" width="12" height="12" fill="#fff"/><path fill="#d52b1e" d="M12 2.2l.7 1.4.8-.4-.3 1.9 1-1 .3.7 1.1-.2-.4 1.2.5.2-1.9 1.5.2.6-1.7-.3v1.7h-.6V7.8l-1.7.3.2-.6-1.9-1.5.5-.2-.4-1.2 1.1.2.3-.7 1 1-.3-1.9.8.4z"/></svg>, a BC non-profit</p>
+      <p class="ms-footer__motto"></p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // The theme button cycles Default -> Light -> Dark and shows the face of the
+  // mode a click brings (site-standards, Header standard, Rec 2).
+  (function () {
+    var root = document.documentElement;
+    var button = document.getElementById('pv-theme');
+    var order = ['default', 'light', 'dark'];
+    function current() { return root.getAttribute('data-theme') || 'default'; }
+    function show() {
+      var next = order[(order.indexOf(current()) + 1) % order.length];
+      button.querySelectorAll('svg').forEach(function (s) { if (s.getAttribute('data-face') === next) s.removeAttribute('hidden'); else s.setAttribute('hidden', ''); });
+      button.setAttribute('aria-label', 'Theme: switch to ' + next);
+      button.title = 'Switch to ' + next;
+    }
+    button.addEventListener('click', function () {
+      var next = order[(order.indexOf(current()) + 1) % order.length];
+      if (next === 'default') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', next);
+      try { if (next === 'default') localStorage.removeItem('ms-theme'); else localStorage.setItem('ms-theme', next); } catch (e) {}
+      show();
+    });
+    show();
+
+    document.getElementById('pv-show-all').addEventListener('click', function () {
+      document.querySelectorAll('[data-people] tr[hidden]').forEach(function (r) { r.hidden = false; });
+      this.hidden = true;
+    });
+    document.getElementById('pv-year').textContent = new Date().getFullYear();
+  })();
+</script>
+</body>
+</html>

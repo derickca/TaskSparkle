@@ -6,6 +6,10 @@ Inside a release, the app stamps every deploy with a build stamp. The stamp is `
 
 ## [Unreleased]
 
+### Changed
+
+- The default look wears the Spark family look now. TaskSparkle is one of the MemberSpark family's products, and its Standard look — the default of the eight looks — takes the family's design tokens: dark blue on off-white in the light theme, the family's dark theme after dark, the main button filled with this product's accent blue and second buttons outlined. The product mark is the family's spark, a white four-point spark on a tile of the accent, in place of the mint sparkle on violet. The tokens stand pinned in this repo at design/system/, copied from the MemberSpark design system, and the sign-in pages wear the same colours. The other seven looks keep their own palettes, exactly as they were.
+
 ## [1.0.0] - 2026-11-04
 
 TaskSparkle is a personal kanban board: boards, columns, cards, labels and projects for one person's work, with agent keys so an AI agent can hold a card's next step alongside you. It runs as one small app — host it on Cloudflare, or run it on your own machine. This is the first public release; everything in this release is what the app carries at launch.

@@ -1,0 +1,31 @@
+{
+  "about": "Icons for the MemberSpark design system. lucide/ is a verbatim copy from the npm package lucide-static at one pinned version; each file's sha256 (with line endings as LF) is pinned here and checked by tests/design-system-check.ps1. flag-ca.svg and spark.svg are MemberSpark's own drawings, not Lucide.",
+  "lucide": {
+    "source": "lucide-static",
+    "version": "1.68.0",
+    "tarball": "https://registry.npmjs.org/lucide-static/-/lucide-static-1.68.0.tgz",
+    "integrity": "sha512-sInxhr771A4UUu8D1gXZjj3mmGwqRTYDVNbfwN25Yx6vwA9Hnq9t+P9rF49UW8MirAe1iaYpqe+3vq99bbH8zg==",
+    "licence": "ISC, in lucide/LICENSE",
+    "icons": {
+      "book-open": { "use": "Terms of Use", "sha256": "366d64631df37964a436e775ed0b4a709828bdfe1a6034033115700b84a8b871" },
+      "check": { "use": "Done; a confirmed state", "sha256": "efff66502b2b87f754e91f34ff84a26304b403da51c333b5f43d51182fbf077e" },
+      "chevron-down": { "use": "Expand and collapse", "sha256": "cc604edb764faa393fa4be1b137e25db97309a4f3d905a3b9e6279e72e7fec01" },
+      "circle-question-mark": { "use": "Help door, in the header's right-hand group", "sha256": "436a776ba6f67bc0f7b912567eb09471a17ea34a8c75f3d78e61b825c3f117d5" },
+      "house": { "use": "Home", "sha256": "b5bf71c35da75bca71f06f62b715f707637ed67a95f50c596e2077c606b67ddf" },
+      "log-out": { "use": "Sign out", "sha256": "238b54880b54afe59bd77e2231518bd0657b33011a5e22cd3a212f6de6bf01b4" },
+      "monitor": { "use": "Theme button face: Default (follow the system)", "sha256": "8a966856d759b91db4f9d54a0aa7e4f6be0248727d661a7ae3f47968a661e50d" },
+      "moon": { "use": "Theme button face: Dark", "sha256": "c467c13c0bf3bf6817f98bafd8c989b47a3057e12e434348568db47aff06b753" },
+      "search": { "use": "Search", "sha256": "0a5fddb26288ba22ab25c78725c52f7320560f807a720aff43d7e2d69256c881" },
+      "settings": { "use": "Settings", "sha256": "a625464806e2de82e3cba39cf19c8c596fe88f4e36f58538c0fe4a3eac27b83e" },
+      "square-pen": { "use": "Feedback door", "sha256": "dc2493f5cf9fdbc886c8c933b761ab047984712e84c567b8d60cfec45456c229" },
+      "sun": { "use": "Theme button face: Light", "sha256": "933a8447548bfdce3c2757e236ea3d47db07555e4d8e42c411ca7bed01ef96f7" },
+      "user": { "use": "Account / sign-in", "sha256": "6c68dc82fe144b8e7c100f133a0dc47d4fdf929deb136ed68b9db5c9beb52da6" },
+      "users": { "use": "People; an organization's members", "sha256": "53bdf117a91d7db52e228d3fb390ee95975c845d455f43f72437993257d13afd" },
+      "x": { "use": "Close a dialog", "sha256": "79a0758f01db56a317a9aae0f01f6ad6f921d20b8e522704f55d76eb8556d442" }
+    }
+  },
+  "own": {
+    "flag-ca": { "use": "The Canadian flag after the word MemberSpark in the footer closing block, at text height (site-standards, Site footer standard; MemberSpark#33). Same drawing as the live holding page." },
+    "spark": { "use": "The four-point spark mark, in the accent colour via currentColor. Same drawing as the live holding page." }
+  }
+}
