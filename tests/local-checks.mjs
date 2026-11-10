@@ -466,7 +466,7 @@ console.log("Standalone sign-in routes: every address the sign-in, " +
 // Derick's ruling of 2026-11-08, Option B): the path data
 // below is copied character for character from the lucide
 // repo's icon files (lucide-icons/lucide,
-// message-square.svg, circle-question-mark.svg, search.svg,
+// circle-question-mark.svg, search.svg,
 // columns-3.svg, calendar.svg, arrow-up.svg, monitor.svg, settings.svg,
 // sun.svg, moon.svg, layout-list.svg,
 // text-align-justify-start.svg and star.svg). The header
@@ -478,7 +478,6 @@ console.log("Standalone sign-in routes: every address the sign-in, " +
 // A hand drawing swapped back in fails here.
 {
   const LUCIDE = {
-    feedback: '<svg viewBox="0 0 24 24" width="44" height="44" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/></svg>',
     help: '<svg viewBox="0 0 24 24" width="44" height="44" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>',
     overview: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>',
     schedule: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>',
@@ -509,7 +508,7 @@ console.log("Standalone sign-in routes: every address the sign-in, " +
     return m ? m[1] : "";
   };
   const drift = [];
-  for (const name of ["feedback", "help"]) {
+  for (const name of ["help"]) {
     if (glyphOf(name) !== LUCIDE[name]) {
       drift.push("worker/auth.js's " + name + " heading glyph is not Lucide's own drawing");
     }
@@ -789,9 +788,10 @@ function cssVarOf(block, name, tokenMap) {
 // The review fixes (deploy issues #214–#218): the Pilot tag
 // stands beside the product name at the design's measure, the
 // brand tile is the design's 36px, the header's right side
-// runs Help, dark toggle, Feedback, the display face stands
-// self-hosted in /fonts, and the app files and icons carry
-// Part 8's short lives in public/_headers. These pins hold
+// runs Help and the dark toggle with no Feedback entry, the
+// display face stands self-hosted in /fonts, and the app
+// files and icons carry Part 8's short lives in
+// public/_headers. These pins hold
 // the shapes at the source; the rendered walks measure them.
 {
   const failures = [];
@@ -832,11 +832,13 @@ function cssVarOf(block, name, tokenMap) {
     failures.push("worker/auth.js's brand tile does not stand at " +
       "36px at both widths");
   }
-  // The sign-in header's order: brand, tag, then Help, the
-  // dark toggle, Feedback.
-  const headFn = auth.slice(auth.indexOf("function pageHead"));
-  const order = ["BRAND_MARK", "pilot-tag", "/help",
-    "data-theme-toggle", "/feedback"];
+  // The sign-in header's order: brand, tag, then Help and
+  // the dark toggle — and no Feedback entry at all: Feedback
+  // stands as the footer's word, never in the header
+  // (Derick's direction, 2026-11-10, on issue #214).
+  const headFn = auth.slice(auth.indexOf("function pageHead"),
+    auth.indexOf("\nfunction ", auth.indexOf("function pageHead") + 10));
+  const order = ["BRAND_MARK", "pilot-tag", "/help", "data-theme-toggle"];
   let last = -1;
   for (const piece of order) {
     const at = headFn.indexOf(piece, last + 1);
@@ -846,6 +848,28 @@ function cssVarOf(block, name, tokenMap) {
       break;
     }
     last = at;
+  }
+  if (headFn.includes("/feedback") || auth.includes("data-feedback-link")) {
+    failures.push("worker/auth.js still carries a Feedback entry " +
+      "for the header");
+  }
+  // The tag's colours are the design's badge pair, in both
+  // copies, and the board tabs' icons stand in the topbar's
+  // one drawing size, 20px.
+  if (!/\.pilot-tag \{[^}]*color: var\(--ms-color-badge-due-fg\);[^}]*background: var\(--ms-color-badge-due-bg\);/.test(css)) {
+    failures.push("public/styles.css's Pilot tag does not wear the " +
+      "design's badge colours");
+  }
+  if (!auth.includes("border-radius: 99px; " +
+      "color: var(--ms-color-badge-due-fg); " +
+      "background: var(--ms-color-badge-due-bg); }")) {
+    failures.push("worker/auth.js's Pilot tag copy does not wear " +
+      "the design's badge colours");
+  }
+  if (!/\.board-tab-icon \{[^}]*width: 20px;[^}]*height: 20px;[^}]*font-size: 20px;/.test(css) ||
+      css.includes(".board-tab-icon { font-size: 17px; }")) {
+    failures.push("the board tabs' icons do not stand at the " +
+      "topbar's 20px drawing size");
   }
   // The display face stands in /fonts with its @font-face.
   if (!existsSync(join(ROOT, "public", "fonts", "bricolage-grotesque.woff2"))) {
@@ -880,7 +904,7 @@ function cssVarOf(block, name, tokenMap) {
   }
   console.log("Review fixes: the Pilot tag stands beside the name at " +
     "the design's measure, the tile at 36px, the header order runs " +
-    "Help, toggle, Feedback, the display face stands in /fonts, and " +
+    "Help and the toggle with no Feedback entry, the display face stands in /fonts, and " +
     "_headers carries Part 8's short lives.");
 }
 
@@ -1003,7 +1027,7 @@ function paletteBlocksOf(css) {
     return m ? m[1].replace(/\\"/g, "\"").replace(/\\\\/g, "\\") : "";
   };
   const drift = [];
-  for (const [name, label] of [["feedback", "Feedback"], ["help", "Help"]]) {
+  for (const [name, label] of [["help", "Help"]]) {
     if (!glyphOf(name) || glyphOf(name) !== svgOf(terms, label)) {
       drift.push("the " + label + " glyph differs from the site pages'");
     }
@@ -1028,7 +1052,7 @@ function paletteBlocksOf(css) {
     process.exit(1);
   }
   console.log("Account pages' heading drawings: the brand mark and the " +
-    "two glyphs in worker/auth.js match the site pages' own.");
+    "Help glyph in worker/auth.js match the site pages' own.");
   }
 }
 {

@@ -1632,8 +1632,8 @@ var PAGE_STYLE = [
      before the page paints, exactly as public/boot.js
      does for the site's pages, so a visitor's colours
      never change between the site's pages and these. */
-  ":root { color-scheme: light; --ms-color-page: #faf8f3; --ms-color-surface: #ffffff; --ms-color-surface-muted: #f1eee6; --ms-color-text: #142a5c; --ms-color-line-strong: #858072; --ms-color-accent: #2b5fc7; --ms-color-on-accent: #ffffff; --ms-color-danger: #b3261e; --ms-color-badge-lapsed-bg: #fbe7e4; --bg: var(--ms-color-page); --column-bg: var(--ms-color-surface-muted); --ink: var(--ms-color-text); --accent: var(--ms-color-accent); --accent-ink: var(--ms-color-on-accent); --field-bg: var(--ms-color-surface); --danger-bg: var(--ms-color-badge-lapsed-bg); --danger-ink: var(--ms-color-danger); --danger-border: var(--ms-color-line-strong); --font: -apple-system, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; --font-display: -apple-system, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; }",
-  ":root[data-theme=\"dark\"] { color-scheme: dark; --ms-color-page: #10121f; --ms-color-surface: #1f2238; --ms-color-surface-muted: #262a45; --ms-color-text: #f3f4f8; --ms-color-line-strong: #737793; --ms-color-accent: #3a6fd8; --ms-color-on-accent: #ffffff; --ms-color-danger: #ff8a80; --ms-color-badge-lapsed-bg: #4d1f1a; --bg: var(--ms-color-page); --column-bg: var(--ms-color-surface-muted); --ink: var(--ms-color-text); --field-bg: var(--ms-color-surface); --danger-bg: var(--ms-color-badge-lapsed-bg); --danger-ink: var(--ms-color-danger); --danger-border: var(--ms-color-line-strong); }",
+  ":root { color-scheme: light; --ms-color-page: #faf8f3; --ms-color-surface: #ffffff; --ms-color-surface-muted: #f1eee6; --ms-color-text: #142a5c; --ms-color-line-strong: #858072; --ms-color-accent: #2b5fc7; --ms-color-on-accent: #ffffff; --ms-color-danger: #b3261e; --ms-color-badge-lapsed-bg: #fbe7e4; --ms-color-badge-due-bg: #fff3dc; --ms-color-badge-due-fg: #7a4a00; --bg: var(--ms-color-page); --column-bg: var(--ms-color-surface-muted); --ink: var(--ms-color-text); --accent: var(--ms-color-accent); --accent-ink: var(--ms-color-on-accent); --field-bg: var(--ms-color-surface); --danger-bg: var(--ms-color-badge-lapsed-bg); --danger-ink: var(--ms-color-danger); --danger-border: var(--ms-color-line-strong); --font: -apple-system, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; --font-display: -apple-system, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif; }",
+  ":root[data-theme=\"dark\"] { color-scheme: dark; --ms-color-page: #10121f; --ms-color-surface: #1f2238; --ms-color-surface-muted: #262a45; --ms-color-text: #f3f4f8; --ms-color-line-strong: #737793; --ms-color-accent: #3a6fd8; --ms-color-on-accent: #ffffff; --ms-color-danger: #ff8a80; --ms-color-badge-lapsed-bg: #4d1f1a; --ms-color-badge-due-bg: #45320a; --ms-color-badge-due-fg: #ffd27a; --bg: var(--ms-color-page); --column-bg: var(--ms-color-surface-muted); --ink: var(--ms-color-text); --field-bg: var(--ms-color-surface); --danger-bg: var(--ms-color-badge-lapsed-bg); --danger-ink: var(--ms-color-danger); --danger-border: var(--ms-color-line-strong); }",
   ":root[data-look=\"comic\"] { color-scheme: light; --bg: #fff3c4; --column-bg: #ffe08a; --ink: #232323; --accent: #2050c8; --accent-ink: #ffffff; --field-bg: #ffffff; --danger-bg: #ffd9d2; --danger-ink: #8f1306; --danger-border: #e8a396; --font: \"Comic Sans MS\", \"Comic Neue\", \"Chalkboard SE\", \"Segoe UI\", sans-serif; --font-display: \"Comic Sans MS\", \"Comic Neue\", \"Chalkboard SE\", \"Segoe UI\", sans-serif; }",
   ":root[data-look=\"comic\"][data-theme=\"dark\"] { color-scheme: dark; --bg: #1d1b2e; --column-bg: #332f52; --ink: #fdf6d8; --accent: #ffd23e; --accent-ink: #231f00; --field-bg: #332f52; --danger-bg: #47201c; --danger-ink: #ffb3a7; --danger-border: #7a4038; }",
   ":root[data-look=\"console\"] { color-scheme: light; --bg: #f2f5ec; --column-bg: #e2ead3; --ink: #0d2812; --accent: #0e7a2f; --accent-ink: #ffffff; --field-bg: #fbfdf7; --danger-bg: #f9dcd6; --danger-ink: #8f1306; --danger-border: #dfa89e; --font: ui-monospace, \"Cascadia Mono\", Consolas, Menlo, monospace; --font-display: ui-monospace, \"Cascadia Mono\", Consolas, Menlo, monospace; }",
@@ -1681,7 +1681,7 @@ var PAGE_STYLE = [
   ".site-head .site-link { min-width: 44px; height: 44px; padding: 4px; }",
   ".site-head .site-link svg { width: 20px; height: 20px; flex: none; }",
   ".site-head button.site-link { appearance: none; background: none; border: 0; cursor: pointer; font: inherit; }",
-  ".site-head .pilot-tag { font-size: .68rem; font-weight: 800; letter-spacing: .09em; line-height: 1; padding: 3px 9px; border: 1px solid var(--ms-color-line-strong); border-radius: 99px; color: var(--ms-color-text-muted); }",
+  ".site-head .pilot-tag { font-size: .68rem; font-weight: 800; letter-spacing: .09em; line-height: 1; padding: 3px 9px; border: 1px solid var(--ms-color-line-strong); border-radius: 99px; color: var(--ms-color-badge-due-fg); background: var(--ms-color-badge-due-bg); }",
   ".site-link:hover { background: var(--column-bg); }",
   ".site-link[hidden] { display: none; }",
   "@media (max-width: 640px) {",
@@ -1806,33 +1806,11 @@ var BRAND_MARK = "<svg viewBox=\"0 0 124 124\" width=\"34\" height=\"34\" aria-h
   "<rect x=\"1.5\" y=\"1.5\" width=\"121\" height=\"121\" rx=\"34\" fill=\"#2b5fc7\"/>" +
   "<svg x=\"24\" y=\"24\" width=\"76\" height=\"76\" viewBox=\"0 0 24 24\"><path fill=\"#ffffff\" d=\"M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z\"/></svg></svg>";
 var HEAD_GLYPHS = {
-  feedback: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z\"/></svg>",
   help: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3\"/><path d=\"M12 17h.01\"/></svg>",
   themeDefault: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"20\" height=\"14\" x=\"2\" y=\"3\" rx=\"2\"/><line x1=\"8\" x2=\"16\" y1=\"21\" y2=\"21\"/><line x1=\"12\" x2=\"12\" y1=\"17\" y2=\"21\"/></svg>",
   themeLight: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2\"/><path d=\"M12 20v2\"/><path d=\"m4.93 4.93 1.41 1.41\"/><path d=\"m17.66 17.66 1.41 1.41\"/><path d=\"M2 12h2\"/><path d=\"M20 12h2\"/><path d=\"m6.34 17.66-1.41 1.41\"/><path d=\"m19.07 4.93-1.41 1.41\"/></svg>",
   themeDark: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401\"/></svg>",
 };
-
-/* The Feedback entry's settling, the site pages' own
-   rule: the entry stands hidden until the copy itself
-   says whether it takes feedback, and comes away when
-   it does not, so the heading settles to the same shape
-   on every page. */
-var HEAD_SETTLE = [
-  "<script>",
-  "(function () {",
-  "  var link = document.querySelector(\"[data-feedback-link]\");",
-  "  if (!link) return;",
-  "  fetch('/api/site', { headers: { 'Accept': 'application/json' } })",
-  "    .then(function (res) { return res.ok ? res.json() : null; })",
-  "    .then(function (site) {",
-  "      if (site && site.feedback) link.hidden = false;",
-  "      else link.remove();",
-  "    })",
-  "    .catch(function () { link.remove(); });",
-  "})();",
-  "</script>",
-].join("\n");
 
 /* The heading's dark toggle (Site and Email Standards, Part 2:
    Help and the dark toggle stand in every header). It cycles
@@ -1888,10 +1866,9 @@ function pageHead(cfg) {
   }
   var links = "<span class=\"pilot-tag\">Pilot</span>" +
     "<nav class=\"site-links\" aria-label=\"Site\">" +
-    "<a class=\"site-link\" href=\"" + base + "/help\" aria-label=\"Help\">" + HEAD_GLYPHS.help + "</a>" + "<button type=\"button\" class=\"site-link\" data-theme-toggle aria-label=\"Theme: Light\">" + HEAD_GLYPHS.themeLight + "</button>" +
-    "<a class=\"site-link\" href=\"" + base + "/feedback\" aria-label=\"Feedback\" data-feedback-link hidden>" + HEAD_GLYPHS.feedback + "</a></nav>";
+    "<a class=\"site-link\" href=\"" + base + "/help\" aria-label=\"Help\">" + HEAD_GLYPHS.help + "</a>" + "<button type=\"button\" class=\"site-link\" data-theme-toggle aria-label=\"Theme: Light\">" + HEAD_GLYPHS.themeLight + "</button></nav>";
   return "<header class=\"site-head\">" + brand + links +
-    "</header>\n" + HEAD_SETTLE + "\n" + HEAD_THEME;
+    "</header>\n" + HEAD_THEME;
 }
 
 export function escapeHtml(value) {

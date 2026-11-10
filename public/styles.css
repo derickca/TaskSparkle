@@ -726,7 +726,8 @@ a.settings-btn {
 
 /* The Pilot tag stands beside the product name (Part 2),
    drawn at the design's own measure: small type in a pill,
-   about 19px tall — a label, not a tap target. */
+   about 19px tall — a label, not a tap target — wearing the
+   design's badge colours, the due pair from the tokens. */
 .pilot-tag {
   flex: 0 0 auto;
   font-size: .68rem;
@@ -736,7 +737,8 @@ a.settings-btn {
   padding: 3px 9px;
   border: 1px solid var(--line);
   border-radius: 99px;
-  color: var(--muted);
+  color: var(--ms-color-badge-due-fg);
+  background: var(--ms-color-badge-due-bg);
 }
 
 /* The account place: the person's own name, standing between
@@ -1019,9 +1021,18 @@ a.settings-btn {
   min-height: 44px;
 }
 
+/* Every drawing in the topbar stands at the one size,
+   20px (the heading's measure): the board tabs' icons
+   included, drawn in a 20px box like the controls' glyphs. */
 .board-tab-icon {
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
   line-height: 1;
+  flex: 0 0 auto;
 }
 
 .board-tab.active {
@@ -2501,7 +2512,6 @@ textarea.copy-field { resize: vertical; }
      first row (issue #48); the board row's own tool buttons
      stand at the board buttons' size beside them. */
   .board-tab { padding: 0 8px; height: 32px; min-height: 32px; }
-  .board-tab-icon { font-size: 17px; }
 }
 
 /* The phone's overview never shows any wider than a phone. */
