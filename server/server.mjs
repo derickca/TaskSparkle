@@ -593,12 +593,23 @@ const CONTENT_TYPES = {
   ".ico": "image/x-icon",
   ".txt": "text/plain; charset=utf-8",
 };
-// The files public/_headers declares no-cache for on Cloudflare,
-// plus the icons it names: the app must never be served stale.
+// The cache lives public/_headers declares on Cloudflare,
+// kept alike here by hand in three sets: the page and its
+// sheets and the fonts revalidate on every load; the app
+// files whose names never change take one hour fresh, then
+// stale-while-revalidate for up to a day; the icons and the
+// favicon keep one day.
 const NO_CACHE = new Set([
-  "/", "/index.html", "/boot.js", "/app.js", "/styles.css", "/tokens.css", "/manifest.webmanifest", "/sw.js",
+  "/", "/index.html", "/styles.css", "/tokens.css",
+  "/fonts/comfortaa-bold.woff2", "/fonts/bricolage-grotesque.woff2",
+]);
+const HOUR_LIVED = new Set([
+  "/boot.js", "/app.js", "/manifest.webmanifest", "/sw.js",
+]);
+const DAY_LIVED = new Set([
+  "/favicon.ico",
   "/icons/icon-192.png", "/icons/icon-512.png", "/icons/icon-maskable-512.png", "/icons/icon-180.png",
-  "/icons/icon-64.png", "/icons/icon.svg", "/fonts/comfortaa-bold.woff2",
+  "/icons/icon-64.png", "/icons/icon.svg",
 ]);
 
 // The app's security headers (issue #70), the same set
@@ -633,6 +644,9 @@ function serveStatic(req, res, pathname) {
     ...SECURITY_HEADERS,
   };
   if (NO_CACHE.has(rel)) headers["Cache-Control"] = "no-cache";
+  else if (HOUR_LIVED.has(rel)) {
+    headers["Cache-Control"] = "public, max-age=3600, stale-while-revalidate=86400";
+  } else if (DAY_LIVED.has(rel)) headers["Cache-Control"] = "public, max-age=86400";
   res.writeHead(200, headers);
   res.end(readFileSync(file));
 }

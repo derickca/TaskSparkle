@@ -9,11 +9,13 @@
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: same-origin
-# The app files must never ride a stale cache. A browser holding an
-# old app.js against a newer API shape stalls on load, so these files
-# revalidate on every load; unchanged files still answer 304.
+# The app files' cache lives follow Part 8's rule for a file
+# whose name stays the same when its bytes change: one hour
+# fresh, then stale-while-revalidate for up to a day — fresh
+# enough that a new release is never far off, and no visit
+# stalls waiting on a revalidation round trip.
 /boot.js
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
 # The front page itself is a page (Site and Email Standards,
 # Part 8): it states the revalidation line in full.
 /
@@ -21,33 +23,38 @@
 /index.html
   Cache-Control: max-age=0, must-revalidate, no-transform
 /app.js
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
 /styles.css
   Cache-Control: no-cache
 /tokens.css
   Cache-Control: no-cache
-# The installable-app files follow the same rule: the manifest, the
-# worker script and the icons revalidate rather than sit in a cache,
-# so a new release is what every open gets. The manifest also names
-# its own content type, the one browsers ask for by name.
+# The manifest and the worker script take the same-name life
+# with the app files. The manifest also names its own content
+# type, the one browsers ask for by name.
 /manifest.webmanifest
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
   Content-Type: application/manifest+json
 /sw.js
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+# Icons keep a short life of one day (Part 8), the favicon
+# with them.
+/favicon.ico
+  Cache-Control: public, max-age=86400
 /icons/icon-192.png
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=86400
 /icons/icon-512.png
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=86400
 /icons/icon-maskable-512.png
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=86400
 /icons/icon-180.png
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=86400
 /icons/icon-64.png
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=86400
 /icons/icon.svg
-  Cache-Control: no-cache
-# The wordmark's font follows the same rule, so a new cut of it
-# is what every open gets.
+  Cache-Control: public, max-age=86400
+# The fonts revalidate, so a new cut of either is what every
+# open gets.
 /fonts/comfortaa-bold.woff2
+  Cache-Control: no-cache
+/fonts/bricolage-grotesque.woff2
   Cache-Control: no-cache
