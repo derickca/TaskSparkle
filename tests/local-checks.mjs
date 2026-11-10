@@ -484,7 +484,7 @@ console.log("Standalone sign-in routes: every address the sign-in, " +
     overview: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>',
     schedule: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3"/><path d="M16 2v3"/><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/></svg>',
     topSearch: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>',
-    backToTop: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>',
+    backToTop: '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>',
     themeSystem: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715"/><path d="M16 12a4 4 0 0 0-4-4"/><path d="m19 5-1.256 1.256"/><path d="M20 12h2"/></svg>',
     themeLight: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>',
     themeDark: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>',
@@ -722,6 +722,66 @@ function cssVarOf(block, name, tokenMap) {
     "design/system copy, both accent pairs clear 4.5:1, the sign-in " +
     "pages' inline subset matches the tokens, and the mark and the " +
     "standing colours carry the family values.");
+}
+
+// Icon-only controls draw at the design system's size (issue
+// #61): the pinned components.css holds a 20px Lucide drawing
+// in a 44px tap target (.ms-icon-btn), and every icon-only
+// control here — the site heading's glyphs, the app header's
+// search and theme glyphs, the settings gear's character and
+// the schedule's back-to-top arrow — draws at that same size,
+// its target unchanged. The board row's smaller tools (See all
+// columns, Schedule, the display button) stand at their own
+// settled size and are not this class.
+{
+  const failures = [];
+  const design = readFileSync(join(ROOT, "design", "system", "components.css"), "utf8");
+  const dm = design.match(/\.ms-icon-btn svg \{\s*width: (\d+)px;\s*height: (\d+)px;/);
+  if (!dm || dm[1] !== dm[2]) {
+    failures.push("the pinned design/system/components.css carries no " +
+      ".ms-icon-btn drawing size to hold the controls to");
+  }
+  const size = dm ? dm[1] : null;
+  const holds = (label, text, re) => {
+    const m = text.match(re);
+    if (!m) { failures.push(label + ": its drawing rule was not found"); return; }
+    if (size && (m[1] !== size || m[2] !== size)) {
+      failures.push(label + " draws at " + m[1] + "px by " + m[2] +
+        "px; the design system's icon drawing is " + size + "px");
+    }
+  };
+  if (size) {
+    const auth = readFileSync(join(ROOT, "worker", "auth.js"), "utf8");
+    const pageStyleSpan = auth.slice(auth.indexOf("var PAGE_STYLE = ["),
+      auth.indexOf("].join(", auth.indexOf("var PAGE_STYLE = [")));
+    const literals = [...pageStyleSpan.matchAll(/"((?:[^"\\]|\\.)*)"/g)]
+      .map((m) => m[1].replace(/\\"/g, "\"").replace(/\\\\/g, "\\")).join("\n");
+    holds("the site heading's glyphs (worker/auth.js)",
+      literals, /\.site-head \.site-link svg \{ width: (\d+)px; height: (\d+)px;/);
+    const css = readFileSync(join(ROOT, "public", "styles.css"), "utf8");
+    holds("the app header's search and theme glyphs (public/styles.css)",
+      css, /#search-toggle svg,\s*#theme-toggle svg \{\s*display: block;\s*width: (\d+)px;\s*height: (\d+)px;/);
+    const gear = css.match(/^\.settings-btn \{([^}]*)\}/m);
+    if (!gear) {
+      failures.push("the settings button's base rule was not found");
+    } else {
+      const fs = gear[1].match(/font-size: (\d+)px;/);
+      if (!fs || fs[1] !== size) {
+        failures.push("the settings gear's character stands at " +
+          (fs ? fs[1] : "no") + "px; the design system's icon drawing is " + size + "px");
+      }
+    }
+    const index = readFileSync(join(ROOT, "public", "index.html"), "utf8");
+    holds("the schedule's back-to-top arrow (public/index.html)",
+      index, /id="back-to-top"[\s\S]{0,300}?<svg[^>]* width="(\d+)" height="(\d+)"/);
+  }
+  if (failures.length) {
+    console.error("Icon drawing sizes (issue #61): " + failures.join("; ") + ".");
+    process.exit(1);
+  }
+  console.log("Icon drawings: the site heading's glyphs, the app header's " +
+    "search, theme and gear, and the back-to-top arrow all draw at the " +
+    "design system's " + size + "px, inside their standing tap targets.");
 }
 
 // The account pages' palette, boot script and heading

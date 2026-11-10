@@ -669,7 +669,7 @@ h1 {
   border-radius: 50%;
   background: var(--panel);
   color: var(--ink);
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1;
   cursor: pointer;
 }
@@ -677,16 +677,17 @@ h1 {
 
 
 /* The header's right-side set stands at the shared base above —
-   44px targets with their glyphs at the family's size (issue
-   #48): the search and theme buttons' glyphs are svgs, the
+   44px targets with their glyphs at the design system's
+   drawing size, 20px in the 44px target (issues #48, #61):
+   the search and theme buttons' glyphs are svgs, the
    settings button's is its gear character, sized by the base's
    font-size. The display button stands with the board tools
    now, at their size, in the board row's action group. */
 #search-toggle svg,
 #theme-toggle svg {
   display: block;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   margin: 0 auto;
 }
 

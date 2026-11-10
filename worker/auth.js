@@ -1673,7 +1673,7 @@ var PAGE_STYLE = [
   "  gap: 6px; color: var(--ink); text-decoration: none; font-size: 15px;",
   "  min-width: 44px; height: 44px; padding: 0 12px; border-radius: 8px; }",
   ".site-head .site-link { min-width: 52px; height: 52px; padding: 4px; }",
-  ".site-head .site-link svg { width: 44px; height: 44px; flex: none; }",
+  ".site-head .site-link svg { width: 20px; height: 20px; flex: none; }",
   ".site-link:hover { background: var(--column-bg); }",
   ".site-link[hidden] { display: none; }",
   "@media (max-width: 640px) {",
