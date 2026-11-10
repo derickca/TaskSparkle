@@ -1,9 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 124 124">
-  <!-- The maskable form of the Spark family mark: the accent tile
-       runs to the edges so a launcher mask of any shape crops
-       background only. The spark is the design system's own
-       drawing (design/system/icons/spark.svg), kept inside the
-       mask's safe circle. -->
-  <rect x="0" y="0" width="124" height="124" fill="#2b5fc7"/>
-  <svg x="28" y="28" width="68" height="68" viewBox="0 0 24 24"><path fill="#ffffff" d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/></svg>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180"><rect width="180" height="180" fill="#10121f"/><svg x="20" y="20" width="140" height="140" viewBox="3 2 18 18"><path fill="#2b5fc7" d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/></svg></svg>
