@@ -786,6 +786,104 @@ function cssVarOf(block, name, tokenMap) {
     "design system's " + size + "px, inside their standing tap targets.");
 }
 
+// The review fixes (deploy issues #214–#218): the Pilot tag
+// stands beside the product name at the design's measure, the
+// brand tile is the design's 36px, the header's right side
+// runs Help, dark toggle, Feedback, the display face stands
+// self-hosted in /fonts, and the app files and icons carry
+// Part 8's short lives in public/_headers. These pins hold
+// the shapes at the source; the rendered walks measure them.
+{
+  const failures = [];
+  const css = readFileSync(join(ROOT, "public", "styles.css"), "utf8");
+  const auth = readFileSync(join(ROOT, "worker", "auth.js"), "utf8");
+  const index = readFileSync(join(ROOT, "public", "index.html"), "utf8");
+  const headers = readFileSync(join(ROOT, "public", "_headers"), "utf8");
+  const tagRule = /\.pilot-tag \{[^}]*font-size: \.68rem;[^}]*font-weight: 800;[^}]*letter-spacing: \.09em;[^}]*line-height: 1;[^}]*padding: 3px 9px;[^}]*border-radius: 99px;/;
+  if (!tagRule.test(css)) {
+    failures.push("public/styles.css's Pilot tag does not stand at the " +
+      "design's measure (.68rem, 800, .09em, 3px 9px, 99px pill)");
+  }
+  if (!auth.includes(".site-head .pilot-tag { font-size: .68rem; " +
+      "font-weight: 800; letter-spacing: .09em; line-height: 1; " +
+      "padding: 3px 9px;")) {
+    failures.push("worker/auth.js's Pilot tag copy does not stand at " +
+      "the design's measure");
+  }
+  // The tag's seat: in the app header it stands immediately
+  // after the name, and nowhere in the action group.
+  const nameAt = index.indexOf("<h1>TaskSparkle</h1>");
+  const tagAt = index.indexOf('<span class="pilot-tag">Pilot</span>');
+  const actionsAt = index.indexOf('<div class="header-actions">');
+  if (!(nameAt >= 0 && tagAt > nameAt && tagAt < actionsAt)) {
+    failures.push("public/index.html's Pilot tag does not stand " +
+      "beside the product name in the app header");
+  }
+  if (index.slice(actionsAt).includes("pilot-tag")) {
+    failures.push("public/index.html's action group still carries " +
+      "the Pilot tag");
+  }
+  // The brand tile: 36px on the sign-in pages' copy, desktop
+  // and phone alike (the stylesheet's own copy is pinned in
+  // the deployment tree, where the site section stands).
+  if (!auth.includes(".site-brand svg { display: block; " +
+      "border-radius: 7px; width: 36px; height: 36px; }") ||
+      !auth.includes(".site-brand svg { width: 36px; height: 36px; }")) {
+    failures.push("worker/auth.js's brand tile does not stand at " +
+      "36px at both widths");
+  }
+  // The sign-in header's order: brand, tag, then Help, the
+  // dark toggle, Feedback.
+  const headFn = auth.slice(auth.indexOf("function pageHead"));
+  const order = ["BRAND_MARK", "pilot-tag", "/help",
+    "data-theme-toggle", "/feedback"];
+  let last = -1;
+  for (const piece of order) {
+    const at = headFn.indexOf(piece, last + 1);
+    if (at < 0) {
+      failures.push("worker/auth.js's pageHead lost its header " +
+        "order at " + piece);
+      break;
+    }
+    last = at;
+  }
+  // The display face stands in /fonts with its @font-face.
+  if (!existsSync(join(ROOT, "public", "fonts", "bricolage-grotesque.woff2"))) {
+    failures.push("public/fonts/bricolage-grotesque.woff2 is missing");
+  }
+  if (!css.includes('font-family: "Bricolage Grotesque";') ||
+      !css.includes('src: url("/fonts/bricolage-grotesque.woff2")')) {
+    failures.push("public/styles.css carries no @font-face for the " +
+      "display face");
+  }
+  // Part 8's lives in public/_headers.
+  const lives = (path, line) => {
+    const at = headers.indexOf("\n" + path + "\n");
+    if (at < 0 || !headers.slice(at, at + 200).includes(line)) {
+      failures.push("public/_headers gives " + path + " no " + line);
+    }
+  };
+  const HOUR = "Cache-Control: public, max-age=3600, stale-while-revalidate=86400";
+  const DAY = "Cache-Control: public, max-age=86400";
+  for (const p of ["/boot.js", "/app.js", "/manifest.webmanifest", "/sw.js"]) {
+    lives(p, HOUR);
+  }
+  for (const p of ["/favicon.ico", "/icons/icon-192.png", "/icons/icon-512.png",
+      "/icons/icon-maskable-512.png", "/icons/icon-180.png",
+      "/icons/icon-64.png", "/icons/icon.svg"]) {
+    lives(p, DAY);
+  }
+  if (failures.length) {
+    console.error("Review fixes (deploy issues #214–#218): " +
+      failures.join("; ") + ".");
+    process.exit(1);
+  }
+  console.log("Review fixes: the Pilot tag stands beside the name at " +
+    "the design's measure, the tile at 36px, the header order runs " +
+    "Help, toggle, Feedback, the display face stands in /fonts, and " +
+    "_headers carries Part 8's short lives.");
+}
+
 // The account pages' palette, boot script and heading
 // drawings are copies of the site's own (public/styles.css,
 // public/boot.js, the site pages' heading), standing inline

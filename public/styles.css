@@ -634,16 +634,31 @@ h1 {
 
 .header-row h1 { flex: 0 0 auto; }
 
-/* The wordmark is the one place the app downloads a font: the
-   name in the header is set in Comfortaa Bold, the brand's face,
-   from a subset that carries only the letters of "TaskSparkle"
-   (about 1.4 KB; the font's licence stands beside it in
-   /fonts/OFL.txt). Every other word in the app keeps the look's
-   own stacks above. */
+/* The app downloads two fonts, both self-hosted in /fonts.
+   The wordmark's: the name in the header is set in Comfortaa
+   Bold, the brand's face, from a subset that carries only the
+   letters of "TaskSparkle" (about 1.4 KB; the font's licence
+   stands beside it in /fonts/OFL.txt). */
 @font-face {
   font-family: "Comfortaa";
   src: url("/fonts/comfortaa-bold.woff2") format("woff2");
   font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* The display face (design/system tokens.css:
+   --ms-type-font-display): Bricolage Grotesque, the family's
+   heading face, self-hosted the same way — the variable file
+   carries weights 200 to 800, and its licence stands beside
+   it in /fonts/OFL-bricolage.txt. The reading pages' headings
+   and the console's name the face in their own rules; the
+   token's stack follows it (Figtree, then the device faces)
+   for any letter the file does not carry. */
+@font-face {
+  font-family: "Bricolage Grotesque";
+  src: url("/fonts/bricolage-grotesque.woff2") format("woff2");
+  font-weight: 200 800;
   font-style: normal;
   font-display: swap;
 }
@@ -709,15 +724,18 @@ a.settings-btn {
   margin: 0 auto;
 }
 
-/* The Pilot tag stands beside the dark toggle (Part 2). */
+/* The Pilot tag stands beside the product name (Part 2),
+   drawn at the design's own measure: small type in a pill,
+   about 19px tall — a label, not a tap target. */
 .pilot-tag {
   flex: 0 0 auto;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  padding: 3px 8px;
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .09em;
+  line-height: 1;
+  padding: 3px 9px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 99px;
   color: var(--muted);
 }
 
