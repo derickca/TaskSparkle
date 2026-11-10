@@ -654,13 +654,17 @@ h1 {
    it in /fonts/OFL-bricolage.txt. The reading pages' headings
    and the console's name the face in their own rules; the
    token's stack follows it (Figtree, then the device faces)
-   for any letter the file does not carry. */
+   for any letter the file does not carry. The face never
+   swaps (Part 9): it loads as optional, so a heading paints
+   in the face or in the fallback and never changes face
+   mid-page, and the reading pages preload the file so the
+   face is the one that paints (deploy issue #219). */
 @font-face {
   font-family: "Bricolage Grotesque";
   src: url("/fonts/bricolage-grotesque.woff2") format("woff2");
   font-weight: 200 800;
   font-style: normal;
-  font-display: swap;
+  font-display: optional;
 }
 
 .topbar h1 {

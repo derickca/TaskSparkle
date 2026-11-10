@@ -908,6 +908,40 @@ function cssVarOf(block, name, tokenMap) {
     "_headers carries Part 8's short lives.");
 }
 
+{
+  // Standards round 2 (deploy issues #219, #220). Part 9:
+  // fonts do not swap — the display face loads with
+  // font-display: optional, and the reading pages preload
+  // it (the preload stands in the deployment tree, whose
+  // pages those are; its checks hold it there). Part 2: a
+  // header that carries wayfinding sticks to the top — the
+  // sign-in pages' header copy carries the stick in this
+  // tree; the site stylesheet's copy stands in the
+  // deployment tree, held there the same way.
+  const failures = [];
+  const css = readFileSync(join(ROOT, "public", "styles.css"), "utf8");
+  const auth = readFileSync(join(ROOT, "worker", "auth.js"), "utf8");
+  const faceAt = css.indexOf('font-family: "Bricolage Grotesque";');
+  const faceBlock = css.slice(faceAt, css.indexOf("}", faceAt));
+  if (!faceBlock.includes("font-display: optional;") ||
+      faceBlock.includes("font-display: swap;")) {
+    failures.push("the display face does not load with " +
+      "font-display: optional, so headings swap on first paint");
+  }
+  if (!/\.site-head \{[^}]*position: sticky;[^}]*top: 0;/.test(auth)) {
+    failures.push("worker/auth.js's header copy does not stick " +
+      "to the top");
+  }
+  if (failures.length) {
+    console.error("Standards round 2 (deploy issues #219, " +
+      "#220): " + failures.join("; ") + ".");
+    process.exit(1);
+  }
+  console.log("Standards round 2: the display face loads with " +
+    "font-display: optional, and the sign-in pages' header " +
+    "copy sticks to the top.");
+}
+
 // The account pages' palette, boot script and heading
 // drawings are copies of the site's own (public/styles.css,
 // public/boot.js, the site pages' heading), standing inline

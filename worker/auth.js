@@ -1669,7 +1669,7 @@ var PAGE_STYLE = [
   ".static-wrap { max-width: 46em; margin: 0 auto;",
   "  padding: 0 14px 40px; box-sizing: border-box; }",
   ".site-head, .site-head * { box-sizing: border-box; }",
-  ".site-head { display: flex; align-items: center; gap: 12px; padding: 0 2px; min-height: 56px; }",
+  ".site-head { display: flex; align-items: center; gap: 12px; padding: 0 2px; min-height: 56px; position: sticky; top: 0; z-index: 20; background: var(--bg); }",
   ".site-brand { display: inline-flex; align-items: center; gap: 9px;",
   "  color: var(--ink); text-decoration: none;",
   "  font-family: var(--font-display, var(--font)); font-weight: 700; font-size: 21px; }",
