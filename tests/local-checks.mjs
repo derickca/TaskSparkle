@@ -465,7 +465,7 @@ console.log("Standalone sign-in routes: every address the sign-in, " +
 // The glyphs are Lucide's own drawings (deploy issue #198,
 // Derick's ruling of 2026-11-08, Option B): the path data
 // below is copied character for character from the lucide
-// repo's icon files (lucide-icons/lucide, icons/book-open.svg,
+// repo's icon files (lucide-icons/lucide,
 // message-square.svg, circle-question-mark.svg, search.svg,
 // columns-3.svg, calendar.svg, arrow-up.svg, sun-moon.svg,
 // sun.svg, moon.svg, layout-list.svg,
@@ -478,7 +478,6 @@ console.log("Standalone sign-in routes: every address the sign-in, " +
 // A hand drawing swapped back in fails here.
 {
   const LUCIDE = {
-    terms: '<svg viewBox="0 0 24 24" width="44" height="44" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v16"/><path d="M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"/></svg>',
     feedback: '<svg viewBox="0 0 24 24" width="44" height="44" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/></svg>',
     help: '<svg viewBox="0 0 24 24" width="44" height="44" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>',
     overview: '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/></svg>',
@@ -506,7 +505,7 @@ console.log("Standalone sign-in routes: every address the sign-in, " +
     return m ? m[1] : "";
   };
   const drift = [];
-  for (const name of ["terms", "feedback", "help"]) {
+  for (const name of ["feedback", "help"]) {
     if (glyphOf(name) !== LUCIDE[name]) {
       drift.push("worker/auth.js's " + name + " heading glyph is not Lucide's own drawing");
     }
@@ -903,7 +902,7 @@ function paletteBlocksOf(css) {
     return m ? m[1].replace(/\\"/g, "\"").replace(/\\\\/g, "\\") : "";
   };
   const drift = [];
-  for (const [name, label] of [["terms", "Terms"], ["feedback", "Feedback"], ["help", "Help"]]) {
+  for (const [name, label] of [["feedback", "Feedback"], ["help", "Help"]]) {
     if (!glyphOf(name) || glyphOf(name) !== svgOf(terms, label)) {
       drift.push("the " + label + " glyph differs from the site pages'");
     }
@@ -928,7 +927,7 @@ function paletteBlocksOf(css) {
     process.exit(1);
   }
   console.log("Account pages' heading drawings: the brand mark and the " +
-    "three glyphs in worker/auth.js match the site pages' own.");
+    "two glyphs in worker/auth.js match the site pages' own.");
   }
 }
 {
