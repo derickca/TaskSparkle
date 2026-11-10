@@ -1189,16 +1189,22 @@ export async function sessionByToken(authDb, token) {
 }
 
 // Stamps last-seen at most hourly, so an active session is not
-// a write per request. The same stamp renews the session
+// a write per request. The same visit renews the session
 // (issue #47): use moves the session's end out to the standing
 // length from the activity, so a person who keeps using the
 // service is not signed out on a fixed day. The renewal never
-// shortens a session — MAX keeps whichever end stands later.
+// shortens a session, and it moves at most once a day (Site
+// and Email Standards, Part 11): the end is pushed out only
+// once a full day of the standing length has burned, while
+// the last-seen stamp keeps its hourly pace.
 export async function touchSession(authDb, row) {
   var stamp = nowMs();
   if (stamp - Number(row.last_seen_at || 0) < 60 * 60 * 1000) return;
-  await authDb.prepare("UPDATE sessions SET last_seen_at = ?, expires_at = MAX(expires_at, ?) WHERE token_hash = ?")
-    .bind(stamp, stamp + SESSION_MS, row.token_hash).run();
+  var dayMs = 24 * 60 * 60 * 1000;
+  var end = Number(row.expires_at || 0);
+  var renewed = end < stamp + SESSION_MS - dayMs ? stamp + SESSION_MS : end;
+  await authDb.prepare("UPDATE sessions SET last_seen_at = ?, expires_at = ? WHERE token_hash = ?")
+    .bind(stamp, renewed, row.token_hash).run();
 }
 
 // Rotates the session's token: the old row goes, a fresh token
@@ -1674,6 +1680,8 @@ var PAGE_STYLE = [
   "  min-width: 44px; height: 44px; padding: 0 12px; border-radius: 8px; }",
   ".site-head .site-link { min-width: 44px; height: 44px; padding: 4px; }",
   ".site-head .site-link svg { width: 20px; height: 20px; flex: none; }",
+  ".site-head button.site-link { appearance: none; background: none; border: 0; cursor: pointer; font: inherit; }",
+  ".site-head .pilot-tag { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; padding: 3px 8px; border: 1px solid var(--ms-color-line-strong); border-radius: 999px; color: var(--ms-color-text-muted); }",
   ".site-link:hover { background: var(--column-bg); }",
   ".site-link[hidden] { display: none; }",
   "@media (max-width: 640px) {",
@@ -1799,6 +1807,9 @@ var BRAND_MARK = "<svg viewBox=\"0 0 124 124\" width=\"34\" height=\"34\" aria-h
 var HEAD_GLYPHS = {
   feedback: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z\"/></svg>",
   help: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3\"/><path d=\"M12 17h.01\"/></svg>",
+  themeDefault: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"20\" height=\"14\" x=\"2\" y=\"3\" rx=\"2\"/><line x1=\"8\" x2=\"16\" y1=\"21\" y2=\"21\"/><line x1=\"12\" x2=\"12\" y1=\"17\" y2=\"21\"/></svg>",
+  themeLight: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2\"/><path d=\"M12 20v2\"/><path d=\"m4.93 4.93 1.41 1.41\"/><path d=\"m17.66 17.66 1.41 1.41\"/><path d=\"M2 12h2\"/><path d=\"M20 12h2\"/><path d=\"m6.34 17.66-1.41 1.41\"/><path d=\"m19.07 4.93-1.41 1.41\"/></svg>",
+  themeDark: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401\"/></svg>",
 };
 
 /* The Feedback entry's settling, the site pages' own
@@ -1822,6 +1833,51 @@ var HEAD_SETTLE = [
   "</script>",
 ].join("\n");
 
+/* The heading's dark toggle (Site and Email Standards, Part 2:
+   Help and the dark toggle stand in every header). It cycles
+   Default, Light, Dark; the face and the name are the mode the
+   click brings, the app toggle's own rule. It writes the device
+   settings the boot script and the app read, so the choice
+   holds on every page. */
+var HEAD_THEME = [
+  "<script>",
+  "(function () {",
+  "  var btn = document.querySelector(\"[data-theme-toggle]\");",
+  "  if (!btn) return;",
+  "  var modes = [\"system\", \"light\", \"dark\"];",
+  "  var names = { system: \"Default\", light: \"Light\", dark: \"Dark\" };",
+  "  var faces = { system: \"<svg viewBox=\\\"0 0 24 24\\\" width=\\\"44\\\" height=\\\"44\\\" aria-hidden=\\\"true\\\" focusable=\\\"false\\\" fill=\\\"none\\\" stroke=\\\"currentColor\\\" stroke-width=\\\"2\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"><rect width=\\\"20\\\" height=\\\"14\\\" x=\\\"2\\\" y=\\\"3\\\" rx=\\\"2\\\"/><line x1=\\\"8\\\" x2=\\\"16\\\" y1=\\\"21\\\" y2=\\\"21\\\"/><line x1=\\\"12\\\" x2=\\\"12\\\" y1=\\\"17\\\" y2=\\\"21\\\"/></svg>\", light: \"<svg viewBox=\\\"0 0 24 24\\\" width=\\\"44\\\" height=\\\"44\\\" aria-hidden=\\\"true\\\" focusable=\\\"false\\\" fill=\\\"none\\\" stroke=\\\"currentColor\\\" stroke-width=\\\"2\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"><circle cx=\\\"12\\\" cy=\\\"12\\\" r=\\\"4\\\"/><path d=\\\"M12 2v2\\\"/><path d=\\\"M12 20v2\\\"/><path d=\\\"m4.93 4.93 1.41 1.41\\\"/><path d=\\\"m17.66 17.66 1.41 1.41\\\"/><path d=\\\"M2 12h2\\\"/><path d=\\\"M20 12h2\\\"/><path d=\\\"m6.34 17.66-1.41 1.41\\\"/><path d=\\\"m19.07 4.93-1.41 1.41\\\"/></svg>\", dark: \"<svg viewBox=\\\"0 0 24 24\\\" width=\\\"44\\\" height=\\\"44\\\" aria-hidden=\\\"true\\\" focusable=\\\"false\\\" fill=\\\"none\\\" stroke=\\\"currentColor\\\" stroke-width=\\\"2\\\" stroke-linecap=\\\"round\\\" stroke-linejoin=\\\"round\\\"><path d=\\\"M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401\\\"/></svg>\" };",
+  "  function current() {",
+  "    var m = document.documentElement.getAttribute(\"data-theme-mode\") || \"system\";",
+  "    return modes.indexOf(m) === -1 ? \"system\" : m;",
+  "  }",
+  "  function paint() {",
+  "    var next = modes[(modes.indexOf(current()) + 1) % 3];",
+  "    btn.innerHTML = faces[next];",
+  "    btn.setAttribute(\"aria-label\", \"Theme: \" + names[next]);",
+  "    btn.setAttribute(\"title\", \"Theme: \" + names[next]);",
+  "  }",
+  "  btn.addEventListener(\"click\", function () {",
+  "    var next = modes[(modes.indexOf(current()) + 1) % 3];",
+  "    try {",
+  "      var dev = {};",
+  "      var raw = localStorage.getItem(\"tasksparkle-device\");",
+  "      if (raw) dev = JSON.parse(raw) || {};",
+  "      dev.theme = next;",
+  "      localStorage.setItem(\"tasksparkle-device\", JSON.stringify(dev));",
+  "      localStorage.setItem(\"tasksparkle-mirror\", JSON.stringify({ theme: next }));",
+  "    } catch (e) { /* A refused store still recolours this page. */ }",
+  "    var dark = next === \"dark\" ||",
+  "      (next !== \"light\" && window.matchMedia(\"(prefers-color-scheme: dark)\").matches);",
+  "    document.documentElement.setAttribute(\"data-theme\", dark ? \"dark\" : \"light\");",
+  "    document.documentElement.setAttribute(\"data-theme-mode\", next);",
+  "    paint();",
+  "  });",
+  "  paint();",
+  "})();",
+  "</script>",
+].join("\n");
+
 function pageHead(cfg) {
   var base = cfg && cfg.siteBase ? String(cfg.siteBase).replace(/\/+$/, "") : "";
   var brand = "<a class=\"site-brand\" href=\"" + (base ? base + "/" : "/") + "\">" +
@@ -1831,9 +1887,9 @@ function pageHead(cfg) {
   }
   var links = "<nav class=\"site-links\" aria-label=\"Site\">" +
     "<a class=\"site-link\" href=\"" + base + "/feedback\" aria-label=\"Feedback\" data-feedback-link hidden>" + HEAD_GLYPHS.feedback + "</a>" +
-    "<a class=\"site-link\" href=\"" + base + "/help\" aria-label=\"Help\">" + HEAD_GLYPHS.help + "</a></nav>";
+    "<a class=\"site-link\" href=\"" + base + "/help\" aria-label=\"Help\">" + HEAD_GLYPHS.help + "</a>" + "<span class=\"pilot-tag\">Pilot</span>" + "<button type=\"button\" class=\"site-link\" data-theme-toggle aria-label=\"Theme: Light\">" + HEAD_GLYPHS.themeLight + "</button></nav>";
   return "<header class=\"site-head\">" + brand + links +
-    "</header>\n" + HEAD_SETTLE;
+    "</header>\n" + HEAD_SETTLE + "\n" + HEAD_THEME;
 }
 
 export function escapeHtml(value) {
