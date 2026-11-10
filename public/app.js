@@ -1294,18 +1294,23 @@ function planPushReconnect() {
 
 // Asks the version endpoint for the number as it stands and queues
 // a refresh when it is ahead of the one on show. A moved build
-// stamp reloads the app itself, the way the boot check does
-// (issue #138): an open app picks up a newer build at its next
-// check instead of running the old copy until it is reopened.
+// stamp never reloads the app under the person (Site and Email
+// Standards, Part 8): it raises the standing Updated notice, and
+// the person presses Refresh now when they are ready (issue #67).
 // Quiet on failure: the socket, the next check or the next push
 // catches up.
+function showUpdateNote() {
+  var note = document.getElementById("update-note");
+  if (note) note.hidden = false;
+}
+
 function checkRemoteVersion() {
   fetch("/api/version").then(function (res) {
     if (!res.ok) throw new Error("version " + res.status);
     return res.json();
   }).then(function (data) {
     if (serverBuildMoved(data)) {
-      window.location.reload();
+      showUpdateNote();
       return;
     }
     if (data && typeof data.version === "number" && data.version > shownVersion) {
@@ -1421,9 +1426,9 @@ function showPushNote(text) {
 // follows it live. ---
 
 var THEME_MODES = ["system", "light", "dark"];
-var THEME_NAMES = { system: "System", light: "Light", dark: "Dark" };
+var THEME_NAMES = { system: "Default", light: "Light", dark: "Dark" };
 var THEME_ICONS = {
-  system: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v2"/><path d="M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715"/><path d="M16 12a4 4 0 0 0-4-4"/><path d="m19 5-1.256 1.256"/><path d="M20 12h2"/></svg>',
+  system: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>',
   light: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>',
   dark: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>'
 };
@@ -8047,8 +8052,13 @@ function init() {
   });
   window.addEventListener("scroll", paintBackToTop, { passive: true });
 
-  // Theme controls. The header button steps System, Light, Dark and
-  // back to System. The Settings buttons name the same three modes.
+  // The Updated notice's button: the one reload a moved build
+  // stamp ever causes, pressed by the person (issue #67).
+  wire("update-refresh", "click", function () {
+    window.location.reload();
+  });
+  // Theme controls. The header button steps Default, Light, Dark
+  // and back to Default. The Settings buttons name the same modes.
   wire("theme-toggle", "click", function () {
     var next = THEME_MODES[(THEME_MODES.indexOf(currentThemeMode()) + 1) % THEME_MODES.length];
     setThemeMode(next);
@@ -8937,13 +8947,13 @@ function registerServiceWorker() {
 }
 
 // Whether the build the server runs has moved past the build
-// this copy of the app is (issue #138). The boot asks it before
-// anything paints, and the standing version check asks it on
-// every tick, socket open and tab return, so an open app
-// reloads itself once for a newer build the way a fresh open
-// does. A guard in session storage remembers the stamp it
-// already reloaded for, so a copy that still disagrees after
-// its reload loads what it has instead of reloading forever;
+// this copy of the app is (issue #138). The boot asks it as the
+// boards load, and the standing version check asks it on every
+// tick, socket open and tab return. A disagreement never reloads
+// the page (Site and Email Standards, Parts 8 and 9): it raises
+// the standing Updated notice and the person presses Refresh
+// now. A guard in session storage remembers the stamp the
+// notice already stands for, so repeated checks raise it once;
 // when the stamps agree the guard clears.
 function serverBuildMoved(data) {
   if (!data || !data.build) return false;
@@ -8959,26 +8969,22 @@ function serverBuildMoved(data) {
   return true;
 }
 
-// The boot, in two steps. First the build-stamp check: the app
-// asks the server for its stamp through the version route, which
-// is never cached, and when the stamps disagree the copy of the
-// app in this browser is not the build the server is running —
-// it reloads itself once, before anything paints, and the fresh
-// copy loads the boards. When the check itself cannot be made,
-// the load goes ahead and speaks for itself if it fails.
+// The boot. The boards load at once — the build-stamp check
+// never stands in front of the first paint (Site and Email
+// Standards, Part 9). The check rides along beside the load:
+// the app asks the server for its stamp through the version
+// route, which is never cached, and when the stamps disagree
+// the standing Updated notice rises and the person presses
+// Refresh now. When the check itself cannot be made, a later
+// check catches up.
 function bootLoad() {
   fetch("/api/version", { cache: "no-store" }).then(function (res) {
     if (!res.ok) throw new Error("version " + res.status);
     return res.json();
   }).then(function (data) {
-    if (serverBuildMoved(data)) {
-      window.location.reload();
-      return;
-    }
-    proceedToBoards();
-  }).catch(function () {
-    loadInitial();
-  });
+    if (serverBuildMoved(data)) showUpdateNote();
+  }).catch(function () { /* a later check catches up */ });
+  proceedToBoards();
 }
 
 // The door check (issue #109): before the boards load, ask the
@@ -9127,7 +9133,13 @@ function renderUnlinkedClaims(me, data) {
           showUnlinked(me);
         })
         .catch(function (err) {
-          window.alert(err.message || "Linking did not work. Try again.");
+          var note = wrap.querySelector(".link-error");
+          if (!note) {
+            note = document.createElement("p");
+            note.className = "settings-note link-error";
+            wrap.appendChild(note);
+          }
+          note.textContent = err.message || "Linking did not work. Try again.";
         });
     });
     row.appendChild(btn);

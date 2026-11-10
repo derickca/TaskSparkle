@@ -680,27 +680,45 @@ h1 {
    44px targets with their glyphs at the design system's
    drawing size, 20px in the 44px target (issues #48, #61):
    the search and theme buttons' glyphs are svgs, the
-   settings button's is its gear character, sized by the base's
-   font-size. The display button stands with the board tools
-   now, at their size, in the board row's action group. */
+   settings button's is Lucide's settings drawing. The display
+   button stands with the board tools now, in the board row's
+   action group. Every one of these targets stands at the 44px
+   floor (Site and Email Standards, Part 10), its glyph drawn
+   at 20px (issue #67). */
 #search-toggle svg,
-#theme-toggle svg {
+#theme-toggle svg,
+#help-open svg,
+#settings-open svg {
   display: block;
   width: 20px;
   height: 20px;
   margin: 0 auto;
 }
 
-.board-row-actions #display-toggle {
-  width: 32px;
-  height: 32px;
+a.settings-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
 }
 
 .board-row-actions #display-toggle svg {
   display: block;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   margin: 0 auto;
+}
+
+/* The Pilot tag stands beside the dark toggle (Part 2). */
+.pilot-tag {
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
 }
 
 /* The account place: the person's own name, standing between
@@ -920,6 +938,20 @@ h1 {
   font-weight: 600;
 }
 
+/* The Updated notice (Parts 8 and 9): raised when the build on
+   the server has moved past the copy this page is running. It
+   stands until the person presses Refresh now — the page never
+   reloads itself. */
+.update-note {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+
 .loading-note {
   color: var(--muted);
   font-size: 16px;
@@ -1052,7 +1084,7 @@ html.display-icons .step-icon { margin-right: 0; }
   padding: 8px 12px;
   border-radius: 999px;
   cursor: pointer;
-  min-height: 40px;
+  min-height: 44px;
   white-space: nowrap;
 }
 
@@ -1265,8 +1297,8 @@ html.display-icons .step-icon { margin-right: 0; }
 .overview-btn {
   appearance: none;
   flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 50%;
@@ -1277,8 +1309,8 @@ html.display-icons .step-icon { margin-right: 0; }
 
 .overview-btn svg {
   display: block;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   margin: 0 auto;
 }
 
@@ -1308,7 +1340,7 @@ html.display-icons .step-icon { margin-right: 0; }
   text-align: center;
   border-radius: 999px;
   cursor: pointer;
-  min-height: 40px;
+  min-height: 44px;
   white-space: nowrap;
 }
 
@@ -1378,10 +1410,10 @@ html.display-icons .step-icon { margin-right: 0; }
 }
 
 .column-add-btn {
-  width: 32px;
-  min-width: 32px;
-  height: 32px;
-  min-height: 32px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
   padding: 0;
   border-radius: 50%;
   font-size: 20px;
@@ -2572,8 +2604,8 @@ textarea.copy-field { resize: vertical; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: 1px solid var(--line);
   border-radius: 50%;
@@ -2584,8 +2616,8 @@ textarea.copy-field { resize: vertical; }
 
 .schedule-btn svg {
   display: block;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
 }
 
 .schedule-btn.active {
