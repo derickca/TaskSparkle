@@ -702,14 +702,18 @@ function cssVarOf(block, name, tokenMap) {
   // The product mark: the family's spark drawing on a tile of
   // the light accent, and the places a literal colour must
   // stand — the manifest and the app page's theme colour.
-  const spark = readFileSync(join(ROOT, "design", "system", "icons", "spark.svg"), "utf8");
-  const sparkPath = (spark.match(/<path[^>]* d="([^"]+)"/) || [])[1];
+    // The browser icon is the family's spark drawn full-bleed \u2014
+  // MemberSpark's favicon construction (Derick, 2026-11-10):
+  // the glyph's tips touch the canvas edges, in the light
+  // accent. The page mark's tile stands in public/icons/
+  // mark.svg, held equal to the account pages' BRAND_MARK by
+  // the drift check below.
   const icon = readFileSync(join(ROOT, "public", "icons", "icon.svg"), "utf8");
-  if (!sparkPath || !icon.includes('d="' + sparkPath + '"')) {
-    failures.push("public/icons/icon.svg does not carry the family spark drawing");
+  if (!icon.includes('d="M12 0l2.933 8.8L24 12l-9.067 3.2L12 24l-2.933-8.8L0 12l9.067-3.2z"')) {
+    failures.push("public/icons/icon.svg does not carry the full-bleed spark drawing");
   }
   if (!icon.includes('fill="' + light["--ms-color-accent"] + '"')) {
-    failures.push("public/icons/icon.svg's tile is not the tasksparkle light accent");
+    failures.push("public/icons/icon.svg is not the tasksparkle light accent");
   }
   const manifest = JSON.parse(readFileSync(join(ROOT, "public", "manifest.webmanifest"), "utf8"));
   if (manifest.theme_color !== light["--ms-color-accent"]) {
@@ -1093,7 +1097,7 @@ function paletteBlocksOf(css) {
   const glyphSpan = auth.slice(auth.indexOf("var HEAD_GLYPHS = {"),
     auth.indexOf("};", auth.indexOf("var HEAD_GLYPHS = {")));
   const terms = readFileSync(termsPath, "utf8");
-  const icon = readFileSync(join(ROOT, "public", "icons", "icon.svg"), "utf8");
+  const icon = readFileSync(join(ROOT, "public", "icons", "mark.svg"), "utf8");
   const svgOf = (html, label) => {
     const m = html.match(new RegExp("aria-label=\\\"" + label + "\\\"[^>]*><svg[^>]*>[\\s\\S]*?</svg>"));
     return m ? m[0].slice(m[0].indexOf("<svg")) : "";
@@ -1119,7 +1123,7 @@ function paletteBlocksOf(css) {
     return open === -1 ? "" : squash(svg.slice(open + 1, svg.lastIndexOf("</svg>")));
   };
   if (!brandOf() || innerOf(brandOf()) !== innerOf(icon)) {
-    drift.push("the brand mark differs from public/icons/icon.svg");
+    drift.push("the brand mark differs from public/icons/mark.svg");
   }
   if (drift.length) {
     console.error("The account pages' heading drawings have drifted: " +
