@@ -455,17 +455,19 @@ console.log("Standalone sign-in routes: every address the sign-in, " +
     missing.push("the stylesheet's version pin in public/index.html is " +
       (pin || "missing") + ", the build stamp is " + (stamp || "missing"));
   }
+  // The step-up refusal (the password dead end): it names
+  // the proofs the account can actually give — a
+  // passwordless account is named the emailed link.
+  if (!core.includes("account.password_hash")) {
+    missing.push("the step-up refusal does not judge by the account's standing password");
+  }
+  if (!core.includes("sign in again through the emailed link, then try again.")) {
+    missing.push("the step-up refusal does not name the emailed link to a passwordless account");
+  }
   if (missing.length) {
     console.error("The wording and stylesheet pins are off: " + missing.join("; ") + ".");
     process.exit(1);
   }
-  // The step-up refusal (the password dead end): it names
-  // the proofs the account can actually give — a
-  // passwordless account is named the emailed link.
-  assert(core.includes("account.password_hash"),
-    "the step-up refusal judges by the account's standing password");
-  assert(core.includes("sign in again through the emailed link, then try again."),
-    "the step-up refusal names the emailed link to a passwordless account");
   console.log("Wording and stylesheet pin: Sign out stands, and the sheet is pinned to " + stamp + ".");
 }
 
