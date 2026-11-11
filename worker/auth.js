@@ -1802,9 +1802,7 @@ var PAGE_BOOT = [
    route answers for the icon file. The glyph drawings
    are the site pages' own; the local checks hold them
    equal so the copies cannot drift. */
-var BRAND_MARK = "<svg viewBox=\"0 0 124 124\" width=\"34\" height=\"34\" aria-hidden=\"true\" focusable=\"false\">" +
-  "<rect x=\"1.5\" y=\"1.5\" width=\"121\" height=\"121\" rx=\"34\" fill=\"#2b5fc7\"/>" +
-  "<svg x=\"24\" y=\"24\" width=\"76\" height=\"76\" viewBox=\"0 0 24 24\"><path fill=\"#ffffff\" d=\"M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z\"/></svg></svg>";
+var BRAND_MARK = "<svg viewBox=\"0 0 48 48\" width=\"36\" height=\"36\" aria-hidden=\"true\" focusable=\"false\"><rect width=\"48\" height=\"48\" rx=\"10\" fill=\"#2b5fc7\"/><svg x=\"3\" y=\"3\" width=\"42\" height=\"42\" viewBox=\"0 0 24 24\"><g transform=\"translate(-2,-0.83) scale(1.1667)\"><path fill=\"#ffffff\" d=\"M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z\"/></g></svg></svg>";
 var HEAD_GLYPHS = {
   help: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3\"/><path d=\"M12 17h.01\"/></svg>",
   themeDefault: "<svg viewBox=\"0 0 24 24\" width=\"44\" height=\"44\" aria-hidden=\"true\" focusable=\"false\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect width=\"20\" height=\"14\" x=\"2\" y=\"3\" rx=\"2\"/><line x1=\"8\" x2=\"16\" y1=\"21\" y2=\"21\"/><line x1=\"12\" x2=\"12\" y1=\"17\" y2=\"21\"/></svg>",
