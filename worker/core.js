@@ -3896,11 +3896,18 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
           (forEnrolment && session.proof_via === "email"));
         return { ok: ok, needs: needs, held: held.count };
       };
+      // The refusal names the proofs this account can
+      // actually give: an account holding no password —
+      // the hosted shape's accounts hold none — is never
+      // told to type one; its fresh proof is a new emailed
+      // link's spend.
       var stepUpRefusal = function (needs) {
         return json({
           error: needs === "passkey"
             ? "This account holds a passkey, so adding another takes a passkey tap first."
-            : "That needs a fresh proof first: type your password, or tap a passkey.",
+            : account.password_hash
+              ? "That needs a fresh proof first: type your password, or tap a passkey."
+              : "That needs a fresh proof first: sign in again through the emailed link, then try again.",
           stepUp: needs
         }, 403);
       };
