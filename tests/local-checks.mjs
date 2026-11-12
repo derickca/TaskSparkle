@@ -724,6 +724,21 @@ function cssVarOf(block, name, tokenMap) {
   if (!icon.includes('fill="' + light["--ms-color-accent"] + '"')) {
     failures.push("public/icons/icon.svg is not the tasksparkle light accent");
   }
+  // The two kinds never trade places in the page head either:
+  // the SVG favicon link names the browser icon (icon.svg); the
+  // page tile (mark.svg) stands only as the header image. (The
+  // r-43 header-mark swap once rewrote the favicon link too.)
+  for (const page of ["index.html", "404.html", "about.html", "feedback.html", "help.html", "learn.html", "privacy.html", "terms.html", "help/agents-and-keys.html", "help/boards-and-cards.html", "help/emailed-link.html", "help/getting-back-in.html", "help/joining.html", "help/passkeys.html"]) {
+    const pp = join(ROOT, "public", page);
+    if (!existsSync(pp)) continue;
+    const html = readFileSync(pp, "utf8");
+    if (!html.includes('<link rel="icon" type="image/svg+xml" href="/icons/icon.svg')) {
+      failures.push("public/" + page + "'s SVG favicon does not name the browser icon");
+    }
+    if (html.includes('<link rel="icon" type="image/svg+xml" href="/icons/mark.svg')) {
+      failures.push("public/" + page + "'s SVG favicon names the page tile");
+    }
+  }
   const manifest = JSON.parse(readFileSync(join(ROOT, "public", "manifest.webmanifest"), "utf8"));
   if (manifest.theme_color !== light["--ms-color-accent"]) {
     failures.push("the manifest's theme_color is not the tasksparkle light accent");
