@@ -107,6 +107,10 @@ function check(name, cond, detail) {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const scratch = mkdtempSync(join(tmpdir(), "ts-server-drill-"));
 let nextPort = 8931;
+// The cap on a waitForLog wait (issue #13): the same span
+// startServer itself allows a start, named once for every
+// banner-line wait below.
+const LOG_LINE_WAIT_MS = 8000;
 
 function writeConfig(name, fields) {
   const path = join(scratch, name);
@@ -133,7 +137,27 @@ function startServer(configPath) {
     const timer = setInterval(() => {
       if (log.includes("running at") || exited !== null || Date.now() - startedAt > 8000) {
         clearInterval(timer);
-        resolveStart({ child, log: () => log, exited: () => exited });
+        resolveStart({
+          child, log: () => log, exited: () => exited,
+          // A capped wait for a banner line the caller means to
+          // assert on (issue #13): resolving at "running at" does
+          // not mean the later banner lines have landed — they can
+          // arrive in a separate output chunk — so a check that
+          // reads the log at once can read it too early. The wait
+          // polls the condition itself, never a bare duration.
+          waitForLog: (text, capMs) => new Promise((resolveWait) => {
+            const waitStartedAt = Date.now();
+            const waitTimer = setInterval(() => {
+              if (log.includes(text)) {
+                clearInterval(waitTimer);
+                resolveWait(true);
+              } else if (exited !== null || Date.now() - waitStartedAt > capMs) {
+                clearInterval(waitTimer);
+                resolveWait(false);
+              }
+            }, 50);
+          }),
+        });
       }
     }, 50);
   });
@@ -304,6 +328,10 @@ try {
   const s1 = await startServer(cfgMain);
   check("#107: a nameless config starts (accounts are made on the website or by invite)",
     s1.exited() === null, s1.log().split("\n")[0]);
+  // An absence claim must read the whole banner (issue #13):
+  // wait for its last line before reading, or a name in a late
+  // chunk would be missed by an early read.
+  await s1.waitForLog("Data lives in", LOG_LINE_WAIT_MS);
   check("#55: the startup log names no person",
     !s1.log().includes(NAME_A) && !s1.log().includes(NAME_B),
     s1.log().split("\n").slice(0, 3).join(" | "));
@@ -1403,8 +1431,14 @@ try {
   const sServe = await startServer(cfgServe);
   check("#115: an instance in the Serve shape starts",
     sServe.exited() === null, sServe.log().split("\n")[0]);
+  // The wait comes first (issue #13): the check asserts the
+  // "Agents connect at" line, so it waits for that line to stand
+  // in the log instead of reading the log the moment the start
+  // resolved.
+  const agentsLine = await sServe.waitForLog(
+    "Agents connect at " + SERVE_ORIGIN + "/api/v1", LOG_LINE_WAIT_MS);
   check("#115: the startup line names the https address agents connect at",
-    sServe.log().includes("Agents connect at " + SERVE_ORIGIN + "/api/v1"),
+    agentsLine,
     sServe.log().split("\n").find((l) => l.includes("Agents connect")) || "line missing");
   const setupServe = await serveCall(portServe, "POST", "/setup",
     { form: { name: NAME_A, password: PW_A, confirm: PW_A } });
