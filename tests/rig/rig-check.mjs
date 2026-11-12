@@ -117,6 +117,10 @@ async function main() {
     res.status === 0 ? "" : (res.stderr || res.stdout || "").trim().split("\n").pop());
   if (stateA) {
     check("A: the worker port answers while the rig stands", await portAnswers(WORKER_PORT));
+    const tomlA = readFileSync(join(dirA, "wrangler.toml"), "utf8");
+    check("A: the generated settings name the run's own certs port, with no default address left standing (issue #54)",
+      tomlA.includes("127.0.0.1:" + CERTS_PORT) && !tomlA.includes("127.0.0.1:8791"),
+      tomlA.split("\n").find((l) => l.includes("ACCESS_TEAM_DOMAIN")) || "no ACCESS_TEAM_DOMAIN line");
     res = rig(["stop", "--dir", dirA]);
     check("A: rig.mjs stop reports success", res.status === 0,
       (res.stdout || "").trim().split("\n").pop() || "");
