@@ -37,7 +37,7 @@ jobs:
     runs-on: [self-hosted, linux, x64]
     timeout-minutes: 10
     steps:
-      # Pinned to commits, as in deploy.yml: a moving tag must not
+      # Pinned to commits, as in deploy.yml.example: a moving tag must not
       # reach a job unreviewed.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
 
