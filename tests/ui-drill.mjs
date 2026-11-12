@@ -1186,12 +1186,15 @@ const w3SavedTitle = await page.evaluate(async (id) => {
 check("#137: with the way clear the close lands, and the edit is on the card",
   w3SavedTitle === "Wave3 Zebra live edited", "title=" + w3SavedTitle);
 
-// An open app picks up a newer build (issue #138): the
-// build file's answers are turned to a moved stamp, and a
-// tab return — the visibility the app already listens for —
-// reloads the app once; the boot that follows meets the
-// same stamp and, the guard remembering it, loads instead
-// of reloading again.
+// An open app meets a newer build (issue #138): the build
+// file's answers are turned to a moved stamp, and a tab
+// return \u2014 the visibility the app already listens for \u2014
+// raises the standing Updated notice and reloads nothing
+// (issue #67; Site and Email Standards, Part 8). The one
+// reload a moved stamp ever causes is the person's own
+// press on the notice's Refresh now button; after it, the
+// guard remembers the stamp, so a further check against
+// the same stamp raises nothing new.
 await page.evaluate(() => { window.__wave3Mark = "before"; });
 let w3BuildAnswers = 0;
 // The route stands at the context level, not the page's:
@@ -1205,18 +1208,37 @@ await page.context().route("**/build.json", (route) => {
   });
 });
 await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+for (let i = 0; i < 50 && w3BuildAnswers < 1; i++) {
+  await page.waitForTimeout(100);
+}
+await page.waitForSelector("#update-note:not([hidden])",
+  { timeout: 10000 }).catch(() => {});
+const w3First = await page.evaluate(() => ({
+  mark: window.__wave3Mark,
+  noteShown: !(document.getElementById("update-note") || {}).hidden,
+  refreshStands: !!document.getElementById("update-refresh"),
+})).catch(() => ({ mark: undefined, noteShown: false, refreshStands: false }));
+check("#138: a check meeting a newer build raises the Updated notice and reloads nothing",
+  w3First.mark === "before" && w3First.noteShown && w3First.refreshStands &&
+    w3BuildAnswers >= 1,
+  "mark=" + w3First.mark + " note=" + w3First.noteShown +
+    " build answers=" + w3BuildAnswers);
+// The person's press on Refresh now is the one reload: the
+// mark dies with the page, and the app boots again under
+// the same moved stamp.
+await page.click("#update-refresh");
 await page.waitForFunction(() => window.__wave3Mark === undefined,
   undefined, { timeout: 15000 }).catch(() => {});
 await page.waitForSelector("#board-ui:not([hidden])", { timeout: 15000 }).catch(() => {});
 const w3MarkGone = await page.evaluate(() => window.__wave3Mark === undefined).catch(() => true);
-check("#138: an open app reloads itself once when a check meets a newer build",
-  w3MarkGone && w3BuildAnswers >= 1,
-  "mark gone=" + w3MarkGone + " build answers=" + w3BuildAnswers);
-// And no more than once: a fresh mark stands on the
+check("#138: the person's press on Refresh now reloads the app once",
+  w3MarkGone, "mark gone=" + w3MarkGone);
+// And nothing new after: a fresh mark stands on the
 // reloaded app, the build answers still carry the moved
-// stamp, and another tab return checks again — the answer
-// count rises, the mark survives, because the boot's guard
-// remembers this stamp was already reloaded for.
+// stamp, and another tab return checks again \u2014 the answer
+// count rises, the mark survives and the notice stays
+// down, because the guard remembers this stamp was
+// already answered.
 await page.evaluate(() => { window.__wave3Mark2 = "after"; });
 const w3AnswersBefore = w3BuildAnswers;
 await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
@@ -1225,10 +1247,12 @@ for (let i = 0; i < 40 && w3BuildAnswers <= w3AnswersBefore; i++) {
 }
 const w3Second = await page.evaluate(() => ({
   mark: window.__wave3Mark2,
-})).catch(() => ({ mark: undefined }));
-check("#138: a further check against the same moved build does not reload again",
-  w3Second.mark === "after" && w3BuildAnswers > w3AnswersBefore,
-  "mark=" + w3Second.mark + " answers " + w3AnswersBefore + " -> " + w3BuildAnswers);
+  noteShown: !(document.getElementById("update-note") || {}).hidden,
+})).catch(() => ({ mark: undefined, noteShown: true }));
+check("#138: a further check against the same moved build raises nothing new",
+  w3Second.mark === "after" && w3BuildAnswers > w3AnswersBefore && !w3Second.noteShown,
+  "mark=" + w3Second.mark + " answers " + w3AnswersBefore + " -> " + w3BuildAnswers +
+    " note=" + w3Second.noteShown);
 await page.screenshot({ path: join(OUT, "wave3-build-reload-1280.png") });
 await page.context().unroute("**/build.json");
 
