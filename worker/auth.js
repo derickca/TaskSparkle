@@ -1857,15 +1857,17 @@ var HEAD_THEME = [
 
 function pageHead(cfg) {
   var base = cfg && cfg.siteBase ? String(cfg.siteBase).replace(/\/+$/, "") : "";
+  // The Pilot tag stands inside the home link, part of
+  // the brand unit beside the name (Part 2, issue #221).
+  // It is built into the brand itself, ahead of the branch
+  // below: the tag belongs to the brand, not to the links,
+  // so a copy that names no site address carries the same
+  // brand as one that does (issue #94).
   var brand = "<a class=\"site-brand\" href=\"" + (base ? base + "/" : "/") + "\">" +
-    BRAND_MARK + "<span>TaskSparkle</span></a>";
+    BRAND_MARK + "<span>TaskSparkle</span><span class=\"pilot-tag\">Pilot</span></a>";
   if (!base) {
     return "<header class=\"site-head\">" + brand + "</header>";
   }
-  // The Pilot tag stands inside the home link, part of
-  // the brand unit beside the name (Part 2, issue #221).
-  brand = brand.replace("</a>",
-    "<span class=\"pilot-tag\">Pilot</span></a>");
   var links = "<nav class=\"site-links\" aria-label=\"Site\">" +
     "<a class=\"site-link\" href=\"" + base + "/help\" aria-label=\"Help\">" + HEAD_GLYPHS.help + "</a>" + "<button type=\"button\" class=\"site-link\" data-theme-toggle aria-label=\"Theme: Light\">" + HEAD_GLYPHS.themeLight + "</button></nav>";
   return "<header class=\"site-head\">" + brand + links +
