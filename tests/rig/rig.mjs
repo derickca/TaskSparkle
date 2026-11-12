@@ -162,8 +162,13 @@ async function start() {
           .includes(base);
       },
     });
+    // Every occurrence of the default certs address moves to the
+    // run's own certs port, not just the first (issue #54): a
+    // second consumer left naming 8791 sends its calls to a port
+    // this rig does not stand on, and the failure reads as the
+    // product's.
     const toml = readFileSync(join(dir, "tests", "rig", "wrangler.toml.example"), "utf8")
-      .replace("127.0.0.1:8791", "127.0.0.1:" + certsPort);
+      .replaceAll("127.0.0.1:8791", "127.0.0.1:" + certsPort);
     writeFileSync(join(dir, "wrangler.toml"), toml);
 
     run(process.execPath, [join(dir, "tests", "rig", "mkkeys.mjs")], dir);
