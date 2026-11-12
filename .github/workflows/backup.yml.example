@@ -1,5 +1,29 @@
 name: Nightly backup
 
+# AN EXAMPLE — NOT A LIVE WORKFLOW.
+#
+# GitHub runs the files in this folder whose names end in .yml
+# or .yaml. This file's name ends in .example, so it can never
+# run as it stands. It is the live service's backup workflow,
+# kept here for self-hosters with the fleet's names taken
+# out: the fleet's TaskSparkle backs up only from its own
+# deployment repository, and this repository carries no second
+# live copy of that workflow (deploy issue #247).
+#
+# To run your own copy's backups this way:
+#
+#   1. Save this file as .github/workflows/backup.yml.
+#   2. Replace the two placeholders in the steps below —
+#      <your-database-name> and <your-backups-bucket> — with
+#      your own copy's database and bucket names.
+#   3. Set the repository secrets the job names —
+#      CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID — to
+#      your own deployment's values.
+#
+# This workflow runs on a self-hosted runner, which bills no
+# GitHub minutes. To run it on GitHub-hosted runners instead,
+# change the runs-on line in the job below to ubuntu-latest.
+
 # TaskSparkle's nightly backup, run as a workflow on a self-hosted
 # runner.
 #
@@ -17,10 +41,10 @@ name: Nightly backup
 # data a person deletes ages out of the exports within the same
 # 14 days.
 #
-# The bucket's name and the export's date timezone in the steps
-# below are this deployment's own: change them together if yours
-# differ. The export and the bucket commands address the database
-# and the bucket by name, so this job never reads wrangler.toml.
+# The export and the bucket commands address the database and
+# the bucket by name, so this job never reads wrangler.toml. The
+# export's date timezone in the steps below is this copy's own:
+# change it if yours differs.
 #
 # Timing: GitHub schedules run on UTC only, so the cron below is
 # the UTC spelling of a late-evening local time. A hand dispatch
@@ -39,16 +63,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: tasksparkle-backup
+  group: backup
   cancel-in-progress: false
 
 jobs:
   backup:
-    # A deployment copy only: this job runs where the repository
-    # variable TASKS_DEPLOY_ENABLED is set to true. The public source
-    # repository leaves it unset on purpose, so its runs skip here
-    # instead of failing on credentials that do not live here.
-    if: ${{ vars.TASKS_DEPLOY_ENABLED == 'true' }}
     runs-on: [self-hosted, linux, x64]
     timeout-minutes: 30
     env:
@@ -65,13 +84,13 @@ jobs:
         run: |
           FILE="tasksparkle-$(TZ=America/Vancouver date +%Y-%m-%d).sql"
           echo "file=$FILE" >> "$GITHUB_OUTPUT"
-          npx --yes wrangler@4.153.0 d1 export tasksparkle --remote --output="$FILE"
+          npx --yes wrangler@4.153.0 d1 export <your-database-name> --remote --output="$FILE"
           test -s "$FILE"
 
       - name: Store the export in R2
         run: |
           FILE="${{ steps.export.outputs.file }}"
-          npx --yes wrangler@4.153.0 r2 object put "tasksparkle-backups/$FILE" --file="$FILE"
+          npx --yes wrangler@4.153.0 r2 object put "<your-backups-bucket>/$FILE" --file="$FILE"
 
       - name: Confirm the backup landed
         # wrangler has no verb that lists a bucket's objects, so this
@@ -79,7 +98,7 @@ jobs:
         # empty: the proof that the upload arrived in the bucket.
         run: |
           FILE="${{ steps.export.outputs.file }}"
-          npx --yes wrangler@4.153.0 r2 object get "tasksparkle-backups/$FILE" --file=/tmp/tasksparkle-backup-check.sql
+          npx --yes wrangler@4.153.0 r2 object get "<your-backups-bucket>/$FILE" --file=/tmp/tasksparkle-backup-check.sql
           test -s /tmp/tasksparkle-backup-check.sql
           rm -f /tmp/tasksparkle-backup-check.sql
 

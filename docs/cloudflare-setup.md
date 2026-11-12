@@ -34,7 +34,7 @@ A push to `main` deploys the app and the API together. The workflows in `.github
 Two facts about a fork:
 
 - GitHub starts with Actions turned off on a fork. Turn them on in the fork's Actions tab.
-- The workflows expect a self-hosted runner with the labels `self-hosted`, `linux` and `x64`. Without one, change the `runs-on` value in your deploy workflow (made from the example in step 2) and in `.github/workflows/backup.yml` to `ubuntu-latest`. Skip that change and jobs wait forever for a runner the fork does not have.
+- The workflows expect a self-hosted runner with the labels `self-hosted`, `linux` and `x64`. Without one, change the `runs-on` value in your deploy workflow and your backup workflow (each made from its example in step 2) to `ubuntu-latest`. Skip that change and jobs wait forever for a runner the fork does not have.
 
 ### By hand
 
@@ -62,8 +62,9 @@ Skip this step only for the by-hand path.
    - Open the fork's Actions tab.
    - Enable workflows. GitHub leaves them off on a new fork.
    - Make the deploy workflow. Copy `.github/workflows/deploy.yml.example` to `.github/workflows/deploy.yml`, then replace the two placeholders in the copy — `<your-database-name>` and `<your-pages-project>` — with your copy's database and Pages project names. This repository ships the workflow as an example on purpose: the live service deploys from its own deployment repository, and no second live copy of its workflow stands here.
-   - If the fork has no self-hosted runner labelled `self-hosted`, `linux` and `x64`, change the `runs-on` value in both the deploy workflow you just made and `.github/workflows/backup.yml` to `ubuntu-latest` in your clone.
-   - Set the repository variable `TASKS_DEPLOY_ENABLED` to `true` (the fork's Settings, then Secrets and variables, then Actions, then Variables). The backup job runs only where that variable is set, so a fork that skips this backs nothing up. The deploy job needs no variable: it runs on a push to `main` once its workflow stands under its live name.
+   - Make the backup workflow the same way. Copy `.github/workflows/backup.yml.example` to `.github/workflows/backup.yml`, then replace its two placeholders — `<your-database-name>` and `<your-backups-bucket>` — with your copy's database and bucket names. It stands as an example for the same reason: the live service backs up from its own deployment repository, and no live copy of that workflow stands here either.
+   - If the fork has no self-hosted runner labelled `self-hosted`, `linux` and `x64`, change the `runs-on` value in both workflows you just made to `ubuntu-latest` in your clone.
+   - Neither job needs a repository variable: the deploy job runs on a push to `main` and the backup job on its nightly schedule, once their workflows stand under their live names.
    - Leave the change unpushed until step 9. Push it after the Cloudflare pieces and secrets exist.
 
 ## Cloudflare pieces
@@ -81,7 +82,7 @@ Skip this step only for the by-hand path.
    - Open the bucket, then Settings, then Object lifecycle rules.
    - Add a rule that expires objects 14 days after they are put there.
    - Create the bucket before the first backup run. The nightly backup workflow writes to it from that run.
-   - A by-hand deployment that never enables the backup workflow can skip the bucket.
+   - A by-hand deployment that never makes the backup workflow can skip the bucket.
 
 ## Set up sign-in
 
