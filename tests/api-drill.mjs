@@ -1911,9 +1911,11 @@ if (MODE === "worker") {
 // --- Write cost (issue #71) -------------------------------------------------------
 // A write used to build the owner's whole state twice — once
 // before its route ran and once after — just to learn whether
-// anything changed. The gate now reads a digest of the stored
-// rows instead, so a write's cost no longer grows with two full
-// readings of the boards. This section builds a wide board,
+// anything changed. The gate learned the answer from a digest
+// of the stored rows instead, and since issue #11 it learns it
+// from the routes' own reports of what they changed, so a
+// write's cost no longer grows with readings of the boards at
+// all. This section builds a wide board,
 // times a run of small writes on it and prints the average. The
 // fix's proof is the matched pair measured when it landed
 // (2026-10-28, on the test rig, before and after runs
