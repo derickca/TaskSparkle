@@ -1,5 +1,25 @@
 name: Deploy TaskSparkle
 
+# AN EXAMPLE — NOT A LIVE WORKFLOW.
+#
+# GitHub runs the files in this folder whose names end in .yml
+# or .yaml. This file's name ends in .example, so it can never
+# run as it stands. It is the live service's deploy workflow,
+# kept here for self-hosters with the fleet's targets taken
+# out: the fleet's TaskSparkle deploys only from its own
+# deployment repository, and this repository carries no second
+# live copy of that workflow (deploy issue #169).
+#
+# To deploy your own copy this way:
+#
+#   1. Save this file as .github/workflows/deploy.yml.
+#   2. Replace the two placeholders in the steps below —
+#      <your-database-name> and <your-pages-project> — with
+#      your own copy's database and Pages project names.
+#   3. Set the repository secrets the job names —
+#      CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID and
+#      WRANGLER_TOML — to your own deployment's values.
+#
 # This workflow runs on a self-hosted runner, which bills no
 # GitHub minutes. To run it on GitHub-hosted runners instead,
 # change the runs-on line in the job below to ubuntu-latest.
@@ -21,16 +41,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: tasksparkle-deploy
+  group: deploy
   cancel-in-progress: false
 
 jobs:
   deploy:
-    # A deployment copy only: this job runs where the repository
-    # variable TASKS_DEPLOY_ENABLED is set to true. The public source
-    # repository leaves it unset on purpose, so its runs skip here
-    # instead of failing on credentials that do not live here.
-    if: ${{ vars.TASKS_DEPLOY_ENABLED == 'true' }}
     runs-on: [self-hosted, linux, x64]
     timeout-minutes: 30
     env:
@@ -99,7 +114,7 @@ jobs:
         run: node scripts/sync-columns.mjs
 
       - name: Apply the database schema
-        run: npx --yes wrangler@4.153.0 d1 execute tasksparkle --remote --file=worker/schema.sql
+        run: npx --yes wrangler@4.153.0 d1 execute <your-database-name> --remote --file=worker/schema.sql
 
       # The sign-in tables live in the deployment's second
       # database when the settings bind one as AUTH_DB (issue
@@ -123,4 +138,4 @@ jobs:
         run: npx --yes wrangler@4.153.0 deploy
 
       - name: Deploy the Pages site
-        run: npx --yes wrangler@4.153.0 pages deploy public --project-name=tasksparkle --branch=main
+        run: npx --yes wrangler@4.153.0 pages deploy public --project-name=<your-pages-project> --branch=main
