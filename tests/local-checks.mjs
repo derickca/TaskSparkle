@@ -973,6 +973,84 @@ function cssVarOf(block, name, tokenMap) {
     "_headers carries Part 8's short lives.");
 }
 
+// The phone header's two rows (issue #90, carrying the live
+// service's fix, deploy issue #238, into this tree): the
+// Account button carries no name at any width — Lucide's
+// person glyph stands in its markup, nothing paints text
+// into it, and no rule sizes it by a name — and the Pilot
+// tag leaves the app header on phones only, so the brand
+// and the five actions share the first row and the boards
+// take the second. The tag itself stands in the markup
+// (the desktop header keeps it; pinned in the block above).
+// The same fix moves the Account page out of Settings into
+// a view of its own, reached by the header's Account button.
+{
+  const failures = [];
+  const index = readFileSync(join(ROOT, "public", "index.html"), "utf8");
+  const app = readFileSync(join(ROOT, "public", "app.js"), "utf8");
+  const css = readFileSync(join(ROOT, "public", "styles.css"), "utf8");
+  const accountGlyph = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+  const buttonAt = index.indexOf('id="account-open"');
+  const button = buttonAt >= 0
+    ? index.slice(index.lastIndexOf("<button", buttonAt),
+        index.indexOf("</button>", buttonAt) + "</button>".length)
+    : "";
+  if (!button.includes(accountGlyph)) {
+    failures.push("public/index.html's account button does not carry " +
+      "Lucide's person glyph (user.svg) as its only content");
+  }
+  if (app.includes("accountPlace.textContent")) {
+    failures.push("public/app.js still paints the person's name into " +
+      "the account button");
+  }
+  if (/\.account-btn \{[^}]*width: auto/.test(css)) {
+    failures.push("public/styles.css still sizes the account button " +
+      "by its name (width: auto)");
+  }
+  const phoneAt = css.indexOf("@media (max-width: 899px)");
+  const phoneCss = phoneAt >= 0 ? css.slice(phoneAt) : "";
+  if (!/\.topbar \.pilot-tag \{[^}]*display: none;/.test(phoneCss)) {
+    failures.push("public/styles.css's phone block does not hide the " +
+      "app header's Pilot tag");
+  }
+  // The Account page stands in a view of its own (issue
+  // #90): no entry in the Settings list, no page among the
+  // Settings pages — its section stands in the account
+  // backdrop, and the list starts at Theme.
+  if (index.includes('data-settings-page="settings-account"') ||
+      index.includes('id="settings-account"')) {
+    failures.push("public/index.html still seats the Account page " +
+      "inside Settings");
+  }
+  if (!index.includes('id="account-backdrop"') ||
+      !index.includes('id="account-page"') ||
+      !index.includes('id="account-close"')) {
+    failures.push("public/index.html's standalone Account view is " +
+      "missing its backdrop, page or Close");
+  }
+  if (app.includes("settings-account")) {
+    failures.push("public/app.js still names the Account page " +
+      "among the Settings pages");
+  }
+  const themeAt = index.indexOf('data-settings-page="settings-theme"');
+  const listAt = index.indexOf('id="settings-list"');
+  const firstEntry = index.indexOf("settings-list-btn", listAt);
+  if (!(themeAt > listAt && index.slice(listAt, themeAt).includes("settings-list-btn") &&
+      firstEntry >= 0 && index.indexOf('data-settings-page="settings-theme"', firstEntry) === themeAt)) {
+    failures.push("public/index.html's Settings list does not start " +
+      "at Theme");
+  }
+  if (failures.length) {
+    console.error("Phone header (issue #90): " +
+      failures.join("; ") + ".");
+    process.exit(1);
+  }
+  console.log("Phone header: the account button is Lucide's person " +
+    "glyph with no name at any width, the Pilot tag leaves the " +
+    "app header on phones only, and the Account page stands in a " +
+    "view of its own outside Settings (issue #90).");
+}
+
 {
   // Standards round 2 (deploy issues #219, #220). Part 9:
   // fonts do not swap — the display face loads with

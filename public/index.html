@@ -45,8 +45,9 @@
     <!-- The header row holds the wordmark, the board buttons and,
          on the right, the standard's set in its order: Search,
          the theme button (its face names the mode a tap brings),
-         the person's own name, which leads to Settings → Account,
-         and the Settings gear — each a 44px target, with no empty
+         the Account button — a person glyph, the name standing
+         only in its label — which opens the Account page, a view
+         of its own outside Settings, and the Settings gear — each a 44px target, with no empty
          slots (issue #48). On a phone the row wraps instead: the
          wordmark and the right-side set keep the first row and
          the board buttons take a second row of their own, still
@@ -83,7 +84,7 @@
         </button>
         <a class="settings-btn" id="help-open" href="/help" aria-label="Help" title="Help"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></a>
         <button type="button" class="settings-btn" id="theme-toggle" aria-label="Theme: Light" title="Theme: Light"></button>
-        <button type="button" class="settings-btn account-btn" id="account-open" aria-label="Account" title="Account" hidden></button>
+        <button type="button" class="settings-btn account-btn" id="account-open" aria-label="Account" title="Account" hidden><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>
         <button type="button" class="settings-btn" id="settings-open" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" /></svg></button>
       </div>
     </div>
@@ -226,7 +227,6 @@
     <!-- Settings opens as this list. Each entry opens its own page
          below; Back returns here and Close leaves Settings. -->
     <nav class="settings-list" id="settings-list" aria-label="Settings">
-      <button type="button" class="settings-list-btn" data-settings-page="settings-account"><span>Account</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
       <button type="button" class="settings-list-btn" data-settings-page="settings-theme"><span>Theme</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
       <button type="button" class="settings-list-btn" data-settings-page="settings-boards"><span>Boards</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
       <button type="button" class="settings-list-btn" data-settings-page="settings-columns-section"><span>Columns</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
@@ -236,102 +236,6 @@
       <button type="button" class="settings-list-btn" id="settings-people-btn" data-settings-page="settings-people" hidden><span>Admin</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
     </nav>
 
-    <section class="settings-section settings-page" id="settings-account" hidden>
-      <h3>Account</h3>
-      <p>Signed in as <strong id="account-name"></strong>.</p>
-      <!-- The name the person goes by (issue #66): it starts
-           from the sign-in, and the person can change it here.
-           It is the name their agents see. Editing the field
-           saves at once, like every edit in the app. -->
-      <label class="settings-field" for="account-name-input">Your name on your boards
-        <input id="account-name-input" type="text" maxlength="120" autocomplete="name">
-      </label>
-      <p class="settings-note">Agents see this name.</p>
-      <p class="settings-note" id="account-note" aria-live="polite"></p>
-      <!-- The sign-in section (issue #109): the person's own
-           passkeys, their password change, and signing out
-           everywhere. Guarded acts ask for a fresh proof first;
-           the proof panel below is where the page collects it. -->
-      <div id="account-signin">
-        <!-- The proof panel stands above the sections it
-             serves: a guarded act in any of them (a passkey
-             enrolment, a password change) collects its fresh
-             proof here, so it belongs to no one heading. -->
-        <div id="account-proof-panel" hidden>
-          <p class="settings-note" id="account-proof-text"></p>
-          <label class="settings-field" for="account-proof-password">Your password
-            <input id="account-proof-password" type="password" autocomplete="current-password">
-          </label>
-          <p>
-            <button type="button" class="btn" id="account-proof-password-btn">Prove with password</button>
-            <button type="button" class="btn" id="account-proof-passkey-btn">Prove with a passkey</button>
-          </p>
-          <!-- Stands only at an address that cannot run a
-               passkey ceremony (issue #113): the passkey proof
-               button above is then hidden and this line says
-               why. app.js fills the words and unhides it. -->
-          <p class="settings-note" id="account-proof-off" hidden></p>
-        </div>
-        <h4>Passkeys</h4>
-        <p class="settings-note">A passkey signs you in with a tap instead of a password.</p>
-        <div id="account-passkeys-list"></div>
-        <label class="settings-field" for="account-passkey-nickname">Name for a new passkey (the device it lives on)
-          <input id="account-passkey-nickname" type="text" maxlength="120" autocomplete="off">
-        </label>
-        <p><button type="button" class="btn" id="account-passkey-add">Add a passkey</button></p>
-        <!-- Stands only at an address that cannot run a
-             passkey ceremony (issue #113): the nickname field
-             and the add button above are then hidden and this
-             line says why. Passkeys already made still list
-             above and can be removed. app.js fills the words
-             and unhides it. -->
-        <p class="settings-note" id="account-passkey-off" hidden></p>
-        <!-- The password section's two states (issue #122):
-             with a password standing it is the change form,
-             with the drop offered beneath while a passkey
-             stands; with no password it reads as a state —
-             the line below — with Add a password under it.
-             app.js renders the section from /api/auth/me. -->
-        <div id="account-password-section">
-          <h4 id="account-password-heading">Change password</h4>
-          <p class="settings-note" id="account-password-state" hidden>No password — you sign in with a passkey.</p>
-          <label class="settings-field" for="account-password-new">New password (at least 12 characters)
-            <input id="account-password-new" type="password" autocomplete="new-password">
-          </label>
-          <label class="settings-field" for="account-password-confirm">New password again
-            <input id="account-password-confirm" type="password" autocomplete="new-password">
-          </label>
-          <p><button type="button" class="btn" id="account-password-btn">Change password</button></p>
-          <div id="account-password-drop" hidden>
-            <p class="settings-note">The account will sign in with passkeys alone.</p>
-            <p><button type="button" class="btn" id="account-password-remove">Remove my password</button></p>
-          </div>
-        </div>
-        <h4>Sign out</h4>
-        <p class="settings-note">Sign out of this device, or out of every device.</p>
-        <p><button type="button" class="btn" id="account-signout-everywhere">Sign out everywhere else</button></p>
-        <!-- Signing out ends this device's sign-in session, so
-             the next visit asks for sign-in again. The row
-             carries its own class: the button stands clear of
-             the text above it rather than crowding it
-             (issue #43). The wording is Sign out everywhere
-             (issue #45): the old wording stands nowhere in the app. -->
-        <p class="logout-row"><a class="btn" id="logout-link" href="/logout">Sign out (this device)</a></p>
-        <p class="settings-note" id="account-auth-note" aria-live="polite"></p>
-      </div>
-      <!-- Deleting the account (issue #57): the person's own
-           erasure path, standing apart at the foot of the page.
-           The first press opens the delete dialog (issue #99);
-           the dialog names what goes and what outlives it, and
-           the act itself waits for DELETE typed in full inside
-           the dialog — the strongest confirm the app has, for
-           the one act with no undo. -->
-      <div class="account-delete" id="account-delete">
-        <h4>Delete account</h4>
-        <p class="settings-note">Deletes all your boards, cards, comments and keys — no undo.</p>
-        <button type="button" class="btn btn-danger" id="account-delete-btn">Delete my boards and account</button>
-      </div>
-    </section>
 
     <!-- People (issue #109): the administrator's surface on
          both copies — each account's standing (passkeys held,
@@ -797,6 +701,118 @@
      same strongest confirm: the type-DELETE field lives inside
      the dialog and the confirm button arms only when DELETE
      stands typed in full. -->
+<!-- The Account page (issue #90): its own view, opened from
+     the header's Account button — no longer a page inside
+     Settings. The shape is the live service's header fix
+     (deploy issue #238) carried into this tree: everything
+     the page carries (sign-out, the guarded acts and their
+     proof panel, erasure, the name) works exactly as it did
+     inside Settings. -->
+<div class="editor-backdrop account-backdrop" id="account-backdrop" hidden>
+  <div class="editor settings-panel account-panel" role="dialog" aria-modal="true" aria-labelledby="account-heading">
+    <div class="editor-head">
+      <h2 id="account-heading">Account</h2>
+      <button type="button" class="btn btn-quiet" id="account-close">Close</button>
+    </div>
+
+    <section class="settings-section account-page" id="account-page">
+      <p>Signed in as <strong id="account-name"></strong>.</p>
+      <!-- The name the person goes by (issue #66): it starts
+           from the sign-in, and the person can change it here.
+           It is the name their agents see. Editing the field
+           saves at once, like every edit in the app. -->
+      <label class="settings-field" for="account-name-input">Your name on your boards
+        <input id="account-name-input" type="text" maxlength="120" autocomplete="name">
+      </label>
+      <p class="settings-note">Agents see this name.</p>
+      <p class="settings-note" id="account-note" aria-live="polite"></p>
+      <!-- The sign-in section (issue #109): the person's own
+           passkeys, their password change, and signing out
+           everywhere. Guarded acts ask for a fresh proof first;
+           the proof panel below is where the page collects it. -->
+      <div id="account-signin">
+        <!-- The proof panel stands above the sections it
+             serves: a guarded act in any of them (a passkey
+             enrolment, a password change) collects its fresh
+             proof here, so it belongs to no one heading. -->
+        <div id="account-proof-panel" hidden>
+          <p class="settings-note" id="account-proof-text"></p>
+          <label class="settings-field" for="account-proof-password">Your password
+            <input id="account-proof-password" type="password" autocomplete="current-password">
+          </label>
+          <p>
+            <button type="button" class="btn" id="account-proof-password-btn">Prove with password</button>
+            <button type="button" class="btn" id="account-proof-passkey-btn">Prove with a passkey</button>
+          </p>
+          <!-- Stands only at an address that cannot run a
+               passkey ceremony (issue #113): the passkey proof
+               button above is then hidden and this line says
+               why. app.js fills the words and unhides it. -->
+          <p class="settings-note" id="account-proof-off" hidden></p>
+        </div>
+        <h4>Passkeys</h4>
+        <p class="settings-note">A passkey signs you in with a tap instead of a password.</p>
+        <div id="account-passkeys-list"></div>
+        <label class="settings-field" for="account-passkey-nickname">Name for a new passkey (the device it lives on)
+          <input id="account-passkey-nickname" type="text" maxlength="120" autocomplete="off">
+        </label>
+        <p><button type="button" class="btn" id="account-passkey-add">Add a passkey</button></p>
+        <!-- Stands only at an address that cannot run a
+             passkey ceremony (issue #113): the nickname field
+             and the add button above are then hidden and this
+             line says why. Passkeys already made still list
+             above and can be removed. app.js fills the words
+             and unhides it. -->
+        <p class="settings-note" id="account-passkey-off" hidden></p>
+        <!-- The password section's two states (issue #122):
+             with a password standing it is the change form,
+             with the drop offered beneath while a passkey
+             stands; with no password it reads as a state —
+             the line below — with Add a password under it.
+             app.js renders the section from /api/auth/me. -->
+        <div id="account-password-section">
+          <h4 id="account-password-heading">Change password</h4>
+          <p class="settings-note" id="account-password-state" hidden>No password — you sign in with a passkey.</p>
+          <label class="settings-field" for="account-password-new">New password (at least 12 characters)
+            <input id="account-password-new" type="password" autocomplete="new-password">
+          </label>
+          <label class="settings-field" for="account-password-confirm">New password again
+            <input id="account-password-confirm" type="password" autocomplete="new-password">
+          </label>
+          <p><button type="button" class="btn" id="account-password-btn">Change password</button></p>
+          <div id="account-password-drop" hidden>
+            <p class="settings-note">The account will sign in with passkeys alone.</p>
+            <p><button type="button" class="btn" id="account-password-remove">Remove my password</button></p>
+          </div>
+        </div>
+        <h4>Sign out</h4>
+        <p class="settings-note">Sign out of this device, or out of every device.</p>
+        <p><button type="button" class="btn" id="account-signout-everywhere">Sign out everywhere else</button></p>
+        <!-- Signing out ends this device's sign-in session, so
+             the next visit asks for sign-in again. The row
+             carries its own class: the button stands clear of
+             the text above it rather than crowding it
+             (issue #43). The wording is Sign out everywhere
+             (issue #45): the old wording stands nowhere in the app. -->
+        <p class="logout-row"><a class="btn" id="logout-link" href="/logout">Sign out (this device)</a></p>
+        <p class="settings-note" id="account-auth-note" aria-live="polite"></p>
+      </div>
+      <!-- Deleting the account (issue #57): the person's own
+           erasure path, standing apart at the foot of the page.
+           The first press opens the delete dialog (issue #99);
+           the dialog names what goes and what outlives it, and
+           the act itself waits for DELETE typed in full inside
+           the dialog — the strongest confirm the app has, for
+           the one act with no undo. -->
+      <div class="account-delete" id="account-delete">
+        <h4>Delete account</h4>
+        <p class="settings-note">Deletes all your boards, cards, comments and keys — no undo.</p>
+        <button type="button" class="btn btn-danger" id="account-delete-btn">Delete my boards and account</button>
+      </div>
+    </section>
+  </div>
+</div>
+
 <div class="editor-backdrop" id="account-delete-backdrop" hidden>
   <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="account-delete-heading">
     <div class="editor-head">

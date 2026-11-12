@@ -573,7 +573,6 @@ var settingsPage = null;
 // openSettings unhides it when the server's own people route
 // answers for this caller (see there).
 var SETTINGS_PAGES = [
-  "settings-account",
   "settings-people",
   "settings-theme",
   "settings-boards",
@@ -1680,15 +1679,15 @@ function chipsInUse(run) {
 
 function render() {
   if (!state) return;
-  // The header's account place carries the person's own name
-  // (issue #48): it is painted here, with the boards, so a
-  // rename repaints it with everything else.
+  // The header's Account button carries the person glyph in
+  // its markup (issue #90): the name stands only in its label,
+  // refreshed here, with the boards, so a rename renames the
+  // label with everything else. No name, no button: an empty
+  // slot never stands in the row.
   var accountPlace = document.getElementById("account-open");
   if (accountPlace) {
-    // No name, no place: an empty slot never stands in the row.
     accountPlace.hidden = !(state.me && state.me.name);
     if (state.me && state.me.name) {
-      accountPlace.textContent = state.me.name;
       accountPlace.setAttribute("aria-label", "Account — " + state.me.name);
       accountPlace.setAttribute("title", "Account — " + state.me.name);
     }
@@ -6447,6 +6446,23 @@ function showSettingsPage(pageId) {
   document.getElementById("settings-backdrop").scrollTop = 0;
 }
 
+// The Account page stands in a view of its own (issue #90),
+// opened from the header's Account button. Opening it reads
+// the sign-in standing the way opening Settings did, and
+// renders the shared settings fields its section carries.
+function openAccount() {
+  renderSettings();
+  renderAccountAuth();
+  var backdrop = document.getElementById("account-backdrop");
+  backdrop.hidden = false;
+  backdrop.scrollTop = 0;
+}
+
+function closeAccount() {
+  document.getElementById("account-backdrop").hidden = true;
+  closeAccountDeleteDialog();
+}
+
 function closeSettings() {
   document.getElementById("settings-backdrop").hidden = true;
   settingsPage = null;
@@ -8091,9 +8107,12 @@ function init() {
   wire("settings-open", "click", function () {
     if (state) openSettings();
   });
-  // The account place opens Settings on the Account page.
+  // The Account button opens the Account page's own view.
   wire("account-open", "click", function () {
-    if (state) openSettings("settings-account");
+    if (state) openAccount();
+  });
+  wire("account-close", "click", function () {
+    closeAccount();
   });
   wire("settings-close", "click", function () {
     closeSettings();
