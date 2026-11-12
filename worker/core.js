@@ -2505,8 +2505,9 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
 
     // The change marker on its own: the owner's version number,
     // for a reader that only wants to know whether anything
-    // changed since the state it holds — plus the build stamp,
-    // which the app checks against its own on every open. The
+    // changed since the state it holds — plus the build stamp.
+    // The app's own standing check reads the static build file
+    // instead (issue #10); this route stands for other readers. The
     // person's own answer also carries the stamp of the latest
     // change (who made it, and when); a key's answer carries the
     // number and the build only, so the stamp never tells a key
