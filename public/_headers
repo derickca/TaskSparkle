@@ -24,6 +24,11 @@
   Cache-Control: max-age=0, must-revalidate, no-transform
 /app.js
   Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+# The build file the version check reads (issue #10): a short
+# life, so a new build's stamp is never long behind the build
+# itself. The app asks for it uncached in any case.
+/build.json
+  Cache-Control: public, max-age=60
 /styles.css
   Cache-Control: no-cache
 /tokens.css

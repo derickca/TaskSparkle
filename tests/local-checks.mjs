@@ -471,6 +471,43 @@ console.log("Standalone sign-in routes: every address the sign-in, " +
   console.log("Wording and stylesheet pin: Sign out stands, and the sheet is pinned to " + stamp + ".");
 }
 
+// The version check's road (issue #10, settled 2026-11-08):
+// the app's standing check reads the static build file and
+// never calls the Worker's version route — an open board used
+// to spend 1,440 Worker requests a day a tab on that poll —
+// and the check pauses while the tab is hidden. The build
+// file carries the build stamp itself, so the stamp's copies
+// agree or this fails.
+{
+  const app = readFileSync(join(ROOT, "public", "app.js"), "utf8");
+  const core = readFileSync(join(ROOT, "worker", "core.js"), "utf8");
+  const stamp = (core.match(/var BUILD_ID = "([^"]*)"/) || [])[1] || null;
+  let buildFile = null;
+  try { buildFile = JSON.parse(readFileSync(join(ROOT, "public", "build.json"), "utf8")); }
+  catch { buildFile = null; }
+  const missing = [];
+  if (!buildFile || buildFile.build !== stamp) {
+    missing.push("public/build.json carries " +
+      (buildFile ? JSON.stringify(buildFile.build) : "no readable build") +
+      ", the build stamp is " + (stamp || "missing"));
+  }
+  if (!app.includes("fetch(\"/build.json\"")) {
+    missing.push("the app's version check does not read the static build file");
+  }
+  if (app.includes("fetch(\"/api/version\"")) {
+    missing.push("the app still calls the Worker's version route");
+  }
+  if (!app.includes("if (document.hidden) return;")) {
+    missing.push("the version check does not pause while the tab is hidden");
+  }
+  if (missing.length) {
+    console.error("The version check pins are off: " + missing.join("; ") + ".");
+    process.exit(1);
+  }
+  console.log("Version check pin: the standing check reads public/build.json (" +
+    stamp + "), never the version route, and pauses while hidden.");
+}
+
 // The glyphs are Lucide's own drawings (deploy issue #198,
 // Derick's ruling of 2026-11-08, Option B): the path data
 // below is copied character for character from the lucide

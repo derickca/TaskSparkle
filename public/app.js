@@ -1227,8 +1227,8 @@ function reloadState() {
 // from somewhere else — the editor closes with a plain note.
 //
 // The socket reconnects on its own when it drops, checking the
-// version endpoint as it opens so anything missed while it was
-// down is caught up. The same check runs when the tab comes back
+// build file as it opens so anything missed while it was down
+// is caught up. The same check runs when the tab comes back
 // into view and on a slow interval, so even a socket that died
 // silently cannot leave a stale board behind.
 
@@ -1292,21 +1292,29 @@ function planPushReconnect() {
   setTimeout(connectPush, wait);
 }
 
-// Asks the version endpoint for the number as it stands and queues
-// a refresh when it is ahead of the one on show. A moved build
+// Reads the static build file for the stamp as it stands, and
+// queues a refresh when a number the answer carries is ahead of
+// the one on show. The check used to ask the Worker's version
+// route every minute from every open tab — 1,440 Worker
+// requests a day a tab, idle or not — so it reads a static file
+// instead (issue #10); the socket carries the live numbers, and
+// this check is their backstop and the stamp's. A moved build
 // stamp never reloads the app under the person (Site and Email
 // Standards, Part 8): it raises the standing Updated notice, and
-// the person presses Refresh now when they are ready (issue #67).
-// Quiet on failure: the socket, the next check or the next push
-// catches up.
+// the person presses Refresh now when they are ready (issue
+// #67). A hidden tab asks nothing: the check pauses while the
+// tab is hidden, and the tab's return asks again. Quiet on
+// failure: the socket, the next check or the next push catches
+// up.
 function showUpdateNote() {
   var note = document.getElementById("update-note");
   if (note) note.hidden = false;
 }
 
 function checkRemoteVersion() {
-  fetch("/api/version").then(function (res) {
-    if (!res.ok) throw new Error("version " + res.status);
+  if (document.hidden) return;
+  fetch("/build.json", { cache: "no-store" }).then(function (res) {
+    if (!res.ok) throw new Error("build " + res.status);
     return res.json();
   }).then(function (data) {
     if (serverBuildMoved(data)) {
@@ -8908,6 +8916,14 @@ function init() {
     if (!document.hidden) checkRemoteVersion();
   });
 
+  // A window coming back into focus checks too (issue #10): the
+  // standing check pauses while a tab is hidden, and a return —
+  // the tab coming back into view, or the window into focus —
+  // is what asks again.
+  window.addEventListener("focus", function () {
+    checkRemoteVersion();
+  });
+
   // If the window crosses between phone width and wider while
   // the overview stands, paint again: the overview only ever
   // stands at phone width, and the columns take its place.
@@ -8972,14 +8988,14 @@ function serverBuildMoved(data) {
 // The boot. The boards load at once — the build-stamp check
 // never stands in front of the first paint (Site and Email
 // Standards, Part 9). The check rides along beside the load:
-// the app asks the server for its stamp through the version
-// route, which is never cached, and when the stamps disagree
-// the standing Updated notice rises and the person presses
-// Refresh now. When the check itself cannot be made, a later
-// check catches up.
+// the app reads the server's stamp from the static build file
+// (issue #10), never cached, and when the stamps disagree the
+// standing Updated notice rises and the person presses Refresh
+// now. When the check itself cannot be made, a later check
+// catches up.
 function bootLoad() {
-  fetch("/api/version", { cache: "no-store" }).then(function (res) {
-    if (!res.ok) throw new Error("version " + res.status);
+  fetch("/build.json", { cache: "no-store" }).then(function (res) {
+    if (!res.ok) throw new Error("build " + res.status);
     return res.json();
   }).then(function (data) {
     if (serverBuildMoved(data)) showUpdateNote();

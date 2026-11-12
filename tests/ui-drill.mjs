@@ -1187,25 +1187,21 @@ check("#137: with the way clear the close lands, and the edit is on the card",
   w3SavedTitle === "Wave3 Zebra live edited", "title=" + w3SavedTitle);
 
 // An open app picks up a newer build (issue #138): the
-// version answers are turned to a moved stamp, and a tab
-// return — the visibility the app already listens for —
+// build file's answers are turned to a moved stamp, and a
+// tab return — the visibility the app already listens for —
 // reloads the app once; the boot that follows meets the
 // same stamp and, the guard remembering it, loads instead
 // of reloading again.
-const w3Version = await page.evaluate(async () => {
-  const res = await fetch("/api/version");
-  return res.json().catch(() => null);
-});
 await page.evaluate(() => { window.__wave3Mark = "before"; });
-let w3VersionAnswers = 0;
+let w3BuildAnswers = 0;
 // The route stands at the context level, not the page's:
 // after the reload the page is service-worker controlled,
 // and the worker's own fetches pass a page route by.
-await page.context().route("**/api/version", (route) => {
-  w3VersionAnswers++;
+await page.context().route("**/build.json", (route) => {
+  w3BuildAnswers++;
   route.fulfill({
     contentType: "application/json",
-    body: JSON.stringify({ version: w3Version && w3Version.version, build: "r9999-wave3-1" }),
+    body: JSON.stringify({ build: "r9999-wave3-1" }),
   });
 });
 await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
@@ -1214,27 +1210,61 @@ await page.waitForFunction(() => window.__wave3Mark === undefined,
 await page.waitForSelector("#board-ui:not([hidden])", { timeout: 15000 }).catch(() => {});
 const w3MarkGone = await page.evaluate(() => window.__wave3Mark === undefined).catch(() => true);
 check("#138: an open app reloads itself once when a check meets a newer build",
-  w3MarkGone && w3VersionAnswers >= 1,
-  "mark gone=" + w3MarkGone + " version answers=" + w3VersionAnswers);
+  w3MarkGone && w3BuildAnswers >= 1,
+  "mark gone=" + w3MarkGone + " build answers=" + w3BuildAnswers);
 // And no more than once: a fresh mark stands on the
-// reloaded app, the version answers still carry the moved
+// reloaded app, the build answers still carry the moved
 // stamp, and another tab return checks again — the answer
 // count rises, the mark survives, because the boot's guard
 // remembers this stamp was already reloaded for.
 await page.evaluate(() => { window.__wave3Mark2 = "after"; });
-const w3AnswersBefore = w3VersionAnswers;
+const w3AnswersBefore = w3BuildAnswers;
 await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-for (let i = 0; i < 40 && w3VersionAnswers <= w3AnswersBefore; i++) {
+for (let i = 0; i < 40 && w3BuildAnswers <= w3AnswersBefore; i++) {
   await page.waitForTimeout(100);
 }
 const w3Second = await page.evaluate(() => ({
   mark: window.__wave3Mark2,
 })).catch(() => ({ mark: undefined }));
 check("#138: a further check against the same moved build does not reload again",
-  w3Second.mark === "after" && w3VersionAnswers > w3AnswersBefore,
-  "mark=" + w3Second.mark + " answers " + w3AnswersBefore + " -> " + w3VersionAnswers);
+  w3Second.mark === "after" && w3BuildAnswers > w3AnswersBefore,
+  "mark=" + w3Second.mark + " answers " + w3AnswersBefore + " -> " + w3BuildAnswers);
 await page.screenshot({ path: join(OUT, "wave3-build-reload-1280.png") });
-await page.context().unroute("**/api/version");
+await page.context().unroute("**/build.json");
+
+// The version check's road (issue #10): the standing check
+// reads the static build file and never the Worker's version
+// route, and while the tab is hidden it asks nothing.
+// Requests are counted from here on.
+let versionRouteCalls = 0;
+let buildFileCalls = 0;
+page.on("request", (req) => {
+  const path = new URL(req.url()).pathname;
+  if (path === "/api/version") versionRouteCalls++;
+  if (path === "/build.json") buildFileCalls++;
+});
+await page.evaluate(() => checkRemoteVersion());
+for (let i = 0; i < 40 && buildFileCalls === 0; i++) {
+  await page.waitForTimeout(100);
+}
+check("#10: a visible check reads the static build file, and no check calls the version route",
+  buildFileCalls >= 1 && versionRouteCalls === 0,
+  "build file calls=" + buildFileCalls + " version route calls=" + versionRouteCalls);
+await page.evaluate(() => {
+  Object.defineProperty(document, "hidden",
+    { configurable: true, get: () => true });
+});
+const buildCallsBeforeHidden = buildFileCalls;
+await page.evaluate(() => checkRemoteVersion());
+await page.waitForTimeout(500);
+check("#10: while the tab is hidden the check asks nothing",
+  buildFileCalls === buildCallsBeforeHidden && versionRouteCalls === 0,
+  "build file calls " + buildCallsBeforeHidden + " -> " + buildFileCalls +
+  ", version route calls=" + versionRouteCalls);
+await page.evaluate(() => {
+  Object.defineProperty(document, "hidden",
+    { configurable: true, get: () => false });
+});
 
 // --- Live push: an API change lands on the open board ------------------------------
 const RENAMED = TITLE + " (renamed by push)";
