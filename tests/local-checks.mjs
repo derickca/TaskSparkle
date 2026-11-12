@@ -1028,6 +1028,19 @@ function cssVarOf(block, name, tokenMap) {
     failures.push("worker/auth.js's Pilot tag does not stand " +
       "inside the name-and-logo home link");
   }
+  // The tag must be built into the brand ahead of the
+  // heading's first return, applied by no later replace:
+  // a copy that names no site address takes that early
+  // return, and its brand once came back tagless because
+  // the tag was patched in afterwards, on the other path
+  // only (issue #94).
+  const firstReturn = headFn.indexOf("return");
+  if (!headFn.slice(0, firstReturn).includes("pilot-tag") ||
+      headFn.includes("brand.replace")) {
+    failures.push("worker/auth.js's Pilot tag is not built " +
+      "into the brand ahead of the heading's first return, " +
+      "so a copy naming no site address would stand tagless");
+  }
   const headAt = index.indexOf('<header class="site-head">');
   if (headAt >= 0) {
     const head = index.slice(headAt, index.indexOf("</header>", headAt));
