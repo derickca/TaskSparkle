@@ -929,6 +929,7 @@ async function renumberColumns(db, orderedRows) {
     }
   }
   await batchRun(db, statements);
+  return statements.length > 0;
 }
 
 // A column's cards in their order, the active ones: position first,
@@ -953,6 +954,7 @@ async function renumberCards(db, orderedRows) {
     }
   }
   await batchRun(db, statements);
+  return statements.length > 0;
 }
 
 // Writes positions 0, 1, 2 and on back onto a card's steps, in
@@ -968,6 +970,7 @@ async function renumberSteps(db, orderedRows) {
     }
   }
   await batchRun(db, statements);
+  return statements.length > 0;
 }
 
 // A card's steps in their order: position first, oldest first
@@ -988,7 +991,7 @@ async function placeStepAtIndex(db, cardId, stepRow, index) {
   var wanted = Math.floor(Number(index) || 0);
   var at = Math.max(0, Math.min(wanted, others.length));
   others.splice(at, 0, stepRow);
-  await renumberSteps(db, others);
+  return await renumberSteps(db, others);
 }
 
 // Puts a card at one place in its column, counting from the top
@@ -997,15 +1000,20 @@ async function placeStepAtIndex(db, cardId, stepRow, index) {
 // card changed columns to get here, the column it left is written
 // back as a clean run too, so neither column keeps a gap.
 async function placeCardAtIndex(db, cardBefore, cardAfter, index) {
+  // Answers whether any card's place actually moved (issue
+  // #11): the renumbers below write only the rows whose
+  // position changes, so their reports are the answer.
+  var moved = false;
   if (cardBefore.column_id !== cardAfter.column_id) {
-    await renumberCards(db, await columnCards(db, cardBefore.column_id));
+    moved = (await renumberCards(db, await columnCards(db, cardBefore.column_id))) || moved;
   }
   var target = await columnCards(db, cardAfter.column_id);
   var others = target.filter(function (row) { return row.id !== cardAfter.id; });
   var wanted = Math.floor(Number(index) || 0);
   var at = Math.max(0, Math.min(wanted, others.length));
   others.splice(at, 0, cardAfter);
-  await renumberCards(db, others);
+  moved = (await renumberCards(db, others)) || moved;
+  return moved;
 }
 
 // Cleans a labels value from a caller: the label ids it names,
@@ -1036,12 +1044,24 @@ async function labelIdsForBoard(db, boardId, labelsValue) {
 // Replaces a card's label rows with the given ids, as one batch:
 // the card never stands wearing half its new set.
 async function setCardLabels(db, cardId, labelIds) {
+  // The labels as they stand, in the order they were written —
+  // the order the state reads them back in. A call naming that
+  // very sequence changes nothing and says so (issue #11):
+  // the rows are left standing rather than deleted and written
+  // back the same. Answers whether the set changed.
+  var standing = (await db.prepare(
+    "SELECT label_id FROM card_labels WHERE card_id = ? ORDER BY rowid"
+  ).bind(cardId).all()).results.map(function (row) { return row.label_id; });
+  var same = standing.length === labelIds.length &&
+    standing.every(function (id, index) { return id === labelIds[index]; });
+  if (same) return false;
   var statements = [db.prepare("DELETE FROM card_labels WHERE card_id = ?").bind(cardId)];
   for (var i = 0; i < labelIds.length; i++) {
     statements.push(db.prepare("INSERT INTO card_labels (card_id, label_id) VALUES (?, ?)")
       .bind(cardId, labelIds[i]));
   }
   await batchRun(db, statements);
+  return true;
 }
 
 // A card's label ids in the board's label order: the order the
@@ -1153,7 +1173,7 @@ async function bumpVersion(db, ownerId, by, at) {
 // first and run them through here, so a failure partway can never
 // leave half a change standing. The version rise itself stays in
 // the request handler's wrapper, outside the batch: it is judged by
-// comparing the state before and after, and a route that throws
+// the route's report of what it changed, and a route that throws
 // is answered as an error before any rise is considered, so a
 // failed batch never raises the version either.
 async function batchRun(db, statements) {
@@ -1197,126 +1217,15 @@ async function releaseClaim(db, ownerId, claimedVersion, prevStamp) {
   ).bind(claimedVersion - 1, by, at, ownerId, claimedVersion).run();
 }
 
-// A digest of everything a state reader can see, with the
-// version and its stamp left out. Two digests that read the same
-// mean the state between them changed in no way a reader could
-// see, so a write that produced the second one from the first
-// changed nothing. The write gate compares digests around every
-// write to learn whether the write changed anything — and it
-// reads them from the stored rows directly, one concatenated
-// string per table, instead of building the owner's whole state
-// twice per write (issue #71: the double build charged every
-// write two full readings of the boards, however small the
-// write). Each table contributes its row count and a string of
-// its reader-visible fields in row order; the fields mirror
-// exactly what buildState puts in front of a reader, so a
-// change no reader could see — a dormant column, an updated_at
-// stamp — never moves the digest, and every change a reader
-// could see does.
-// The digest's hash: FNV-1a run twice over the text with
-// 32-bit arithmetic — once forward from the offset basis, once
-// backward from a different seed — and the two halves read
-// together as the digest. Two states that collide on one pass
-// do not collide on both. (A 64-bit BigInt pass measured eight
-// times slower than this pair; the hash runs twice per write,
-// so the difference is the write's whole cost.)
-function fnv1a32(text, seed, backward) {
-  var h = seed | 0;
-  if (backward) {
-    for (var i = text.length - 1; i >= 0; i--) {
-      h ^= text.charCodeAt(i);
-      h = Math.imul(h, 0x01000193);
-    }
-  } else {
-    for (var j = 0; j < text.length; j++) {
-      h ^= text.charCodeAt(j);
-      h = Math.imul(h, 0x01000193);
-    }
-  }
-  return (h >>> 0).toString(16).padStart(8, "0");
-}
-
-function stateHash(text) {
-  return fnv1a32(text, 0x811c9dc5, false) + fnv1a32(text, 0x1b873593, true);
-}
-
-async function stateDigest(db, owner, env) {
-  var field = function (column) { return "COALESCE(CAST(" + column + " AS TEXT), '')"; };
-  var row = function (columns) { return columns.map(field).join(" || char(31) || "); };
-  var tables = [
-    ["boards", "SELECT " + row(["id", "name", "icon", "position"]) +
-      " AS t FROM boards WHERE owner_id = ? ORDER BY rowid"],
-    ["columns", "SELECT " + row(["\"columns\".id", "\"columns\".board_id", "\"columns\".name", "\"columns\".icon", "\"columns\".position"]) +
-      " AS t FROM \"columns\" JOIN boards ON boards.id = \"columns\".board_id WHERE boards.owner_id = ? ORDER BY \"columns\".rowid"],
-    ["labels", "SELECT " + row(["labels.id", "labels.board_id", "labels.name", "labels.icon", "labels.colour"]) +
-      " AS t FROM labels JOIN boards ON boards.id = labels.board_id WHERE boards.owner_id = ? ORDER BY labels.rowid"],
-    ["projects", "SELECT " + row(["projects.id", "projects.board_id", "projects.name", "projects.icon"]) +
-      " AS t FROM projects JOIN boards ON boards.id = projects.board_id WHERE boards.owner_id = ? ORDER BY projects.rowid"],
-    ["cards", "SELECT " + row(["cards.id", "cards.board_id", "cards.column_id", "cards.project_id", "cards.title", "cards.notes", "cards.due_date", "cards.position", "cards.archived", "cards.important", "cards.creator_key_id", "cards.creator_key_name"]) +
-      " AS t FROM cards JOIN boards ON boards.id = cards.board_id WHERE boards.owner_id = ? ORDER BY cards.rowid"],
-    ["checklist_items", "SELECT " + row(["checklist_items.id", "checklist_items.card_id", "checklist_items.text", "checklist_items.done", "checklist_items.position"]) +
-      " AS t FROM checklist_items JOIN cards ON cards.id = checklist_items.card_id JOIN boards ON boards.id = cards.board_id WHERE boards.owner_id = ? ORDER BY checklist_items.rowid"],
-    ["card_links", "SELECT " + row(["card_links.id", "card_links.card_id", "card_links.url", "card_links.name", "card_links.position"]) +
-      " AS t FROM card_links JOIN cards ON cards.id = card_links.card_id JOIN boards ON boards.id = cards.board_id WHERE boards.owner_id = ? ORDER BY card_links.rowid"],
-    ["card_labels", "SELECT " + row(["card_labels.card_id", "card_labels.label_id"]) +
-      " AS t FROM card_labels JOIN cards ON cards.id = card_labels.card_id JOIN boards ON boards.id = cards.board_id WHERE boards.owner_id = ? ORDER BY card_labels.rowid"],
-    ["card_comments", "SELECT " + row(["card_comments.id", "card_comments.card_id", "card_comments.body", "card_comments.author_key_id", "card_comments.author_key_name", "card_comments.created_at"]) +
-      " AS t FROM card_comments JOIN cards ON cards.id = card_comments.card_id JOIN boards ON boards.id = cards.board_id WHERE boards.owner_id = ? ORDER BY card_comments.rowid"]
-  ];
-  // The head of the state a reader sees: who the owner is, the
-  // name they go by, their theme, the agents' host, and the
-  // newest-key block the person's own state carries.
-  var keyRow = await db.prepare(
-    "SELECT last4, created_at FROM api_tokens WHERE owner_id = ? AND revoked_at IS NULL " +
-    "ORDER BY created_at DESC LIMIT 1"
-  ).bind(owner.id).first();
-  var stream = [owner.id, effectiveName(owner), owner.email, owner.theme || "system",
-    agentHost(env), keyRow ? (keyRow.last4 || "") + "@" + keyRow.created_at : "no-key"].join("\u001f");
-  for (var i = 0; i < tables.length; i++) {
-    var result = await db.prepare(
-      "SELECT COUNT(*) AS n, COALESCE(group_concat(t, char(30)), '') AS body FROM (" + tables[i][1] + ")"
-    ).bind(owner.id).first();
-    stream += "\n" + tables[i][0] + ":" + result.n + ":" + (result.body ? result.body.length : 0) + ":";
-    if (result.body) stream += result.body;
-  }
-  // A board's label colour mode rides the digest too, so a
-  // mode-only change still raises the version. It is read off
-  // the rows in JS rather than named in the SQL above: a data
-  // file written before the column existed — a self-host file
-  // the schema's CREATE TABLE IF NOT EXISTS leaves standing —
-  // reads every board as chip here instead of failing the read.
-  var modeRows = (await db.prepare(
-    "SELECT * FROM boards WHERE owner_id = ? ORDER BY rowid"
-  ).bind(owner.id).all()).results;
-  stream += "\nboardModes:" + modeRows.map(function (r) { return boardLabelMode(r); }).join(",");
-  // A card's next step rides the digest the same way, read off
-  // the rows in JS (issue #119): the columns are newer than
-  // some data files, and a step-only write — a hand-over that
-  // changes nothing else on the card — must still count as a
-  // change and raise the version. stepOf reads a row without
-  // the columns as the owner's step, not waiting, so an old
-  // file digests exactly as the state built from it reads.
-  var stepRows = (await db.prepare(
-    "SELECT cards.* FROM cards JOIN boards ON boards.id = cards.board_id " +
-    "WHERE boards.owner_id = ? ORDER BY cards.rowid"
-  ).bind(owner.id).all()).results;
-  stream += "\ncardSteps:" + stepRows.map(function (r) {
-    var s = stepOf(r);
-    return [s.holder, s.keyId || "", s.keyName || "", s.handedAt || "",
-      s.handedByKeyName || "", s.waiting ? "1" : "0"].join("\u001f");
-  }).join("\u001e");
-  // The owner's live keys ride the digest too: state carries
-  // their ids and names, so a key made, renamed or revoked is
-  // a change a reader can see, like the newest-key block in
-  // the head above.
-  var keyListRows = (await db.prepare(
-    "SELECT id, label FROM api_tokens WHERE owner_id = ? AND revoked_at IS NULL ORDER BY created_at, rowid"
-  ).bind(owner.id).all()).results;
-  stream += "\nkeys:" + keyListRows.map(function (r) {
-    return r.id + "=" + (r.label || "");
-  }).join(",");
-  return stateHash(stream);
-}
+// The before/after full-state digests that once stood here —
+// a hash of everything a state reader can see, compared
+// around every write to learn whether the write changed
+// anything — are retired (issue #11): each one read the
+// owner's whole row set, so the pair cost more rows than the
+// writes themselves. Routes now report their own changes to
+// the write gate, and the guarantee stands on the reports:
+// one accepted write, exactly one version rise, and a write
+// that changes nothing rises nothing.
 
 // The fields each write route takes, by route shape. baseVersion
 // is allowed on every write on top of these; it is the stale-write
@@ -1688,6 +1597,7 @@ async function noteCardPickup(db, cardRow, callerKey) {
   if (!isHolder) return;
   await db.prepare("UPDATE cards SET step_waiting = 0 WHERE id = ?")
     .bind(cardRow.id).run();
+  return true;
 }
 
 // A card in its read shape. The names it wears — its maker's
@@ -2079,7 +1989,7 @@ export function createApiHandler(deps) {
   // caller themselves — the owners row, and everything the
   // schema cascades from it. It stands apart from the write
   // pipeline below on purpose: that pipeline's bookkeeping (the
-  // version claim, the before-and-after digest) is all about
+  // version claim, the routes' change reports) is all about
   // the owner's own state, and this act removes the owner, so
   // there is no state left to stamp and no other owner's
   // version is touched. The gate's discipline is applied by
@@ -2241,22 +2151,23 @@ export function createApiHandler(deps) {
     }
   }
 
-  // A digest of the owner's state as it stands before the route
-  // runs. A write whose digest afterwards reads exactly the same
-  // changed nothing, and a write that changed nothing never
-  // raises the version — its response carries the version as it
-  // stands. An account not yet linked to a board set has no
-  // state to digest: its writes are the sign-in routes' own,
-  // and the version machinery below is skipped for them whole.
-  var beforeDigest = null;
-  if (isWrite && owner) {
-    beforeDigest = await stateDigest(db, owner, env);
-  }
+  // Whether the route changed anything rides back in this
+  // report, which the route fills in as it works (issue #11):
+  // a write that changed nothing never raises the version —
+  // its response carries the version as it stands. The
+  // before/after full-state digests that used to answer this
+  // are retired: each one read the owner's whole row set, so
+  // every write paid two full readings of the boards however
+  // small the write was. An account not yet linked to a board
+  // set has no state to report on: its writes are the sign-in
+  // routes' own, and the version machinery below is skipped
+  // for them whole.
+  var report = { changed: false };
 
   var response = null;
   try {
     response = await routeApi(request, deps, owner, parts, callerVia, callerKey,
-      { account: callerAccount, session: callerSession });
+      { account: callerAccount, session: callerSession }, report);
   } catch (routeError) {
     // A route that fails mid-change answers in the app's own
     // error shape rather than as an unhandled exception. A claim
@@ -2277,7 +2188,7 @@ export function createApiHandler(deps) {
 
   if (response.status >= 200 && response.status < 300) {
     var version = currentVersion(owner);
-    if ((await stateDigest(db, owner, env)) === beforeDigest) {
+    if (!report.changed) {
       // Nothing changed. A claim held for this write is handed
       // back, and the version stays where it stood.
       if (claimedVersion != null) {
@@ -2345,8 +2256,17 @@ export function createApiHandler(deps) {
 // route answers people, never keys. `callerKey` is the key the
 // caller arrived with ({ id, name }) or null for a person; the
 // card and comment writes stamp it as their creator or author.
-async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
+async function routeApi(request, deps, owner, parts, via, callerKey, caller, report) {
     var db = deps.db;
+    // The write gate's ear (issue #11): a handler calls this
+    // the moment it has made a change a state reader could
+    // see, and the gate raises the version on the report. A
+    // handler whose write leaves every reader-visible value
+    // as it stood — a PATCH naming a card's title as it
+    // already stands — does not call it: that write changed
+    // nothing, and the version stays where it stood, the
+    // guarantee the retired before/after digests kept.
+    var noteChange = function () { if (report) report.changed = true; };
     var env = deps.env;
     var takePasswords = deps.passwordsAllowed !== false;
     var method = request.method;
@@ -2407,17 +2327,21 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
         }
         if (meBody.name != null) {
           var newDisplayName = meBody.name.trim();
+          var nameChanged = newDisplayName !== effectiveName(owner);
           if (renameTarget) {
             await renameAccount(deps.authDb || deps.db, renameTarget, newDisplayName);
           }
           await db.prepare("UPDATE owners SET display_name = ? WHERE id = ?")
             .bind(newDisplayName, owner.id).run();
           owner.display_name = newDisplayName;
+          if (nameChanged) noteChange();
         }
         if (meBody.theme != null) {
+          var themeChanged = String(meBody.theme) !== (owner.theme || "system");
           await db.prepare("UPDATE owners SET theme = ? WHERE id = ?")
             .bind(String(meBody.theme), owner.id).run();
           owner.theme = String(meBody.theme);
+          if (themeChanged) noteChange();
         }
         return via === "agent-token"
           ? json({ name: effectiveName(owner), theme: owner.theme || "system" })
@@ -2594,6 +2518,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
         var keyId = newId("token");
         await db.prepare("INSERT INTO api_tokens (id, owner_id, label, token_hash, last4, created_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?, NULL)")
           .bind(keyId, owner.id, keyName, await sha256Hex(fullKey), fullKey.slice(-4), keyStamp).run();
+        noteChange();
         return json({ key: fullKey, id: keyId, name: keyName, last4: fullKey.slice(-4), created_at: keyStamp }, 201);
       }
       if (method === "DELETE") {
@@ -2623,6 +2548,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
         // with it the key itself, stands exactly as it was.
         await db.prepare("UPDATE api_tokens SET label = ? WHERE id = ? AND owner_id = ?")
           .bind(cleanKeyName, theToken.id, owner.id).run();
+        if (cleanKeyName !== (theToken.label || "")) noteChange();
         return json({ key: { id: theToken.id, name: cleanKeyName, last4: theToken.last4 || "", created_at: theToken.created_at } });
       }
       if (method === "DELETE") {
@@ -2632,6 +2558,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
         // stops working at once and no other key is touched.
         await db.prepare("UPDATE api_tokens SET revoked_at = ? WHERE id = ? AND owner_id = ?")
           .bind(nowIso(), theToken.id, owner.id).run();
+        noteChange();
         // The cards whose next step was this key's come back to
         // the owner (issue #119): a deleted key holds nothing,
         // and a card it was handed waits for nobody — it stands
@@ -2686,6 +2613,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
             .bind(boardRow.id + "-" + columnDef.kind, boardRow.id, columnDef.name, columnDef.position, boardRow.created_at, boardRow.updated_at));
         }
         await batchRun(db, boardStatements);
+        noteChange();
         return json({ board: await boardOut(db, boardRow) }, 201);
       }
     }
@@ -2722,6 +2650,13 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
           await db.prepare("UPDATE boards SET icon = ?, updated_at = ? WHERE id = ? AND owner_id = ?")
             .bind(boardPatchIcon || null, nowIso(), p.boardId, owner.id).run();
         }
+        if ((boardPatch.name != null && String(boardPatch.name) !== theBoard.name) ||
+            (boardPatch.position != null && Number(boardPatch.position) !== Number(theBoard.position)) ||
+            (boardPatch.label_colour_mode != null &&
+              boardLabelMode({ label_colour_mode: boardPatch.label_colour_mode }) !== boardLabelMode(theBoard)) ||
+            (boardPatchIcon !== undefined && (boardPatchIcon || null) !== (theBoard.icon || null))) {
+          noteChange();
+        }
         return json({ board: await boardOut(db, await ownerBoard(db, owner.id, p.boardId)) });
       }
       if (method === "DELETE") {
@@ -2737,6 +2672,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
           return error("You must keep at least one board.", 400);
         }
         await db.prepare("DELETE FROM boards WHERE id = ? AND owner_id = ?").bind(p.boardId, owner.id).run();
+        noteChange();
         return json({ ok: true });
       }
     }
@@ -2919,6 +2855,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
         }
 
         await batchRun(db, copyStatements);
+        noteChange();
         return json({ board: await boardOut(db, newBoardRow) }, 201);
       }
     }
@@ -2962,6 +2899,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
         };
         await db.prepare('INSERT INTO "columns" (id, board_id, name, icon, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
           .bind(columnRow.id, columnRow.board_id, columnRow.name, columnRow.icon, columnRow.position, columnRow.created_at, columnRow.updated_at).run();
+        noteChange();
         return json({ column: columnOut(columnRow) }, 201);
       }
     }
@@ -2986,11 +2924,13 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
           if (overLimit(cleanColumnName, LIMITS.nameChars)) return error("name is too long.");
         }
         if (columnPatchIcon !== undefined) {
+          if ((columnPatchIcon || null) !== (theColumn.icon || null)) noteChange();
           await db.prepare('UPDATE "columns" SET icon = ?, updated_at = ? WHERE id = ?')
             .bind(columnPatchIcon || null, nowIso(), p.columnId).run();
           theColumn.icon = columnPatchIcon || null;
         }
         if (cleanColumnName != null) {
+          if (cleanColumnName !== theColumn.name) noteChange();
           await db.prepare('UPDATE "columns" SET name = ?, updated_at = ? WHERE id = ?')
             .bind(cleanColumnName, nowIso(), p.columnId).run();
           theColumn.name = cleanColumnName;
@@ -3009,7 +2949,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
             if (toIndex !== fromIndex) {
               var moved = siblings.splice(fromIndex, 1)[0];
               siblings.splice(toIndex, 0, moved);
-              await renumberColumns(db, siblings);
+              if (await renumberColumns(db, siblings)) noteChange();
             }
           }
         }
@@ -3093,6 +3033,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
           }
         }
         await batchRun(db, deleteStatements);
+        noteChange();
         return json({ ok: true });
       }
     }
@@ -3132,6 +3073,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
         };
         await db.prepare("INSERT INTO labels (id, board_id, name, icon, colour, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
           .bind(labelRow.id, labelRow.board_id, labelRow.name, labelRow.icon, labelRow.colour, labelRow.created_at, labelRow.updated_at).run();
+        noteChange();
         return json({ label: { id: labelRow.id, boardId: labelRow.board_id, name: labelRow.name, icon: labelRow.icon || "", colour: labelRow.colour } }, 201);
       }
     }
@@ -3163,12 +3105,18 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
           await db.prepare("UPDATE labels SET icon = ?, updated_at = ? WHERE id = ?")
             .bind(labelPatchIcon || null, nowIso(), p.labelId).run();
         }
+        if ((labelPatch.name != null && String(labelPatch.name) !== theLabel.name) ||
+            (labelPatch.colour != null && String(labelPatch.colour) !== (theLabel.colour == null ? "" : String(theLabel.colour))) ||
+            (labelPatchIcon !== undefined && (labelPatchIcon || null) !== (theLabel.icon || null))) {
+          noteChange();
+        }
         var updatedLabel = await ownerLabel(db, owner.id, p.labelId);
         return json({ label: { id: updatedLabel.id, boardId: updatedLabel.board_id, name: updatedLabel.name, icon: updatedLabel.icon || "", colour: updatedLabel.colour } });
       }
       if (method === "DELETE") {
         await db.prepare("DELETE FROM labels WHERE id = ? AND board_id = ?")
           .bind(p.labelId, theLabel.board_id).run();
+        noteChange();
         return json({ ok: true });
       }
     }
@@ -3206,6 +3154,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
         };
         await db.prepare("INSERT INTO projects (id, board_id, name, icon, created_at) VALUES (?, ?, ?, ?, ?)")
           .bind(projectRow.id, projectRow.board_id, projectRow.name, projectRow.icon, projectRow.created_at).run();
+        noteChange();
         return json({ project: { id: projectRow.id, boardId: projectRow.board_id, name: projectRow.name, icon: projectRow.icon || "" } }, 201);
       }
     }
@@ -3233,12 +3182,17 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
           await db.prepare("UPDATE projects SET icon = ? WHERE id = ?")
             .bind(projectPatchIcon || null, p.projectId).run();
         }
+        if ((projectPatch.name != null && String(projectPatch.name) !== theProject.name) ||
+            (projectPatchIcon !== undefined && (projectPatchIcon || null) !== (theProject.icon || null))) {
+          noteChange();
+        }
         var updatedProject = await ownerProject(db, owner.id, p.projectId);
         return json({ project: { id: updatedProject.id, boardId: updatedProject.board_id, name: updatedProject.name, icon: updatedProject.icon || "" } });
       }
       if (method === "DELETE") {
         await db.prepare("DELETE FROM projects WHERE id = ? AND board_id = ?")
           .bind(p.projectId, theProject.board_id).run();
+        noteChange();
         return json({ ok: true });
       }
     }
@@ -3363,6 +3317,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
             .bind(cardRow.id, cardLabelIds[csi]));
         }
         await batchRun(db, cardStatements);
+        noteChange();
         var kindMap = {};
         kindMap[cardColumn.id] = columnKind(cardColumn);
         var createKeyNames = await keyNameMap(db, owner.id);
@@ -3377,6 +3332,10 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
         var cardPatch = await readBody(request);
         if (!cardPatch) return error("JSON body is required.");
         var has = function (key) { return Object.prototype.hasOwnProperty.call(cardPatch, key); };
+        // A stored value read the way a reader reads it
+        // (issue #11): no value and an empty one are the
+        // same to a reader.
+        var textOf = function (value) { return value == null ? "" : String(value); };
         if (has("important") && typeof cardPatch.important !== "boolean") {
           return error("important must be true or false.");
         }
@@ -3575,7 +3534,40 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
           nowIso(),
           p.cardId
         ).run();
-        if (labelsChange) await setCardLabels(db, p.cardId, nextLabelIds);
+        // Whether the update itself changed anything a reader
+        // can see (issue #11), judged from the values it wrote
+        // against the card as it stood: each field by its new
+        // value, the step by its read shape, and a riding
+        // comment as a change of its own. The labels and any
+        // placement report themselves below.
+        var cardStepBefore = stepOf(cardBefore);
+        var cardStepAfter = stepOf({
+          step_holder: patchStepColumns.step_holder,
+          step_key_id: patchStepColumns.step_key_id,
+          step_key_name: patchStepColumns.step_key_name,
+          step_handed_at: patchStepColumns.step_handed_at,
+          step_handed_by_key_id: patchStepColumns.step_handed_by_key_id,
+          step_handed_by_key_name: patchStepColumns.step_handed_by_key_name,
+          step_waiting: patchStepColumns.step_waiting
+        });
+        if (nextBoardId !== cardBefore.board_id ||
+            nextColumnId !== cardBefore.column_id ||
+            (nextProjectId || null) !== (cardBefore.project_id || null) ||
+            (has("title") && String(cardPatch.title) !== textOf(cardBefore.title)) ||
+            (has("notes") && String(cardPatch.notes) !== textOf(cardBefore.notes)) ||
+            (has("due_date") && textOf(cardPatch.due_date ? String(cardPatch.due_date) : null) !== textOf(cardBefore.due_date)) ||
+            (has("archived") && (cardPatch.archived ? 1 : 0) !== (cardBefore.archived ? 1 : 0)) ||
+            (has("important") && (cardPatch.important ? 1 : 0) !== (cardBefore.important ? 1 : 0)) ||
+            cardStepAfter.holder !== cardStepBefore.holder ||
+            cardStepAfter.keyId !== cardStepBefore.keyId ||
+            cardStepAfter.keyName !== cardStepBefore.keyName ||
+            cardStepAfter.handedAt !== cardStepBefore.handedAt ||
+            cardStepAfter.handedByKeyName !== cardStepBefore.handedByKeyName ||
+            cardStepAfter.waiting !== cardStepBefore.waiting ||
+            rideComment !== null) {
+          noteChange();
+        }
+        if (labelsChange && (await setCardLabels(db, p.cardId, nextLabelIds))) noteChange();
         // The riding comment posts inside the same write, after
         // the card itself stands updated, stamped with its
         // author the way a comment on its own route is.
@@ -3591,13 +3583,13 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
         // run, so a card this call archives — or one already
         // archived — keeps the position it had.
         if (wantsPosition && !cardAfter.archived) {
-          await placeCardAtIndex(db, cardBefore, cardAfter, cardPatch.position);
+          if (await placeCardAtIndex(db, cardBefore, cardAfter, cardPatch.position)) noteChange();
           cardAfter = await ownerCardRow(db, owner.id, p.cardId);
         }
         // A board move that names no place lands at the end of
         // its new column (issue #163), the way a new card does.
         if (boardChanged && !wantsPosition && !cardAfter.archived) {
-          await placeCardAtIndex(db, cardBefore, cardAfter, Number.MAX_SAFE_INTEGER);
+          if (await placeCardAtIndex(db, cardBefore, cardAfter, Number.MAX_SAFE_INTEGER)) noteChange();
           cardAfter = await ownerCardRow(db, owner.id, p.cardId);
         }
         var afterColumns = (await db.prepare(
@@ -3611,6 +3603,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
       if (method === "DELETE") {
         await db.prepare("DELETE FROM cards WHERE id = ? AND board_id = ?")
           .bind(p.cardId, cardBefore.board_id).run();
+        noteChange();
         return json({ ok: true });
       }
     }
@@ -3651,6 +3644,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
         };
         await db.prepare("INSERT INTO checklist_items (id, card_id, text, done, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
           .bind(stepRow.id, stepRow.card_id, stepRow.text, stepRow.done, stepRow.position, stepRow.created_at, stepRow.updated_at).run();
+        noteChange();
         await noteCardPickup(db, stepCard, callerKey);
         return json({ step: stepOut(stepRow) }, 201);
       }
@@ -3681,17 +3675,19 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
         var wantsStepPosition = stepHas("position") && stepPatch.position != null;
         await db.prepare("UPDATE checklist_items SET text = ?, done = ?, updated_at = ? WHERE id = ?")
           .bind(nextText, nextDone, nowIso(), p.stepId).run();
+        if (nextText !== theStep.text || nextDone !== (theStep.done ? 1 : 0)) noteChange();
         var updatedStep = await ownerChecklistItem(db, owner.id, p.cardId, p.stepId);
         if (wantsStepPosition) {
-          await placeStepAtIndex(db, p.cardId, updatedStep, stepPatch.position);
+          if (await placeStepAtIndex(db, p.cardId, updatedStep, stepPatch.position)) noteChange();
           updatedStep = await ownerChecklistItem(db, owner.id, p.cardId, p.stepId);
         }
-        await noteCardPickup(db, itemCard, callerKey);
+        if (await noteCardPickup(db, itemCard, callerKey)) noteChange();
         return json({ step: stepOut(updatedStep) });
       }
       if (method === "DELETE") {
         await db.prepare("DELETE FROM checklist_items WHERE id = ? AND card_id = ?")
           .bind(p.stepId, p.cardId).run();
+        noteChange();
         await noteCardPickup(db, itemCard, callerKey);
         return json({ ok: true });
       }
@@ -3736,6 +3732,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
         };
         await db.prepare("INSERT INTO card_links (id, card_id, url, name, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
           .bind(linkRow.id, linkRow.card_id, linkRow.url, linkRow.name, linkRow.position, linkRow.created_at, linkRow.updated_at).run();
+        noteChange();
         await noteCardPickup(db, linkCard, callerKey);
         return json({ link: linkOut(linkRow) }, 201);
       }
@@ -3762,13 +3759,16 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
         if (overLimit(nextLinkName, LIMITS.linkNameChars)) return error("name is too long.");
         await db.prepare("UPDATE card_links SET url = ?, name = ?, updated_at = ? WHERE id = ?")
           .bind(nextLinkUrl, nextLinkName, nowIso(), p.linkId).run();
+        if (nextLinkUrl !== theLink.url ||
+            nextLinkName !== (theLink.name == null ? "" : String(theLink.name))) noteChange();
         var updatedLink = await ownerCardLink(db, owner.id, p.cardId, p.linkId);
-        await noteCardPickup(db, linkItemCard, callerKey);
+        if (await noteCardPickup(db, linkItemCard, callerKey)) noteChange();
         return json({ link: linkOut(updatedLink) });
       }
       if (method === "DELETE") {
         await db.prepare("DELETE FROM card_links WHERE id = ? AND card_id = ?")
           .bind(p.linkId, p.cardId).run();
+        noteChange();
         await noteCardPickup(db, linkItemCard, callerKey);
         return json({ ok: true });
       }
@@ -3813,6 +3813,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
         };
         await db.prepare("INSERT INTO card_comments (id, card_id, body, author_key_id, author_key_name, author_owner_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
           .bind(commentRow.id, commentRow.card_id, commentRow.body, commentRow.author_key_id, commentRow.author_key_name, commentRow.author_owner_id, commentRow.created_at).run();
+        noteChange();
         await noteCardPickup(db, commentCard, callerKey);
         var commentKeyNames = {};
         if (callerKey) commentKeyNames[callerKey.id] = callerKey.name;
@@ -3828,6 +3829,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
       if (method === "DELETE") {
         await db.prepare("DELETE FROM card_comments WHERE id = ? AND card_id = ?")
           .bind(p.commentId, p.cardId).run();
+        noteChange();
         await noteCardPickup(db, commentItemCard, callerKey);
         return json({ ok: true });
       }
@@ -4480,6 +4482,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller) {
             await batchRun(db, [db.prepare("DELETE FROM owners WHERE id = ?")
               .bind(removedOwnerId)]);
           }
+          if (removedOwnerId && owner && removedOwnerId === owner.id) noteChange();
           await eraseAccountCredentials(authDb2, removeTarget.key);
           if (typeof deps.onOwnerDeleted === "function" && removedOwnerId) {
             await deps.onOwnerDeleted({ id: removedOwnerId, email: removeTarget.key });
