@@ -745,21 +745,10 @@ a.settings-btn {
   background: var(--ms-color-badge-due-bg);
 }
 
-/* The account place: the person's own name, standing between
-   the theme button and the gear, leading to Settings → Account.
-   Its width is its name's, capped so a long name ellipsises
-   instead of crowding the row. */
-.account-btn {
-  width: auto;
-  max-width: 11em;
-  padding: 0 13px;
-  border-radius: 999px;
-  font-size: 15px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* The Account button stands at the shared .settings-btn shape
+   — the 44px round target — with Lucide's person glyph inside
+   (issue #90). It carries no name; the name stands only in
+   its label. */
 
 /* The search button wears the inverted colours while the search
    stands open, like the other toggles wear theirs. */
@@ -2482,7 +2471,7 @@ textarea.copy-field { resize: vertical; }
   .columns { display: block; }
   .column { display: none; }
   .column.active { display: block; }
-  .topbar-inner { padding: 12px 12px 10px; }
+  .topbar-inner { padding: 8px 12px; }
   h1 { font-size: 19px; }
   /* On a phone the heading takes two rows: the wordmark and
      the three small buttons hold the first row, and the board
@@ -2493,8 +2482,12 @@ textarea.copy-field { resize: vertical; }
      Schedule buttons stand at the row's right margin, pinned
      outside the scrolling run. Board buttons follow the display
      mode on a phone like everywhere else. */
-  .header-row { flex-wrap: wrap; gap: 6px; row-gap: 8px; }
-  .header-actions { margin-left: auto; }
+  .header-row { flex-wrap: wrap; gap: 4px; row-gap: 8px; }
+  .header-actions { margin-left: auto; gap: 4px; }
+  /* The Pilot tag leaves the phone header (issue #90): it
+     keeps its seat at desktop widths and on the reading
+     pages, and the pilot fact stands in Help and the Terms. */
+  .topbar .pilot-tag { display: none; }
   .board-row {
     order: 3;
     flex: 1 1 100%;

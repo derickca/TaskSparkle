@@ -411,8 +411,7 @@ if (args["spend-family"]) {
       process.exit(failures === 0 ? 0 : 1);
     }
     await inv.p.waitForSelector("#board-ui:not([hidden])", { timeout: 15000 });
-    await inv.p.click("#settings-open");
-    await inv.p.click('[data-settings-page="settings-account"]');
+    await inv.p.click("#account-open");
     await inv.p.waitForSelector("#account-passkeys-list .board-manage-row", { timeout: 10000 });
     await inv.p.locator("#account-passkeys-list .board-manage-row button",
       { hasText: "Remove" }).first().click();
@@ -528,9 +527,10 @@ await page.screenshot({ path: join(OUT, "board-1280.png") });
 // --- The topbar's right side (issue #48) and the sign-out wording (#45) --------
 // The standard's row map: 44px targets, glyphs at the family's
 // size, and the right side standing as search, the dark toggle
-// showing the mode a click brings, the person's own name
-// leading to Settings → Account, then Settings — no empty
-// slots. The Display button is a board tool and stands with
+// showing the mode a click brings, the Account button — a
+// person glyph, its label naming the person — then Settings
+// — no empty slots. The Display button is a board tool and
+// stands with
 // the board tools, not in that set.
 {
   // Measured off the DOM directly, so a piece that does not
@@ -565,13 +565,15 @@ await page.screenshot({ path: join(OUT, "board-1280.png") });
   const homes = await page.evaluate(() => ({
     displayInActions: !!document.querySelector(".board-row-actions #display-toggle"),
     displayInHeader: !!document.querySelector(".header-actions #display-toggle"),
-    accountName: (document.getElementById("account-open") || {}).textContent || "",
+    accountText: (document.getElementById("account-open") || {}).textContent || "",
+    accountLabel: (document.getElementById("account-open") || {}).getAttribute("aria-label") || "",
   }));
   check("topbar: Display stands with the board tools, not in the right-side set",
     homes.displayInActions && !homes.displayInHeader, JSON.stringify(homes));
-  check("topbar: the account place carries the person's name",
-    homes.accountName.trim() === String(PERSON_NAME || "").trim(),
-    "place " + JSON.stringify(homes.accountName) + " name " + JSON.stringify(PERSON_NAME));
+  check("topbar: the account button carries no name; its label names the person",
+    homes.accountText.trim() === "" &&
+      homes.accountLabel === "Account — " + String(PERSON_NAME || "").trim(),
+    "text " + JSON.stringify(homes.accountText) + " label " + JSON.stringify(homes.accountLabel));
   // The toggle's face names the mode a click brings: read the
   // name it shows, click, and the app must stand in that mode.
   const labelOf = async () => page.evaluate(() => {
@@ -611,28 +613,29 @@ await page.screenshot({ path: join(OUT, "board-1280.png") });
   check("topbar: the full cycle restores the starting mode",
     restored === startMode, "started " + JSON.stringify(startMode) + ", ended " + JSON.stringify(restored));
   await page.locator(".topbar").screenshot({ path: join(OUT, "topbar-1280.png") });
-  // The account place opens Settings on the Account page, where
-  // the sign-out wording stands (issue #45).
+  // The Account button opens the Account page's own view,
+  // where the sign-out wording stands (issue #45).
   if (await page.locator("#account-open").count()) {
     await page.click("#account-open");
-    await page.waitForSelector("#settings-account:not([hidden])", { timeout: 10000 }).catch(() => {});
+    await page.waitForSelector("#account-backdrop:not([hidden])", { timeout: 10000 }).catch(() => {});
   }
   const accountWords = await page.evaluate(() => {
-    const sec = document.getElementById("settings-account");
+    const sec = document.getElementById("account-page");
+    const view = document.getElementById("account-backdrop");
     return {
-      visible: !!sec && !sec.hidden && getComputedStyle(sec).display !== "none" &&
+      visible: !!sec && !!view && !view.hidden &&
         sec.getBoundingClientRect().height > 0,
       logout: (document.getElementById("logout-link") || {}).textContent || "",
       anyLogOut: !!sec && /Log out/.test(sec.textContent || ""),
     };
   });
-  check("topbar: the account place opens Settings on the Account page",
+  check("topbar: the Account button opens the Account page",
     accountWords.visible, JSON.stringify(accountWords));
   check("sign-out wording: the Account page says Sign out, never Log out",
     accountWords.logout.trim() === "Sign out (this device)" && !accountWords.anyLogOut,
     JSON.stringify(accountWords));
-  if (await page.locator("#settings-backdrop:not([hidden])").count()) {
-    await page.click("#settings-close").catch(() => {});
+  if (await page.locator("#account-backdrop:not([hidden])").count()) {
+    await page.click("#account-close").catch(() => {});
   }
   await page.setViewportSize({ width: 390, height: 844 });
   const accountPhone = await box("#account-open");
@@ -2611,8 +2614,7 @@ await page.click("#settings-close").catch(() => {});
 }
 
 // --- The person's name, and what the browser keeps (issues #58, #66, #70) -----------
-await page.click("#settings-open");
-await page.click('[data-settings-page="settings-account"]');
+await page.click("#account-open");
 await page.waitForSelector("#account-name-input", { timeout: 10000 });
 await page.fill("#account-name-input", "Drill Person");
 await page.evaluate(() => document.getElementById("account-name-input").blur());
@@ -2623,8 +2625,7 @@ check("#66: the account page shows the new name at once",
 await page.screenshot({ path: join(OUT, "account-1280.png") });
 await page.reload({ waitUntil: "domcontentloaded" });
 await page.waitForSelector("#board-ui:not([hidden])", { timeout: 15000 });
-await page.click("#settings-open");
-await page.click('[data-settings-page="settings-account"]');
+await page.click("#account-open");
 await page.waitForSelector("#account-name-input", { timeout: 10000 });
 const persistedName = await page.inputValue("#account-name-input");
 check("#66: the name stands after a reload",
@@ -2657,8 +2658,7 @@ if (newPick131 === 1) {
     rosterText131.replace(/\s+/g, " ").slice(0, 160));
   await page.screenshot({ path: join(OUT, "admin-roster-renamed-1280.png") });
   await page.click("#settings-close").catch(() => {});
-  await page.click("#settings-open");
-  await page.click('[data-settings-page="settings-account"]');
+  await page.click("#account-open");
   await page.waitForSelector("#account-name-input", { timeout: 10000 });
   await page.fill("#account-name-input", "Drill A");
   await page.evaluate(() => document.getElementById("account-name-input").blur());
@@ -2702,8 +2702,7 @@ check("#58: a stale name left in the mirror is cleared on the next open",
   !("name" in mirrorAfter) && typeof mirrorAfter.theme === "string",
   JSON.stringify(mirrorAfter));
 
-await page.click("#settings-open");
-await page.click('[data-settings-page="settings-account"]');
+await page.click("#account-open");
 await page.waitForSelector("#logout-link", { timeout: 10000 });
 
 // The sign-in section (issue #109): the passkey list stands on
@@ -2802,8 +2801,7 @@ await page.evaluate(async () => {
 });
 await page.reload({ waitUntil: "domcontentloaded" });
 await page.waitForSelector("#board-ui:not([hidden])", { timeout: 15000 });
-await page.click("#settings-open");
-await page.click('[data-settings-page="settings-account"]');
+await page.click("#account-open");
 await page.waitForSelector("#account-passkey-add", { timeout: 10000 });
 await page.fill("#account-passkey-nickname", "Drop walk device");
 await page.click("#account-passkey-add");
@@ -2900,9 +2898,10 @@ check("#122: the section stands in its password state again, the drop offered on
     (await page.locator("#account-password-remove").isVisible()), "");
 
 // Issue #114: headings are visibly headings at both widths —
-// the section's h3 and its h4s sit above the body size, on
-// the desktop and at the phone width alike. (The h4s once had
-// no size of their own and rendered at body size.)
+// the Account view's heading and its h4s sit above the body
+// size, on the desktop and at the phone width alike. (The
+// h4s once had no size of their own and rendered at body
+// size.)
 const headingSizes = () => page.evaluate(() => {
   const size = (sel) => {
     const el = document.querySelector(sel);
@@ -2910,8 +2909,8 @@ const headingSizes = () => page.evaluate(() => {
   };
   return {
     body: parseFloat(getComputedStyle(document.body).fontSize),
-    h3: size("#settings-account h3"),
-    h4: size("#settings-account h4"),
+    h3: size("#account-heading"),
+    h4: size("#account-page h4"),
   };
 });
 const sizesWide = await headingSizes();
@@ -2953,8 +2952,7 @@ await page.setViewportSize({ width: 1280, height: 900 });
   await bp.fill('input[name="password"]', B_PASSWORD);
   await bp.click('button[type="submit"]');
   await bp.waitForSelector("#board-ui:not([hidden])", { timeout: 15000 });
-  await bp.click("#settings-open");
-  await bp.click('[data-settings-page="settings-account"]');
+  await bp.click("#account-open");
   await bp.waitForSelector("#account-passkey-add", { timeout: 10000 });
   await bp.fill("#account-passkey-nickname", "B's reset walk device");
   await bp.click("#account-passkey-add");
@@ -2997,8 +2995,7 @@ await page.setViewportSize({ width: 1280, height: 900 });
     !!meAfterB && meAfterB.passkeys.length === 1 &&
       (meAfterB.passkeys[0].nickname || "") !== "B's reset walk device",
     JSON.stringify(meAfterB && meAfterB.passkeys));
-  await bp.click("#settings-open");
-  await bp.click('[data-settings-page="settings-account"]');
+  await bp.click("#account-open");
   await bp.waitForSelector("#account-passkeys-list", { timeout: 10000 });
   const bListAfter = await bp.locator("#account-passkeys-list").innerText();
   check("#133: B's Account page agrees — the old passkey is gone, the new one stands",
@@ -3249,11 +3246,10 @@ await setModePhone("chip");
 phonePaint = await phonePaintOf(MULTI);
 check("paint: back at chip the phone's faces are plain again",
   phonePaint.paint === null, "paint=" + phonePaint.paint);
-await phone.click("#settings-open");
-await phone.click('[data-settings-page="settings-account"]');
+await phone.click("#account-open");
 await phone.waitForSelector("#account-name-input", { timeout: 10000 });
 await phone.screenshot({ path: join(OUT, "account-390.png") });
-await phone.click("#settings-close").catch(() => {});
+await phone.click("#account-close").catch(() => {});
 await phone.click('.step-btn[data-column="inbox"]');
 await phone.waitForSelector(".card .card-title:text-is(\"" + KEY_TITLE + "\")", { timeout: 10000 });
 await phone.screenshot({ path: join(OUT, "creator-tag-390.png") });
@@ -3382,8 +3378,7 @@ await phone.click("#settings-close").catch(() => {});
   }));
   await side.reload({ waitUntil: "domcontentloaded" });
   await side.waitForSelector("#board-ui:not([hidden])", { timeout: 15000 });
-  await side.click("#settings-open");
-  await side.click('[data-settings-page="settings-account"]');
+  await side.click("#account-open");
   await side.waitForFunction(
     () => (document.getElementById("account-auth-note") || {}).textContent
       .includes("Sign-in settings are not available"),
@@ -3443,17 +3438,16 @@ await phone.click("#settings-close").catch(() => {});
   });
   await side.reload({ waitUntil: "domcontentloaded" });
   await side.waitForSelector("#board-ui:not([hidden])", { timeout: 15000 });
-  await side.click("#settings-open");
-  await side.click('[data-settings-page="settings-account"]');
+  await side.click("#account-open");
   await side.waitForSelector("#account-name", { timeout: 10000 });
   check("#114: the Account page has no email element left",
     (await side.locator("#account-email").count()) === 0 &&
       (await side.locator("#account-email-wrap").count()) === 0, "");
-  const signedInLine = await side.locator("#settings-account p").first().textContent();
+  const signedInLine = await side.locator("#account-page p").first().textContent();
   check("#114: the signed-in line is the name alone",
     (signedInLine || "").trim() === "Signed in as " + servedName + ".",
     (signedInLine || "").slice(0, 60));
-  const accountText = await side.locator("#settings-account").innerText();
+  const accountText = await side.locator("#account-page").innerText();
   check("#114: no address stands anywhere on the Account page",
     !accountText.includes("drill-a@example.test") && !accountText.includes("@"),
     accountText.replace(/\s+/g, " ").slice(0, 90));
@@ -3687,8 +3681,7 @@ await phone.click("#settings-close").catch(() => {});
         { method: "DELETE" });
     }
   });
-  await ipage.click("#settings-open");
-  await ipage.click('[data-settings-page="settings-account"]');
+  await ipage.click("#account-open");
   await ipage.waitForSelector("#account-passkey-add", { timeout: 10000 });
   // One enrolment through the Account page's own acts. A
   // fresh proof may be asked first: the panel opens, the
@@ -3762,8 +3755,7 @@ await phone.click("#settings-close").catch(() => {});
   // is not offered, and the line stands in its place.
   await ipage.goto(INSECURE + "/", { waitUntil: "domcontentloaded" });
   await ipage.waitForSelector("#board-ui:not([hidden])", { timeout: 15000 });
-  await ipage.click("#settings-open");
-  await ipage.click('[data-settings-page="settings-account"]');
+  await ipage.click("#account-open");
   await ipage.waitForSelector("#account-passkeys-list", { timeout: 10000 });
   await ipage.waitForFunction(
     () => (document.getElementById("account-passkeys-list") || { textContent: "" })
@@ -3884,8 +3876,7 @@ await phone.click("#settings-close").catch(() => {});
 // The act lands them on the sign-in page, and the key minted
 // earlier in this run is dead — the erasure took it with
 // everything else.
-await phone.click("#settings-open");
-await phone.click('[data-settings-page="settings-account"]');
+await phone.click("#account-open");
 await phone.waitForSelector("#account-delete-btn", { timeout: 10000 });
 await phone.click("#account-delete-btn");
 await phone.waitForSelector("#account-delete-backdrop:not([hidden])", { timeout: 10000 });
