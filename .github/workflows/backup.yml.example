@@ -41,6 +41,15 @@ name: Nightly backup
 # data a person deletes ages out of the exports within the same
 # 14 days.
 #
+# Every r2 command below carries --remote, and must keep it:
+# wrangler's r2 commands default to the runner's own local
+# emulation, so without the flag the put uploads to the
+# runner itself and the confirm step reads that same local
+# object back — a green run that stores nothing. The live
+# service learned that the hard way, its nightly runs green
+# while its bucket stood empty. The d1 export already
+# carries --remote for the same reason.
+#
 # The export and the bucket commands address the database and
 # the bucket by name, so this job never reads wrangler.toml. The
 # export's date timezone in the steps below is this copy's own:
@@ -90,15 +99,19 @@ jobs:
       - name: Store the export in R2
         run: |
           FILE="${{ steps.export.outputs.file }}"
-          npx --yes wrangler@4.153.0 r2 object put "<your-backups-bucket>/$FILE" --file="$FILE"
+          npx --yes wrangler@4.153.0 r2 object put "<your-backups-bucket>/$FILE" --file="$FILE" --remote
 
       - name: Confirm the backup landed
         # wrangler has no verb that lists a bucket's objects, so this
-        # step reads the stored object back and checks it is not
-        # empty: the proof that the upload arrived in the bucket.
+        # step reads the object back from the bucket and checks it
+        # is not empty. It reads through the same route the put
+        # wrote through, so it is a check, not proof: the proof
+        # that a backup landed is reading the bucket from outside
+        # the job — in the Cloudflare dashboard, or with any other
+        # tool — and finding the dated file standing there.
         run: |
           FILE="${{ steps.export.outputs.file }}"
-          npx --yes wrangler@4.153.0 r2 object get "<your-backups-bucket>/$FILE" --file=/tmp/tasksparkle-backup-check.sql
+          npx --yes wrangler@4.153.0 r2 object get "<your-backups-bucket>/$FILE" --file=/tmp/tasksparkle-backup-check.sql --remote
           test -s /tmp/tasksparkle-backup-check.sql
           rm -f /tmp/tasksparkle-backup-check.sql
 
