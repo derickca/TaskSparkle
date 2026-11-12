@@ -27,10 +27,11 @@
 //       will not guess which processes are the rig's.
 //   reap --match <part of the folder's path>
 //       For the interrupted run whose folder is already gone and
-//       whose state file went with it: stops every wrangler or
-//       workerd process whose working directory reads "(deleted)"
-//       and matches. The match is required, and nothing whose
-//       working directory still exists is ever touched.
+//       whose state file went with it: stops every process of the
+//       rig — the certs server and the Worker alike — whose working
+//       directory reads "(deleted)" and whose working directory or
+//       command line names the folder. The match is required, and
+//       nothing whose working directory still exists is ever touched.
 //   status --dir <folder>
 //       Prints the record and which of its processes still stand.
 //
@@ -264,11 +265,15 @@ async function reap() {
     if (!/^\d+$/.test(entry)) continue;
     let cwd = "";
     try { cwd = readlinkSync("/proc/" + entry + "/cwd"); } catch { continue; }
-    if (!cwd.endsWith(" (deleted)") || !cwd.includes(match)) continue;
+    if (!cwd.endsWith(" (deleted)")) continue;
     let cmd = "";
     try { cmd = readFileSync("/proc/" + entry + "/cmdline", "utf8").replace(/\0/g, " "); }
     catch { continue; }
-    if (!/wrangler|workerd/.test(cmd)) continue;
+    // The rig's own processes are the ones tied to the deleted folder:
+    // its path stands in the working directory or on the command line.
+    // Matching program names instead missed the certs server, whose
+    // command line names the rig folder and nothing else (issue #86).
+    if (!cwd.includes(match) && !cmd.includes(match)) continue;
     let pgid = Number(entry);
     try {
       const stat = readFileSync("/proc/" + entry + "/stat", "utf8");
@@ -277,7 +282,7 @@ async function reap() {
     found.push({ pid: Number(entry), pgid, cwd, cmd });
   }
   if (found.length === 0) {
-    console.log("no orphaned wrangler or workerd process stands on a deleted folder matching " +
+    console.log("no orphaned rig process stands on a deleted folder matching " +
       match + ".");
     return;
   }

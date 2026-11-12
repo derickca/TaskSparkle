@@ -12,8 +12,8 @@
 //      folder is gone.
 //   B. The interrupted run: start a rig, delete its folder by hand
 //      (the sweep's mistake), and rig.mjs reap — matched on the
-//      folder's path — leaves no process whose working directory
-//      reads "(deleted)" and frees the port.
+//      folder's path — leaves no process of the rig standing
+//      (the certs server counts, issue #86) and frees both ports.
 //   C. The guard: rig.mjs stop on a folder with no state file
 //      refuses and deletes nothing.
 //
@@ -144,15 +144,16 @@ async function main() {
   check("B: the second rig starts", res.status === 0 && !!stateB);
   if (stateB) {
     rmSync(dirB, { recursive: true, force: true }); // the sweep's mistake
-    const orphans = orphansOf(dirB).filter((o) => /wrangler|workerd/.test(o.cmd));
+    const orphans = orphansOf(dirB);
     check("B: deleting the folder by hand does orphan the stack (the #157 shape)",
       orphans.length > 0, orphans.length + " processes with a deleted cwd");
     res = rig(["reap", "--match", dirB]);
     check("B: rig.mjs reap runs", res.status === 0, (res.stdout || "").trim().split("\n").pop() || "");
-    const left = orphansOf(dirB).filter((o) => /wrangler|workerd/.test(o.cmd));
+    const left = orphansOf(dirB);
     check("B: no orphan with the deleted folder as its cwd remains", left.length === 0,
       left.map((o) => o.pid).join(", "));
     check("B: the worker port is free after the reap", !(await portAnswers(WORKER_PORT)));
+    check("B: the certs port is free after the reap", !(await portAnswers(CERTS_PORT)));
     for (const g of stateB.groups) {
       const i = startedGroups.indexOf(g.pgid);
       if (i >= 0) startedGroups.splice(i, 1);
