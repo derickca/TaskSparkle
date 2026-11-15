@@ -1,0 +1,10 @@
+# The /ops road (issue #105, the Admin and Ops standard):
+# the copy's operator surface stands inside the app, at
+# Settings, then Admin, and /ops on the app's host exists
+# and leads to it. Pages reads this file from the site
+# root. The self-host server sends the same redirect from
+# its own code; the two are kept alike by hand, the way
+# _headers and the server's header list are. The surface
+# itself stays gated: the app steps into the Admin page
+# only when the people route answers for the caller.
+/ops  /?settings=admin  302
