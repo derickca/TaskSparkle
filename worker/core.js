@@ -2528,6 +2528,8 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         await db.prepare("INSERT INTO api_tokens (id, owner_id, label, token_hash, last4, created_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?, NULL)")
           .bind(keyId, owner.id, keyName, await sha256Hex(fullKey), fullKey.slice(-4), keyStamp).run();
         noteChange();
+        await writeAudit(db, owner, "api-key-minted", { id: keyId },
+          "last4 " + fullKey.slice(-4));
         return json({ key: fullKey, id: keyId, name: keyName, last4: fullKey.slice(-4), created_at: keyStamp }, 201);
       }
       if (method === "DELETE") {
@@ -2557,7 +2559,11 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         // with it the key itself, stands exactly as it was.
         await db.prepare("UPDATE api_tokens SET label = ? WHERE id = ? AND owner_id = ?")
           .bind(cleanKeyName, theToken.id, owner.id).run();
-        if (cleanKeyName !== (theToken.label || "")) noteChange();
+        if (cleanKeyName !== (theToken.label || "")) {
+          noteChange();
+          await writeAudit(db, owner, "api-key-renamed", { id: theToken.id },
+            "last4 " + (theToken.last4 || ""));
+        }
         return json({ key: { id: theToken.id, name: cleanKeyName, last4: theToken.last4 || "", created_at: theToken.created_at } });
       }
       if (method === "DELETE") {
@@ -2568,6 +2574,8 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         await db.prepare("UPDATE api_tokens SET revoked_at = ? WHERE id = ? AND owner_id = ?")
           .bind(nowIso(), theToken.id, owner.id).run();
         noteChange();
+        await writeAudit(db, owner, "api-key-revoked", { id: theToken.id },
+          "last4 " + (theToken.last4 || ""));
         // The cards whose next step was this key's come back to
         // the owner (issue #119): a deleted key holds nothing,
         // and a card it was handed waits for nobody — it stands
@@ -3957,12 +3965,14 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
       if ((p = match(parts, ["api", "auth", "proof", "password"]))) {
         if (method === "POST") {
           if (await throttleLocked(authDb2, source, account.key)) {
+            await writeSignInRefusal(authDb2, account, account, "security proof; locked");
             return error("Too many tries. Wait a little, then try again.", 429);
           }
           var proofBody = await readBody(request);
           var proofOk = proofBody && await checkOwnPassword(proofBody.password || "");
           if (!proofOk) {
             await noteThrottleFailure(authDb2, source, account.key, sourceCapMs);
+            await writeSignInRefusal(authDb2, account, account, "security proof; password");
             return error("That password did not match.", 401);
           }
           await clearThrottle(authDb2, source, account.key);
@@ -3975,6 +3985,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
       if ((p = match(parts, ["api", "auth", "proof", "passkey", "options"]))) {
         if (method === "POST") {
           if (await throttleLocked(authDb2, source, account.key)) {
+            await writeSignInRefusal(authDb2, account, account, "passkey proof; locked");
             return error("Too many tries. Wait a little, then try again.", 429);
           }
           var myCreds = await listPasskeys(authDb2, account.key);
@@ -3996,11 +4007,13 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
           var proofVerifyBody = await readBody(request);
           var proofRefused = error("That passkey tap did not prove you.", 401);
           if (!proofVerifyBody || !proofVerifyBody.response || !proofVerifyBody.response.id) {
+            await writeSignInRefusal(authDb2, account, account, "passkey proof; proof");
             return proofRefused;
           }
           var proofPasskey = await getPasskey(authDb2, proofVerifyBody.response.id);
           if (!proofPasskey || proofPasskey.account_key !== account.key) {
             await noteThrottleFailure(authDb2, source, account.key, sourceCapMs);
+            await writeSignInRefusal(authDb2, account, account, "passkey proof; credential");
             return proofRefused;
           }
           var proofClientChallenge = null;
@@ -4012,6 +4025,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
           if (!proofClientChallenge ||
               !(await spendChallenge(authDb2, proofClientChallenge, "assert", account.key))) {
             await noteThrottleFailure(authDb2, source, account.key, sourceCapMs);
+            await writeSignInRefusal(authDb2, account, account, "passkey proof; challenge");
             return proofRefused;
           }
           try {
@@ -4023,6 +4037,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
             });
           } catch (e) {
             await noteThrottleFailure(authDb2, source, account.key, sourceCapMs);
+            await writeSignInRefusal(authDb2, account, account, "passkey proof; proof");
             return proofRefused;
           }
           await notePasskeyUse(authDb2, proofPasskey.credential_id, proofVerified.signCount);
@@ -4179,10 +4194,12 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
           var pwProofVia = null;
           if (pwBody.current_password != null) {
             if (await throttleLocked(authDb2, source, account.key)) {
+              await writeSignInRefusal(authDb2, account, account, "password change; locked");
               return error("Too many tries. Wait a little, then try again.", 429);
             }
             if (!(await checkOwnPassword(pwBody.current_password))) {
               await noteThrottleFailure(authDb2, source, account.key, sourceCapMs);
+              await writeSignInRefusal(authDb2, account, account, "password change; password");
               return error("That password did not match.", 401);
             }
             await clearThrottle(authDb2, source, account.key);

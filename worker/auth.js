@@ -3123,6 +3123,18 @@ export function createAuthHandlers(deps) {
   // first account is created only when a credential verifies
   // — born with no password and its first passkey standing,
   // its session stamped with the passkey as its proof.
+  // A refused sign-in writes its audit entry through here
+  // (issue #104): the actor stands unnamed at the door, the
+  // target names the account the attempt aimed at when one
+  // stands, and the detail is a fixed phrase — never anything
+  // the caller typed.
+  async function signInRefusal(targetAccount, detail) {
+    await writeSignInRefusal(authDb, null, targetAccount, detail);
+  }
+  function refusalWords(base, targetAccount) {
+    return targetAccount ? base : base + "; no account";
+  }
+
   async function handleSetupPasskeyOptions(request) {
     var source = cfg.sourceOf(request);
     var refused = function (msg, status) {
@@ -3132,6 +3144,7 @@ export function createAuthHandlers(deps) {
       return refused("The first account already stands.");
     }
     if (await throttleLocked(authDb, source, null)) {
+      await signInRefusal(null, "setup passkey; locked");
       return refused("Too many tries. Wait a little, then try again.", 429);
     }
     var body = null;
@@ -3141,11 +3154,13 @@ export function createAuthHandlers(deps) {
       return refused("That name cannot be used. Pick another name and try again.");
     }
     if (!(await setupCodeConfigured())) {
+      await signInRefusal(null, "setup passkey; code");
       return refused("No setup code is set on this copy yet. A setup code must be " +
         "set first — it lives in this copy's deployment settings.");
     }
     if (!(await setupCodeOk(body && body.code))) {
       await noteThrottleFailure(authDb, source, null, cfg.sourceCapMs);
+      await signInRefusal(null, "setup passkey; code");
       return refused("That setup code did not match. Check it and try again.");
     }
     var handle = b64uEncode(randomBytes(32));
@@ -3166,11 +3181,15 @@ export function createAuthHandlers(deps) {
     }
     var body = null;
     try { body = await request.json(); } catch (e) { body = null; }
-    if (!body || !body.response) return refused("That passkey could not be enrolled.");
+    if (!body || !body.response) {
+      await signInRefusal(null, "setup passkey; proof");
+      return refused("That passkey could not be enrolled.");
+    }
     var challengeB64u = ceremonyChallenge(body);
     var found = challengeB64u
       ? await findChallenge(authDb, challengeB64u, "spend", null) : null;
     if (!found || !found.payload || !found.payload.setup) {
+      await signInRefusal(null, "setup passkey; challenge");
       return refused("That passkey could not be enrolled.");
     }
     var url = new URL(request.url);
@@ -3180,9 +3199,11 @@ export function createAuthHandlers(deps) {
         challengeB64u: challengeB64u, origin: url.origin, rpId: url.hostname,
       });
     } catch (e) {
+      await signInRefusal(null, "setup passkey; proof");
       return refused("That passkey could not be enrolled: " + e.message);
     }
     if (!(await spendChallenge(authDb, challengeB64u, "spend", null))) {
+      await signInRefusal(null, "setup passkey; challenge");
       return refused("That passkey could not be enrolled.");
     }
     // First-wins, in the setup insert's own atomic shape, at
@@ -3222,8 +3243,16 @@ export function createAuthHandlers(deps) {
       return authJson({ error: msg }, status || 400);
     };
     var row = await findInvite(authDb, code);
-    if (!inviteUsable(row)) return refused("This invite link does not work.");
+    if (!inviteUsable(row)) {
+      var deadAccount = row ? await getAccount(authDb, row.key) : null;
+      await signInRefusal(deadAccount,
+        refusalWords("invite passkey; link not usable", deadAccount));
+      return refused("This invite link does not work.");
+    }
     if (await throttleLocked(authDb, source, row.key)) {
+      var lockedAccount = await getAccount(authDb, row.key);
+      await signInRefusal(lockedAccount,
+        refusalWords("invite passkey; locked", lockedAccount));
       return refused("Too many tries. Wait a little, then try again.", 429);
     }
     var body = null;
@@ -3285,17 +3314,26 @@ export function createAuthHandlers(deps) {
       return authJson({ error: msg }, status || 400);
     };
     var row = await findInvite(authDb, code);
-    if (!inviteUsable(row)) return refused("This invite link does not work.");
+    if (!inviteUsable(row)) {
+      var deadAccount = row ? await getAccount(authDb, row.key) : null;
+      await signInRefusal(deadAccount,
+        refusalWords("invite passkey; link not usable", deadAccount));
+      return refused("This invite link does not work.");
+    }
     var account = await getAccount(authDb, row.key);
     var body = null;
     try { body = await request.json(); } catch (e) { body = null; }
-    if (!body || !body.response) return refused("That passkey could not be enrolled.");
+    if (!body || !body.response) {
+      await signInRefusal(account, "invite passkey; proof");
+      return refused("That passkey could not be enrolled.");
+    }
     var challengeB64u = ceremonyChallenge(body);
     var found = challengeB64u ? await findChallenge(authDb, challengeB64u,
       "spend", account ? row.key : null) : null;
     var codeHash = await sha256Hex(code);
     if (!found || !found.payload || found.payload.codeHash !== codeHash ||
         found.payload.setup) {
+      await signInRefusal(account, "invite passkey; challenge");
       return refused("That passkey could not be enrolled.");
     }
     // A password account's ceremony is the start-fresh
@@ -3311,10 +3349,14 @@ export function createAuthHandlers(deps) {
       }
       resetPassword = String(body.password || "");
       if (resetPassword !== String(body.confirm || "")) {
+        await signInRefusal(account, "invite passkey; password");
         return refused("The two passwords did not match.");
       }
       var resetProblem = passwordProblem(resetPassword, account.name);
-      if (resetProblem) return refused(resetProblem);
+      if (resetProblem) {
+        await signInRefusal(account, "invite passkey; password");
+        return refused(resetProblem);
+      }
     }
     var url = new URL(request.url);
     var registered;
@@ -3323,18 +3365,23 @@ export function createAuthHandlers(deps) {
         challengeB64u: challengeB64u, origin: url.origin, rpId: url.hostname,
       });
     } catch (e) {
+      await signInRefusal(account, "invite passkey; proof");
       return refused("That passkey could not be enrolled: " + e.message);
     }
     if (await getPasskey(authDb, registered.credentialId)) {
+      await signInRefusal(account, "invite passkey; credential");
       return refused("That passkey already stands on an account.");
     }
     if (!(await spendChallenge(authDb, challengeB64u, "spend",
         account ? row.key : null))) {
+      await signInRefusal(account, "invite passkey; challenge");
       return refused("That passkey could not be enrolled.");
     }
     if (!(await spendInvite(authDb, code))) {
       // A second press landed first; this one is a refusal,
       // and no account is made on a spent invite.
+      await signInRefusal(account,
+        refusalWords("invite passkey; link not usable", account));
       return refused("This invite link does not work.");
     }
     if (isResetSpend) {
@@ -3429,10 +3476,12 @@ export function createAuthHandlers(deps) {
       }
       return res;
     };
+    var account = await getAccount(authDb, key);
     if (await throttleLocked(authDb, source, key)) {
+      await signInRefusal(account,
+        refusalWords("password sign-in; locked", account));
       return refusal("/login?error=locked");
     }
-    var account = await getAccount(authDb, key);
     // The passwordless case on the name-listing door (issue
     // #144): the account holds no password, so the box below
     // could never be satisfied. The refusal names the case
@@ -3441,11 +3490,14 @@ export function createAuthHandlers(deps) {
     // tell a stranger which names hold no password. No
     // throttle note: nothing was guessed wrong.
     if (cfg.listNames && account && !account.password_hash) {
+      await signInRefusal(account, "password sign-in; no password");
       return refusal("/login?error=nopassword");
     }
     var ok = await checkPassword(account, form.get("password") || "");
     if (!account || !ok) {
       await noteThrottleFailure(authDb, source, key, cfg.sourceCapMs);
+      await signInRefusal(account,
+        refusalWords("password sign-in; password", account));
       return refusal("/login?error=1");
     }
     await clearThrottle(authDb, source, key);
@@ -3469,6 +3521,7 @@ export function createAuthHandlers(deps) {
       return authRedirect("/login?error=taken");
     }
     if (await throttleLocked(authDb, source, null)) {
+      await signInRefusal(null, "setup; locked");
       return authRedirect("/login?error=locked");
     }
     var display = String(form.get("name") || "").trim();
@@ -3478,10 +3531,12 @@ export function createAuthHandlers(deps) {
     if (!(await setupCodeConfigured())) {
       // Not a guessing failure: no throttle note, and the
       // refusal names the missing setting (issue #153).
+      await signInRefusal(null, "setup; code");
       return authRedirect("/login?error=nocode");
     }
     if (!(await setupCodeOk(form.get("code")))) {
       await noteThrottleFailure(authDb, source, null, cfg.sourceCapMs);
+      await signInRefusal(null, "setup; code");
       return authRedirect("/login?error=code");
     }
     var password = String(form.get("password") || "");
@@ -3489,6 +3544,7 @@ export function createAuthHandlers(deps) {
     var setupRefusal = passwordRefusalKey(password, confirm, display);
     if (setupRefusal) {
       await noteThrottleFailure(authDb, source, null, cfg.sourceCapMs);
+      await signInRefusal(null, "setup; password");
       return authRedirect("/login?error=" + setupRefusal);
     }
     var key = nameKey(display);
@@ -3516,10 +3572,16 @@ export function createAuthHandlers(deps) {
     var form = new URLSearchParams(await request.text());
     var row = await findInvite(authDb, code);
     if (await throttleLocked(authDb, source, row ? row.key : null)) {
+      var lockedAccount = row ? await getAccount(authDb, row.key) : null;
+      await signInRefusal(lockedAccount,
+        refusalWords("invite spend; locked", lockedAccount));
       return authRedirect(back + "?error=locked");
     }
     if (!inviteUsable(row)) {
       await noteThrottleFailure(authDb, source, row ? row.key : null, cfg.sourceCapMs);
+      var deadAccount = row ? await getAccount(authDb, row.key) : null;
+      await signInRefusal(deadAccount,
+        refusalWords("invite spend; link not usable", deadAccount));
       return authRedirect(back);
     }
     var standing = await getAccount(authDb, row.key);
@@ -3536,6 +3598,8 @@ export function createAuthHandlers(deps) {
     var spendRefusal = passwordRefusalKey(password, confirm, row.name);
     if (spendRefusal) {
       await noteThrottleFailure(authDb, source, row.key, cfg.sourceCapMs);
+      await signInRefusal(standing,
+        refusalWords("invite spend; password", standing));
       return authRedirect(back + "?error=" + spendRefusal);
     }
     var account = standing;
@@ -3557,6 +3621,8 @@ export function createAuthHandlers(deps) {
     if (!(await spendInvite(authDb, code))) {
       // A second press landed first; this one is a refusal.
       await noteThrottleFailure(authDb, source, row.key, cfg.sourceCapMs);
+      await signInRefusal(standing,
+        refusalWords("invite spend; link not usable", standing));
       return authRedirect(back);
     }
     var hash = await hashPassword(password);
@@ -3602,6 +3668,7 @@ export function createAuthHandlers(deps) {
     // issuance needs no account, so the lock gate is what keeps
     // the cheapest anonymous write bounded (section 7).
     if (await throttleLocked(authDb, source, null)) {
+      await signInRefusal(null, "passkey sign-in; locked");
       return authJson({ error: "Too many tries. Wait a little, then try again." }, 429);
     }
     var url = new URL(request.url);
@@ -3619,15 +3686,20 @@ export function createAuthHandlers(deps) {
     var body = null;
     try { body = await request.json(); } catch (e) { body = null; }
     var refused = authJson({ error: "That passkey did not sign you in." }, 401);
-    if (!body || !body.id) return refused;
+    if (!body || !body.id) {
+      await signInRefusal(null, "passkey sign-in; proof; no account");
+      return refused;
+    }
     var passkey = await getPasskey(authDb, body.id);
     if (!passkey) {
       await noteThrottleFailure(authDb, source, null, cfg.sourceCapMs);
+      await signInRefusal(null, "passkey sign-in; credential; no account");
       return refused;
     }
     var account = await getAccount(authDb, passkey.account_key);
     if (!account) {
       await noteThrottleFailure(authDb, source, null, cfg.sourceCapMs);
+      await signInRefusal(null, "passkey sign-in; proof; no account");
       return refused;
     }
     var url = new URL(request.url);
@@ -3643,6 +3715,7 @@ export function createAuthHandlers(deps) {
     if (!clientChallenge ||
         !(await spendChallenge(authDb, clientChallenge, "assert", null))) {
       await noteThrottleFailure(authDb, source, account.key, cfg.sourceCapMs);
+      await signInRefusal(account, "passkey sign-in; challenge");
       return refused;
     }
     try {
@@ -3654,6 +3727,7 @@ export function createAuthHandlers(deps) {
       });
     } catch (e) {
       await noteThrottleFailure(authDb, source, account.key, cfg.sourceCapMs);
+      await signInRefusal(account, "passkey sign-in; proof");
       return refused;
     }
     await notePasskeyUse(authDb, passkey.credential_id, verified.signCount);

@@ -753,6 +753,26 @@ check("keys: a revoked key stops at once", res.status === 401, "status " + res.s
 res = await a.agentCall("GET", "/api/v1/state", key2);
 check("keys: the other key still works", res.status === 200, "status " + res.status);
 
+// The key changes above wrote their audit entries (issue
+// #104), read back from the data file the instance keeps
+// (self-host mode only — the hosted shape's store is not a
+// file this drill can open).
+if (MODE === "selfhost" && args["server-config"]) {
+  const cfgK = JSON.parse(readFileSync(args["server-config"], "utf8"));
+  const fileK = join(dirname(args["server-config"]), String(cfgK.dataDir || "data"), "tasksparkle.sqlite");
+  const roK = new DatabaseSync(fileK, { readOnly: true });
+  const keyRows = roK.prepare(
+    "SELECT act, detail FROM auth_audit WHERE target_id = ?"
+  ).all(key1Id).map((r) => r.act + "|" + r.detail);
+  roK.close();
+  check("audit: a key's mint, rename and revoke each write their entry, naming the key's last four",
+    keyRows.length === 3 &&
+      keyRows.includes("api-key-minted|last4 " + key1.slice(-4)) &&
+      keyRows.includes("api-key-renamed|last4 " + key1.slice(-4)) &&
+      keyRows.includes("api-key-revoked|last4 " + key1.slice(-4)),
+    keyRows.join(" | "));
+}
+
 // --- Directions ------------------------------------------------------------------
 res = await a.agentCall("GET", "/api/v1/directions", key2);
 check("directions: a key reads them as plain text",
@@ -1875,6 +1895,19 @@ if (MODE === "selfhost") {
     after.status === 302 && setsCookie(after) &&
       (after.headers.location || "") === "/",
     "status " + after.status + " location " + after.headers.location);
+  // The refusals above wrote their audit entries (issue
+  // #104): no actor at the door, the target the account the
+  // attempts aimed at, the details the fixed phrases.
+  const roRef = new DatabaseSync(dataFile, { readOnly: true });
+  const acctA = roRef.prepare("SELECT id FROM accounts WHERE name = ?").get(NAME_A);
+  const refusalRows = roRef.prepare(
+    "SELECT detail FROM auth_audit WHERE act = 'sign-in-refused' AND actor_id IS NULL AND target_id = ?"
+  ).all(acctA.id).map((r) => r.detail);
+  roRef.close();
+  check("#104: a refused sign-in writes its audit entry — the wrong password and the lock both stand",
+    refusalRows.includes("password sign-in; password") &&
+      refusalRows.includes("password sign-in; locked"),
+    "details " + refusalRows.join(" | "));
 }
 
 // --- The agent door takes keys only (worker mode) ----------------------------------
