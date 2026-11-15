@@ -45,7 +45,7 @@ A key reads and writes only its own person's boards.
 
 Signing in is passkey-first: a person signs in with a passkey, or with their own name and password as the fallback. The door is the same on both ways of running. The password is at least 12 characters and is stored as a salted hash built to make testing a guess expensive; a passkey sign-in proves itself with a one-time challenge answered by the person's device.
 
-A sign-in lasts 30 days. It is a server-side session, not a token the browser holds the truth of: signing out ends it at the server, the person's sign-out-everywhere ends all of them, an administrator can end a person's sessions from the Admin page, and spending a password reset link ends them too. Signing in again turns the session over, so a stolen older cookie dies at the next honest sign-in.
+A sign-in lasts 90 days. It is a server-side session, not a token the browser holds the truth of: signing out ends it at the server, the person's sign-out-everywhere ends all of them, an administrator can end a person's sessions from the Admin page, and spending a password reset link ends them too. Signing in again turns the session over, so a stolen older cookie dies at the next honest sign-in.
 
 On a hosted copy the sign-in page takes a typed name — the site is public, so no list of names stands on it. On a home copy the page lists the names of the accounts that stand, and the person picks theirs. That is the door's one visible difference.
 

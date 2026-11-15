@@ -140,7 +140,7 @@ A new account chooses its first way in on the setup or invite page. The page sta
 
 Security changes ask for a fresh proof from the last ten minutes. The first passkey can be enrolled after a fresh password proof. Once a passkey stands, enrolling another passkey takes a passkey proof.
 
-A session is a server-side record. It lasts 30 days and can be revoked. Sign-in rotates the session. A password change and other privilege changes rotate it too.
+A session is a server-side record. It lasts 90 days and can be revoked. Sign-in rotates the session. A password change and other privilege changes rotate it too.
 
 Passkeys need an address the browser trusts. At an ordinary HTTP address, the sign-in page offers the password way only. The page says that the site is not encrypted.
 

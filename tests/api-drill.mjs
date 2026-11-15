@@ -2375,7 +2375,7 @@ if (MODE === "worker") {
   // -- Sessions renew quietly with use (issue #47), and the
   //    account read names whether this copy takes passwords
   //    (issue #46) ------------------------------------------------
-  // A session's end stands 30 days from its creation today,
+  // A session's end stands 90 days from its creation today,
   // however much the person uses it. Activity is to move the
   // end out to the standing length from the activity, riding
   // the same hourly stamp as the last-seen mark, and a session
@@ -2403,7 +2403,7 @@ if (MODE === "worker") {
     check("#47: the aged session still answers", usedR.status === 200, "status " + usedR.status);
     const renewedRow = newestRow();
     check("#47: use moves the session's end out to the standing length",
-      renewedRow.expires_at > Date.now() + 29 * 24 * 60 * 60 * 1000,
+      renewedRow.expires_at > Date.now() + 89 * 24 * 60 * 60 * 1000,
       "expires_at " + renewedRow.expires_at + " (aged to " + agedEnd + ")");
     check("#47: the renewal rides the last-seen stamp",
       renewedRow.last_seen_at > Date.now() - 5 * 60 * 1000,
