@@ -1075,6 +1075,47 @@ function cssVarOf(block, name, tokenMap) {
       "/icons/icon-64.png", "/icons/icon.svg"]) {
     lives(p, DAY);
   }
+  // The page line, the pinned stylesheet's long life and rule
+  // 3's lives for the token sheet and the fonts (issue #102,
+  // the Site and Email audit): the page states the
+  // revalidation line, the stylesheet's address carries the
+  // build pin so it rides the long life, and the stable names
+  // take the hour.
+  const PAGE = "Cache-Control: max-age=0, must-revalidate";
+  const LONG = "Cache-Control: public, max-age=31536000, immutable";
+  for (const p of ["/", "/index.html"]) {
+    lives(p, PAGE);
+  }
+  lives("/styles.css", LONG);
+  for (const p of ["/tokens.css", "/fonts/comfortaa-bold.woff2",
+      "/fonts/bricolage-grotesque.woff2"]) {
+    lives(p, HOUR);
+  }
+  // Part 8, rule 1: the page line carries no no-transform —
+  // the word stops compression and weakens the ETag — on
+  // either road's copy of the line.
+  if (headers.includes("no-transform")) {
+    failures.push("public/_headers carries no-transform (Part 8, rule 1)");
+  }
+  if (auth.includes("no-transform")) {
+    failures.push("worker/auth.js's page line carries no-transform " +
+      "(Part 8, rule 1)");
+  }
+  // The self-host server's copy of the lives, pinned the same
+  // way: the two lists are kept alike by hand, and this is
+  // the hand's check.
+  const server = readFileSync(join(ROOT, "server", "server.mjs"), "utf8");
+  if (!server.includes('headers["Cache-Control"] = "max-age=0, must-revalidate"')) {
+    failures.push("server/server.mjs does not state the page's " +
+      "revalidation line (Part 8, rule 1)");
+  }
+  if (!server.includes('headers["Cache-Control"] = "public, max-age=31536000, immutable"')) {
+    failures.push("server/server.mjs does not give the pinned " +
+      "stylesheet its long life (Part 8, rule 2)");
+  }
+  if (server.includes("no-transform")) {
+    failures.push("server/server.mjs carries no-transform (Part 8, rule 1)");
+  }
   if (failures.length) {
     console.error("Review fixes (deploy issues #214–#218): " +
       failures.join("; ") + ".");
@@ -1083,7 +1124,9 @@ function cssVarOf(block, name, tokenMap) {
   console.log("Review fixes: the Pilot tag stands beside the name at " +
     "the design's measure, the tile at 36px, the header order runs " +
     "Help and the toggle with no Feedback entry, the display face stands in /fonts, and " +
-    "_headers carries Part 8's short lives.");
+    "_headers carries Part 8's lives — the page's revalidation line " +
+    "with no no-transform, the pinned stylesheet's long life, the " +
+    "same-name files' hour and the icons' day.");
 }
 
 // The phone header's two rows (issue #90, carrying the live

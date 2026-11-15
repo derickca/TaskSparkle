@@ -4,8 +4,8 @@
 // this file is its local wrapper, the way worker/worker.js is the
 // Cloudflare one. What stands here is only what is local:
 //
-// - the static app, served from public/ with the same no-cache
-//   rules its _headers file declares on Cloudflare;
+// - the static app, served from public/ with the same cache
+//   lives its _headers file declares on Cloudflare;
 // - the sign-in pages, served by the shared sign-in code
 //   (worker/auth.js) with this copy's shape: a page listing the
 //   names of the accounts that stand, where a person picks
@@ -594,17 +594,22 @@ const CONTENT_TYPES = {
   ".txt": "text/plain; charset=utf-8",
 };
 // The cache lives public/_headers declares on Cloudflare,
-// kept alike here by hand in three sets: the page and its
-// sheets and the fonts revalidate on every load; the app
-// files whose names never change take one hour fresh, then
-// stale-while-revalidate for up to a day; the icons and the
-// favicon keep one day.
-const NO_CACHE = new Set([
-  "/", "/index.html", "/styles.css", "/tokens.css",
-  "/fonts/comfortaa-bold.woff2", "/fonts/bricolage-grotesque.woff2",
-]);
+// kept alike here by hand: the page states Part 8's
+// revalidation line and carries a weak ETag, worked out
+// once per file version below, with a 304 answer to a
+// revalidation carrying the tag; the waited-on stylesheet's
+// address carries the build pin, so it rides the long life
+// the pin earns; the files whose names never change — the
+// token sheet and the fonts with the app files — take one
+// hour fresh, then stale-while-revalidate for up to a day;
+// the icons and the favicon keep one day. ("/" arrives as
+// "/index.html": serveStatic normalizes it before the sets
+// are consulted.)
+const PAGE = new Set(["/index.html"]);
+const LONG_LIVED = new Set(["/styles.css"]);
 const HOUR_LIVED = new Set([
   "/boot.js", "/app.js", "/manifest.webmanifest", "/sw.js",
+  "/tokens.css", "/fonts/comfortaa-bold.woff2", "/fonts/bricolage-grotesque.woff2",
 ]);
 const DAY_LIVED = new Set([
   "/favicon.ico",
@@ -630,6 +635,38 @@ const SECURITY_HEADERS = {
 // the shared handlers that serve them (worker/auth.js) — the
 // set above is the app's alone.
 
+// The page's weak ETag (Part 8, rule 1), the same shape the
+// sign-in pages carry in worker/auth.js: worked out once per
+// file version and kept — the same bytes earn the same tag,
+// changed bytes a new one. A file's version here is its size
+// and mtime; the tag is hashed from the bytes only when the
+// version moves, never fresh on each request.
+const pageTags = new Map();
+function pageTagFor(rel, info, bytes) {
+  const version = info.size + ":" + info.mtimeMs;
+  const kept = pageTags.get(rel);
+  if (kept && kept.version === version) return kept.tag;
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < bytes.length; i++) {
+    hash ^= bytes[i];
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  const tag = "W/\"" + bytes.length.toString(36) + "-" + hash.toString(36) + "\"";
+  pageTags.set(rel, { version, tag });
+  return tag;
+}
+
+function ifNoneMatchHits(header, tag) {
+  if (!header) return false;
+  const mine = tag.slice(2);
+  for (const part of header.split(",")) {
+    const p = part.trim();
+    if (p === "*") return true;
+    if (p.replace(/^W\//, "") === mine) return true;
+  }
+  return false;
+}
+
 function serveStatic(req, res, pathname) {
   const rel = pathname === "/" ? "/index.html" : pathname;
   const file = resolve(PUBLIC_DIR, "." + rel);
@@ -643,12 +680,26 @@ function serveStatic(req, res, pathname) {
     "Content-Type": CONTENT_TYPES[extname(file).toLowerCase()] || "application/octet-stream",
     ...SECURITY_HEADERS,
   };
-  if (NO_CACHE.has(rel)) headers["Cache-Control"] = "no-cache";
-  else if (HOUR_LIVED.has(rel)) {
+  const bytes = readFileSync(file);
+  if (PAGE.has(rel)) {
+    headers["Cache-Control"] = "max-age=0, must-revalidate";
+    const tag = pageTagFor(rel, info, bytes);
+    headers["ETag"] = tag;
+    if ((req.method === "GET" || req.method === "HEAD") &&
+        ifNoneMatchHits(req.headers["if-none-match"], tag)) {
+      const bare = { ...headers };
+      delete bare["Content-Type"];
+      res.writeHead(304, bare);
+      res.end();
+      return;
+    }
+  } else if (LONG_LIVED.has(rel)) {
+    headers["Cache-Control"] = "public, max-age=31536000, immutable";
+  } else if (HOUR_LIVED.has(rel)) {
     headers["Cache-Control"] = "public, max-age=3600, stale-while-revalidate=86400";
   } else if (DAY_LIVED.has(rel)) headers["Cache-Control"] = "public, max-age=86400";
   res.writeHead(200, headers);
-  res.end(readFileSync(file));
+  res.end(bytes);
 }
 
 // --- The server --------------------------------------------------------------------
