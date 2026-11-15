@@ -20,6 +20,7 @@ Feature ideas are welcome as issues too. Say the problem first and the shape you
 Small, focused fixes are welcome as pull requests. Before sending one:
 
 - Run the checks: `npm test` runs the self-host drills end to end against a throwaway instance it starts itself. `npm run test:ui` adds the browser drill and needs the Playwright setup in `tests/README.md`.
+- Screenshot every view your change touches, at desktop and phone widths, and look at the screenshots before you push. tests/README.md names the views the browser drill already captures; a view outside that set is captured for the change.
 - A bug fix starts with a test that fails without the fix. The drills in `tests/` are where tests live; `tests/README.md` explains each one.
 - Keep one change per pull request. A pull request that fixes one thing gets read quickly; one that fixes five waits.
 

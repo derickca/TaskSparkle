@@ -1778,6 +1778,12 @@ try {
     { cwd: ROOT, stdio: ["ignore", "inherit", "inherit"] });
   if (!(await waitForServer())) {
     console.error("The throwaway server did not answer on " + BASE + " — the drills cannot run.");
+    // Clean up before exiting: process.exit skips the finally
+    // below, and a server still starting here would be left
+    // standing on the port for the next run to collide with
+    // (issue #123).
+    stopServer();
+    rmSync(scratch, { recursive: true, force: true });
     process.exit(1);
   }
 
