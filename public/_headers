@@ -19,9 +19,9 @@
 # The front page itself is a page (Site and Email Standards,
 # Part 8): it states the revalidation line in full.
 /
-  Cache-Control: max-age=0, must-revalidate, no-transform
+  Cache-Control: max-age=0, must-revalidate
 /index.html
-  Cache-Control: max-age=0, must-revalidate, no-transform
+  Cache-Control: max-age=0, must-revalidate
 /app.js
   Cache-Control: public, max-age=3600, stale-while-revalidate=86400
 # The build file the version check reads (issue #10): a short
@@ -29,10 +29,18 @@
 # itself. The app asks for it uncached in any case.
 /build.json
   Cache-Control: public, max-age=60
+# The stylesheet the page waits on: its address carries the
+# build pin (styles.css?v=<stamp>), so under Part 8's rule 2
+# and Part 9 it rides the long life the pin earns — a new
+# build is a new address, never changed bytes at an old one.
 /styles.css
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=31536000, immutable
+# The token sheet's name is stable — no pin rides on its
+# address (styles.css imports it bare) — so it takes rule 3's
+# shape with the app files: one hour fresh, then
+# stale-while-revalidate for up to a day.
 /tokens.css
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
 # The manifest and the worker script take the same-name life
 # with the app files. The manifest also names its own content
 # type, the one browsers ask for by name.
@@ -57,9 +65,10 @@
   Cache-Control: public, max-age=86400
 /icons/icon.svg
   Cache-Control: public, max-age=86400
-# The fonts revalidate, so a new cut of either is what every
-# open gets.
+# The fonts' names are stable too, so they take rule 3's
+# shape: one hour fresh, then stale-while-revalidate for a
+# day.
 /fonts/comfortaa-bold.woff2
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400
 /fonts/bricolage-grotesque.woff2
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400

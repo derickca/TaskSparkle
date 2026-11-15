@@ -10,9 +10,10 @@
 // a browser holding old app files against a newer service stalled
 // on the loading line (issue #4). Freshness here belongs to the
 // cache headers on the app files and to the app's own build-stamp
-// check on every open, which reloads a stale copy itself. This
-// worker must never blunt either one, so it answers no request
-// from storage and stores nothing.
+// check on every open: on a mismatch the app raises its standing
+// "Updated — Refresh now" notice and never reloads itself — the
+// person presses it. This worker must never blunt either one,
+// so it answers no request from storage and stores nothing.
 //
 // The fetch handler is a straight pass-through, named because
 // installability checks look for one. Changing this file's bytes

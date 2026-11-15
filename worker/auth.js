@@ -2712,7 +2712,7 @@ function ifNoneMatchHits(header, tag) {
 function authHtml(html, request) {
   var headers = {
     "content-type": "text/html; charset=utf-8",
-    "cache-control": "max-age=0, must-revalidate, no-transform",
+    "cache-control": "max-age=0, must-revalidate",
     "content-security-policy":
       "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; " +
       "font-src 'self'; img-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
