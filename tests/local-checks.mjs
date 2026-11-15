@@ -1,7 +1,9 @@
 // TaskSparkle local checks: the one-command way to run the
 // standing drills on your own machine, with no Cloudflare account
-// and no live deployment involved. This is what `npm test` runs
-// and what the pull request checks run in GitHub.
+// and no live deployment involved. This is what `npm test` runs.
+// The pull request checks in GitHub run only the smoke tier
+// below; the full harness runs on the writer's own machine
+// before the push.
 //
 //     node tests/local-checks.mjs          the API drill (self-host
 //                                          mode) and the server drill
