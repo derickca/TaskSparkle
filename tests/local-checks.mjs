@@ -1105,7 +1105,7 @@ function cssVarOf(block, name, tokenMap) {
   }
   for (const p of ["/favicon.ico", "/icons/icon-192.png", "/icons/icon-512.png",
       "/icons/icon-maskable-512.png", "/icons/icon-180.png",
-      "/icons/icon-64.png", "/icons/icon.svg"]) {
+      "/icons/icon-64.png", "/icons/icon-32.png", "/icons/icon.svg"]) {
     lives(p, DAY);
   }
   // The page line, the pinned stylesheet's long life and rule

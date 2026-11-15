@@ -53,6 +53,8 @@
 # with them.
 /favicon.ico
   Cache-Control: public, max-age=86400
+/icons/icon-32.png
+  Cache-Control: public, max-age=86400
 /icons/icon-192.png
   Cache-Control: public, max-age=86400
 /icons/icon-512.png

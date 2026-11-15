@@ -796,7 +796,7 @@ export async function verifyAssertion(response, passkeyRow, expected) {
 // plainer in one unit, and both runtimes read them the same.
 
 export var INVITE_MS = 7 * 24 * 60 * 60 * 1000; // seven days
-export var SESSION_MS = 30 * 24 * 60 * 60 * 1000; // thirty days
+export var SESSION_MS = 90 * 24 * 60 * 60 * 1000; // ninety days
 export var CHALLENGE_MS = 5 * 60 * 1000; // five minutes
 export var PROOF_FRESH_MS = 10 * 60 * 1000; // the step-up window
 
@@ -1284,7 +1284,7 @@ export async function sessionFromRequest(authDb, request) {
 }
 
 // The Set-Cookie value that stands a session up, in the shape
-// both homes use: HttpOnly, SameSite=Lax, Path=/, thirty days.
+// both homes use: HttpOnly, SameSite=Lax, Path=/, ninety days.
 // Secure rides when the caller says the request arrived over
 // HTTPS — always on the hosted copy; on a home copy, when it
 // did (a Secure cookie over plain HTTP would never come back,

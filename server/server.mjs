@@ -615,7 +615,7 @@ const HOUR_LIVED = new Set([
 const DAY_LIVED = new Set([
   "/favicon.ico",
   "/icons/icon-192.png", "/icons/icon-512.png", "/icons/icon-maskable-512.png", "/icons/icon-180.png",
-  "/icons/icon-64.png", "/icons/icon.svg",
+  "/icons/icon-64.png", "/icons/icon-32.png", "/icons/icon.svg",
 ]);
 
 // The app's security headers (issue #70), the same set
