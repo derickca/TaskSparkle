@@ -83,6 +83,7 @@ import {
   removePasskey, notePasskeyUse, issueChallenge, spendChallenge,
   sessionFromRequest, touchSession, stampProof, rotateSession,
   revokeAccountSessions, writeAudit, recentAudit,
+  writeErrorLog, newRequestId, writeSignInRefusal,
   throttleLocked, noteThrottleFailure, clearThrottle,
   verifyPassword, hashPassword, isCurrentHash, passwordProblem,
   verifyRegistration, verifyAssertion, nameKey, nameProblem,
@@ -1902,6 +1903,9 @@ function match(parts, pattern) {
 export function createApiHandler(deps) {
   return async function handleApiRequest(request) {
     var env = deps.env;
+    // One id per request, carried to every error-log entry
+    // the request writes (issue #104).
+    var requestId = newRequestId();
 
   var url = new URL(request.url);
   var host = url.hostname;
@@ -2172,7 +2176,12 @@ export function createApiHandler(deps) {
     // A route that fails mid-change answers in the app's own
     // error shape rather than as an unhandled exception. A claim
     // held for the write is handed back first, so the version
-    // never rises for a change that did not land.
+    // never rises for a change that did not land. The throw
+    // itself stands in the error log (issue #104).
+    await writeErrorLog(authDb, {
+      place: "api route", signature: "unhandled-throw",
+      requestId: requestId, error: routeError
+    });
     if (claimedVersion != null) {
       await releaseClaim(db, owner.id, claimedVersion, claimedPrevStamp);
       owner.state_version = claimedVersion - 1;

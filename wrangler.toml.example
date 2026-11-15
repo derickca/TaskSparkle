@@ -85,6 +85,13 @@ bindings = [
 tag = "v1"
 new_sqlite_classes = ["OwnerPush"]
 
+# The daily log routine (the audit log's heartbeat and both
+# logs' closed-day proofs) runs on this trigger: 00:15 UTC
+# every day. The Worker's scheduled handler does the work;
+# without the trigger the hosted copy's days never close.
+[triggers]
+crons = ["15 0 * * *"]
+
 [vars]
 # The two doors' hosts. worker/worker.js reads these to tell the doors
 # apart (the agents' door takes keys only), to redirect the doors'

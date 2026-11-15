@@ -1809,6 +1809,158 @@ try {
     check("stop: the configured terms instance stops cleanly",
       (await stopServer(sTerms)) === 0, "exit " + sTerms.exited());
   }
+
+  // --- The two standard logs and their daily routine (issue #104) --------
+  // The Log Monitoring Standard's shape, exercised against a
+  // throwaway store: the error log's writer (a signature from
+  // the fixed list, a scrubbed message, a request id), the
+  // refusal writer, and the daily routine — one heartbeat a
+  // day through the audit writer, a closed-day proof for each
+  // log (digest and running total, computed once), and the
+  // error prune past seven days sparing open incidents.
+  {
+    const auth104 = await import("../worker/auth.js");
+    const schema104 = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "..", "worker", "schema.sql"), "utf8");
+    const logDb = openDatabase(join(scratch, "logs.sqlite"), schema104);
+    const DAY = 86400000;
+    const todayStart = Math.floor(Date.now() / DAY) * DAY;
+    const dayName = (ms) => new Date(ms).toISOString().slice(0, 10);
+    const rows = async (sql, ...binds) => {
+      try {
+        return (await logDb.prepare(sql).bind(...binds).all()).results;
+      } catch (e) { return null; }
+    };
+    const sha = (text) => createHash("sha256").update(text, "utf8").digest("hex");
+
+    const errAtStart = await rows("SELECT * FROM error_log ORDER BY rowid");
+    const auditDaysAtStart = await rows("SELECT * FROM auth_audit_days ORDER BY day");
+    const errDaysAtStart = await rows("SELECT * FROM error_log_days ORDER BY day");
+    check("#104: the error log and both proof tables stand",
+      errAtStart !== null && auditDaysAtStart !== null && errDaysAtStart !== null,
+      errAtStart === null ? "no error_log table" : "tables stand");
+
+    // The error writer: a listed signature stands as passed;
+    // the stored message is scrubbed before it is stored.
+    await auth104.writeErrorLog(logDb, {
+      place: "api route", signature: "downstream-failed",
+      message: "Relay failed for dana@example.test via https://hooks.example.com/x " +
+        "token msk_tasksparkle_1234567890abcdef fedcba0987654321\nsecond line",
+      requestId: "req-drill-104-a",
+    });
+    await auth104.writeErrorLog(logDb, {
+      place: "api route", signature: "a-name-nobody-registered",
+      message: "boom", requestId: "req-drill-104-b",
+    });
+    const written = await rows("SELECT * FROM error_log ORDER BY rowid");
+    const wA = written && written.find((r) => r.request_id === "req-drill-104-a");
+    const wB = written && written.find((r) => r.request_id === "req-drill-104-b");
+    check("#104: a written entry stands with when, where, signature and request id",
+      !!wA && wA.place === "api route" && wA.signature === "downstream-failed" && Number(wA.at) > 0,
+      wA ? wA.signature : "no row");
+    check("#104: the stored message is scrubbed — no email, no web address, no token, one line, capped",
+      !!wA && !/dana@example\.test/.test(wA.message) && !/hooks\.example\.com/.test(wA.message) &&
+        !/msk_tasksparkle/.test(wA.message) && !/\n/.test(wA.message) && wA.message.length <= 200,
+      wA ? wA.message : "no row");
+    check("#104: a signature outside the fixed list is stored under the unnamed code",
+      !!wB && wB.signature === "unnamed-error",
+      wB ? wB.signature : "no row");
+
+    // The refusal writer: the family's own act, no actor at
+    // the door, the target the refusal turned on.
+    await auth104.writeSignInRefusal(logDb, null, null, "password sign-in; password; no account");
+    await auth104.writeSignInRefusal(logDb, null, { id: "acct-drill-104" }, "password sign-in; locked");
+    const refusals = await rows("SELECT * FROM auth_audit WHERE act = 'sign-in-refused' ORDER BY rowid");
+    check("#104: refusals stand in the audit log with fixed phrases and no borrowed actor",
+      !!refusals && refusals.length === 2 && refusals[0].actor_id === null &&
+        refusals[0].target_id === null && refusals[1].target_id === "acct-drill-104" &&
+        refusals[0].detail === "password sign-in; password; no account",
+      refusals ? refusals.length + " rows" : "no rows");
+
+    // The audit day proof: two entries on a closed day, then
+    // the routine. The digest recomputes from the rows alone.
+    const auditDay = todayStart - 3 * DAY;
+    const seedAudit = async (id, at, act) => {
+      await logDb.prepare(
+        "INSERT INTO auth_audit (id, at, actor_id, act, target_id, detail) VALUES (?, ?, NULL, ?, NULL, '')"
+      ).bind(id, at, act).run();
+    };
+    await seedAudit("audit-drill-104-1", auditDay + 1000, "sign-in");
+    await seedAudit("audit-drill-104-2", auditDay + 2000, "account-created");
+    const auditLines = (await rows(
+      "SELECT id, at, actor_id, act, target_id FROM auth_audit WHERE at >= ? AND at < ? ORDER BY rowid",
+      auditDay, auditDay + DAY)).map((r) =>
+        r.id + "|" + r.at + "|" + (r.actor_id || "") + "|" + r.act + "|" + (r.target_id || ""));
+    await auth104.runAuditDaily(logDb);
+    const auditProof = await rows("SELECT * FROM auth_audit_days WHERE day = ?", dayName(auditDay));
+    check("#104: the closed audit day's proof stands with the recomputed digest",
+      !!auditProof && auditProof.length === 1 && auditProof[0].digest === sha(auditLines.join("\n")),
+      auditProof && auditProof.length ? auditProof[0].digest.slice(0, 12) : "no proof row");
+    check("#104: the proof's running total counts every entry written through the day's end",
+      !!auditProof && auditProof.length === 1 && Number(auditProof[0].total) ===
+        (await rows("SELECT COUNT(*) AS n FROM auth_audit WHERE at < ?", auditDay + DAY))[0].n,
+      auditProof && auditProof.length ? "total " + auditProof[0].total : "no proof row");
+    const hearts = await rows(
+      "SELECT * FROM auth_audit WHERE act = 'heartbeat' AND at >= ? AND at < ?",
+      todayStart, todayStart + DAY);
+    check("#104: one heartbeat stands for today, naming its day",
+      !!hearts && hearts.length === 1 && hearts[0].detail === dayName(Date.now()),
+      hearts ? hearts.length + " heartbeats" : "no rows");
+
+    // The error day proof and the prune: an unpinned entry
+    // past the line goes and is counted expired on its own
+    // day's proof; an incident's entry stands.
+    const errDay = todayStart - 8 * DAY;
+    const seedError = async (id, at, signature, incident) => {
+      await logDb.prepare(
+        "INSERT INTO error_log (id, at, place, signature, message, request_id, incident_open) " +
+        "VALUES (?, ?, 'api route', ?, '', ?, ?)"
+      ).bind(id, at, signature, "req-" + id, incident).run();
+    };
+    await seedError("error-drill-104-old", errDay + 1000, "unhandled-throw", 0);
+    await seedError("error-drill-104-held", errDay + 2000, "downstream-failed", 1);
+    await seedError("error-drill-104-new", todayStart - 2 * DAY + 1000, "unhandled-throw", 0);
+    const errLines = (await rows(
+      "SELECT id, at, place, signature, request_id FROM error_log WHERE at >= ? AND at < ? ORDER BY rowid",
+      errDay, errDay + DAY)).map((r) =>
+        r.id + "|" + r.at + "|" + r.place + "|" + r.signature + "|" + (r.request_id || ""));
+    await auth104.runErrorDaily(logDb);
+    const errProof = await rows("SELECT * FROM error_log_days WHERE day = ?", dayName(errDay));
+    check("#104: the closed error day's proof stands with the recomputed digest",
+      !!errProof && errProof.length === 1 && errProof[0].digest === sha(errLines.join("\n")),
+      errProof && errProof.length ? errProof[0].digest.slice(0, 12) : "no proof row");
+    const standing = await rows("SELECT id FROM error_log WHERE id LIKE 'error-drill-104-%' ORDER BY id");
+    check("#104: the prune took the unpinned entry past seven days and spared the incident's",
+      !!standing && standing.length === 2 &&
+        standing.some((r) => r.id === "error-drill-104-held") &&
+        standing.some((r) => r.id === "error-drill-104-new"),
+      standing ? standing.map((r) => r.id).join(", ") : "no rows");
+    check("#104: the pruned entry stands counted as expired on its own day's proof",
+      !!errProof && errProof.length === 1 && Number(errProof[0].expired) === 1,
+      errProof && errProof.length ? "expired " + errProof[0].expired : "no proof row");
+
+    // A second fire of both routines changes nothing: the
+    // proofs stand as first computed, no second heartbeat.
+    await auth104.runAuditDaily(logDb);
+    await auth104.runErrorDaily(logDb);
+    const auditProof2 = await rows("SELECT * FROM auth_audit_days WHERE day = ?", dayName(auditDay));
+    const errProof2 = await rows("SELECT * FROM error_log_days WHERE day = ?", dayName(errDay));
+    const hearts2 = await rows(
+      "SELECT * FROM auth_audit WHERE act = 'heartbeat' AND at >= ? AND at < ?",
+      todayStart, todayStart + DAY);
+    check("#104: a second daily run rewrites no proof and writes no second heartbeat",
+      !!auditProof2 && auditProof2[0].digest === auditProof[0].digest &&
+        !!errProof2 && Number(errProof2[0].expired) === 1 &&
+        !!hearts2 && hearts2.length === 1,
+      "proofs or heartbeat moved");
+
+    // The piggyback driver: due once a day, then not again.
+    const dueFirst = await auth104.runDailyIfDue(logDb);
+    const dueSecond = await auth104.runDailyIfDue(logDb);
+    check("#104: the daily piggyback runs once a day and then stands down",
+      dueFirst === true && dueSecond === false,
+      "first " + dueFirst + ", second " + dueSecond);
+  }
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }

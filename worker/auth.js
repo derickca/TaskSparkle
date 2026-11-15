@@ -1441,6 +1441,282 @@ export async function recentAudit(authDb, limit) {
   return result.results;
 }
 
+// The sign-in refusals (Log Monitoring Standard;
+// issue #104): every refusal on the sign-in roads writes
+// through this one writer, in the standing shape above.
+// The act is the family's own. A refusal the throttle
+// witnesses — a wrong password, a failed proof — stands
+// in this trail beside the throttle's counts, and a
+// refusal no count witnesses — a spent link's page, the
+// console's gate — stands here alone. Callers pass fixed
+// detail phrases only: the road and the refusal's own
+// case, never an address, never credential material,
+// never anything a person typed.
+
+export async function writeSignInRefusal(authDb, actorAccount, targetAccount, detail) {
+  await writeAudit(authDb, actorAccount, "sign-in-refused", targetAccount, detail);
+}
+
+// --- The daily routine: a heartbeat, and the closed-day
+// proofs (Log Monitoring Standard; issue #104) ---
+//
+// Once a day this routine runs: on the Worker from its
+// Cron Trigger (worker.js's scheduled handler;
+// wrangler.toml.example carries the trigger), and on
+// the self-host server from the cleanup sweep's
+// piggyback under a daily stamp, since no cron stands
+// there (runDailyIfDue below). It writes one heartbeat
+// entry through writeAudit above — a missing one proves
+// the writer or the road is down, and nothing more — and
+// it closes every unproven day into auth_audit_days: the
+// day's digest and the log's running total of entries,
+// computed once and never recomputed. The first proof
+// stands, the way the centre keeps the first digest it
+// receives for a closed day, so a late write into a closed
+// day never rewrites the day's proof.
+//
+// The digest is the SHA-256 of the day's entries in the
+// order they were written (rowid order), one line per
+// entry — id | at | actor_id | act | target_id — joined
+// by newlines. Anyone holding the rows can recompute it
+// from this description alone; the centre's pull reads
+// only the digest and the counts in auth_audit_days,
+// never an entry. The expired count stands at 0: no purge
+// of this log runs anywhere in the product today, and the
+// day one does, it records its expiries against the day
+// they fall on, so a lawful purge never reads as a
+// broken proof.
+
+var AUDIT_DAY_MS = 86400000;
+
+export function auditDayName(ms) {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+export async function auditDayDigest(authDb, dayStart) {
+  var lines = [];
+  var offset = 0;
+  for (;;) {
+    var result = await authDb.prepare(
+      "SELECT id, at, actor_id, act, target_id FROM auth_audit " +
+      "WHERE at >= ? AND at < ? ORDER BY rowid LIMIT 500 OFFSET ?"
+    ).bind(dayStart, dayStart + AUDIT_DAY_MS, offset).all();
+    var rows = result.results || [];
+    for (var j = 0; j < rows.length; j++) {
+      var row = rows[j];
+      lines.push(row.id + "|" + row.at + "|" + (row.actor_id || "") +
+        "|" + row.act + "|" + (row.target_id || ""));
+    }
+    if (rows.length < 500) break;
+    offset += rows.length;
+  }
+  return sha256Hex(lines.join("\n"));
+}
+
+export async function runAuditDaily(authDb) {
+  var now = nowMs();
+  var todayStart = Math.floor(now / AUDIT_DAY_MS) * AUDIT_DAY_MS;
+  var standing = await authDb.prepare(
+    "SELECT COUNT(*) AS n FROM auth_audit " +
+    "WHERE act = 'heartbeat' AND at >= ? AND at < ?"
+  ).bind(todayStart, todayStart + AUDIT_DAY_MS).first();
+  if (!standing || !standing.n) {
+    await writeAudit(authDb, null, "heartbeat", null, auditDayName(now));
+  }
+  var first = await authDb.prepare(
+    "SELECT MIN(at) AS at FROM auth_audit").first();
+  if (!first || first.at == null) return;
+  var day = Math.floor(first.at / AUDIT_DAY_MS) * AUDIT_DAY_MS;
+  var closed = 0;
+  while (day < todayStart && closed < 370) {
+    var proof = await authDb.prepare(
+      "SELECT day FROM auth_audit_days WHERE day = ?"
+    ).bind(auditDayName(day)).first();
+    if (!proof) {
+      var digest = await auditDayDigest(authDb, day);
+      var total = await authDb.prepare(
+        "SELECT COUNT(*) AS n FROM auth_audit WHERE at < ?"
+      ).bind(day + AUDIT_DAY_MS).first();
+      await authDb.prepare(
+        "INSERT OR IGNORE INTO auth_audit_days " +
+        "(day, digest, total, expired, computed_at) VALUES (?, ?, ?, 0, ?)"
+      ).bind(auditDayName(day), digest, total ? total.n : 0, now).run();
+    }
+    day += AUDIT_DAY_MS;
+    closed++;
+  }
+}
+
+// --- The product error log (Log Monitoring Standard;
+// issue #104) ---
+//
+// The audit trail above records what people did; this log
+// records what the product itself failed to do. Each entry
+// names when, where (a fixed place string from the code —
+// "api route", "server request" — never anything a
+// person typed), a signature from the fixed list below, a
+// scrubbed message, and the request id that ties one
+// request's entries together. A refused sign-in is NOT an
+// error and never lands here: refusals are answered to the
+// person and audited above. The writer never throws — a
+// failure to record a failure must not become one — and
+// never stores a whole message unscrubbed.
+
+export var ERROR_SIGNATURES = [
+  "unnamed-error",
+  "unhandled-throw",
+  "downstream-failed",
+  "sign-in-unavailable"
+];
+export var UNNAMED_ERROR_SIGNATURE = "unnamed-error";
+
+// One id per request, minted at the door the request
+// entered by and carried to every entry it writes.
+export function newRequestId() {
+  return "req-" + crypto.randomUUID();
+}
+
+// The scrub every stored message passes through: email
+// addresses, web addresses and long token-like strings are
+// replaced, whitespace collapses to one line, and the
+// stored text is capped at 200 characters. Callers still
+// pass fixed phrases wherever the failure is theirs to
+// name; this is the backstop, not the licence.
+export function scrubErrorMessage(value) {
+  var text = String(value == null ? "" : value);
+  text = text.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "[email]");
+  text = text.replace(/https?:\/\/[^\s"']+/g, "[web address]");
+  text = text.replace(/\b[A-Za-z0-9_\-]{24,}\b/g, "[long value]");
+  text = text.replace(/\s+/g, " ").trim();
+  if (text.length > 200) text = text.slice(0, 200);
+  return text;
+}
+
+export async function writeErrorLog(authDb, entry) {
+  if (!authDb || !entry) return null;
+  var signature = ERROR_SIGNATURES.indexOf(entry.signature) >= 0
+    ? entry.signature : UNNAMED_ERROR_SIGNATURE;
+  var message = entry.message != null ? entry.message
+    : (entry.error ? (entry.error.message || String(entry.error)) : "");
+  var id = "error-" + crypto.randomUUID();
+  try {
+    await authDb.prepare(
+      "INSERT INTO error_log (id, at, place, signature, message, request_id, incident_open) " +
+      "VALUES (?, ?, ?, ?, ?, ?, 0)"
+    ).bind(
+      id, nowMs(), String(entry.place || "unknown place"), signature,
+      scrubErrorMessage(message), entry.requestId || newRequestId()
+    ).run();
+    return id;
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function errorDayDigest(authDb, dayStart) {
+  var lines = [];
+  var offset = 0;
+  for (;;) {
+    var result = await authDb.prepare(
+      "SELECT id, at, place, signature, request_id FROM error_log " +
+      "WHERE at >= ? AND at < ? ORDER BY rowid LIMIT 500 OFFSET ?"
+    ).bind(dayStart, dayStart + AUDIT_DAY_MS, offset).all();
+    var rows = result.results || [];
+    for (var j = 0; j < rows.length; j++) {
+      var row = rows[j];
+      lines.push(row.id + "|" + row.at + "|" + row.place +
+        "|" + row.signature + "|" + (row.request_id || ""));
+    }
+    if (rows.length < 500) break;
+    offset += rows.length;
+  }
+  return sha256Hex(lines.join("\n"));
+}
+
+// The error log's half of the daily routine, run beside
+// runAuditDaily from the same trigger: close every unproven
+// day into error_log_days — digest and running total,
+// computed once and never recomputed — then prune. The
+// retention rule (registered with the centre): an entry
+// stands at least seven days, and past that line it is
+// pruned only when no open incident stands on it; each
+// pruned entry is counted as expired on its own day's
+// proof row, so the proof stays truthful after the prune.
+// No incident tracker stands in the product today, so
+// nothing sets incident_open yet — the column and the rule
+// honour it the day one does.
+export async function runErrorDaily(authDb) {
+  var now = nowMs();
+  var todayStart = Math.floor(now / AUDIT_DAY_MS) * AUDIT_DAY_MS;
+  var first = await authDb.prepare(
+    "SELECT MIN(at) AS at FROM error_log").first();
+  if (!first || first.at == null) return;
+  var day = Math.floor(first.at / AUDIT_DAY_MS) * AUDIT_DAY_MS;
+  var closed = 0;
+  while (day < todayStart && closed < 370) {
+    var proof = await authDb.prepare(
+      "SELECT day FROM error_log_days WHERE day = ?"
+    ).bind(auditDayName(day)).first();
+    if (!proof) {
+      var digest = await errorDayDigest(authDb, day);
+      var total = await authDb.prepare(
+        "SELECT COUNT(*) AS n FROM error_log WHERE at < ?"
+      ).bind(day + AUDIT_DAY_MS).first();
+      await authDb.prepare(
+        "INSERT OR IGNORE INTO error_log_days " +
+        "(day, digest, total, expired, computed_at) VALUES (?, ?, ?, 0, ?)"
+      ).bind(auditDayName(day), digest, total ? total.n : 0, now).run();
+    }
+    day += AUDIT_DAY_MS;
+    closed++;
+  }
+  var cutoff = todayStart - 7 * AUDIT_DAY_MS;
+  var stale = await authDb.prepare(
+    "SELECT id, at FROM error_log WHERE at < ? AND incident_open = 0"
+  ).bind(cutoff).all();
+  var staleRows = stale.results || [];
+  if (!staleRows.length) return;
+  var perDay = {};
+  for (var k = 0; k < staleRows.length; k++) {
+    var dayName = auditDayName(
+      Math.floor(staleRows[k].at / AUDIT_DAY_MS) * AUDIT_DAY_MS);
+    perDay[dayName] = (perDay[dayName] || 0) + 1;
+  }
+  for (var m = 0; m < staleRows.length; m++) {
+    await authDb.prepare("DELETE FROM error_log WHERE id = ?")
+      .bind(staleRows[m].id).run();
+  }
+  var days = Object.keys(perDay);
+  for (var n = 0; n < days.length; n++) {
+    await authDb.prepare(
+      "UPDATE error_log_days SET expired = expired + ? WHERE day = ?"
+    ).bind(perDay[days[n]], days[n]).run();
+  }
+}
+// The self-host road's driver for the two daily routines
+// above: no cron stands there, so the cleanup sweep's
+// hourly piggyback carries them, stamped in auth_meta the
+// way the sweep itself is stamped. The first auth request
+// of a new UTC day runs them; the routines themselves are
+// idempotent (the heartbeat checks its standing entry, the
+// proofs are written once), so the Worker's cron and this
+// piggyback may both fire without doubling anything.
+export async function runDailyIfDue(authDb) {
+  var stamp = nowMs();
+  var todayStart = Math.floor(stamp / AUDIT_DAY_MS) * AUDIT_DAY_MS;
+  var meta = await authDb.prepare(
+    "SELECT value FROM auth_meta WHERE key = 'daily_at'"
+  ).first();
+  if (meta && Number(meta.value || 0) >= todayStart) return false;
+  await authDb.prepare(
+    "INSERT INTO auth_meta (key, value) VALUES ('daily_at', ?) " +
+    "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+  ).bind(stamp).run();
+  await runAuditDaily(authDb);
+  await runErrorDaily(authDb);
+  return true;
+}
+
 // --- Throttling ---
 // One scheme, both copies (design section 7). Per source
 // address: five failures start a lockout — 10 seconds, doubling
@@ -1573,6 +1849,10 @@ export async function sweepAuth(authDb) {
     ).bind(stamp, budget).run();
     budget -= Number((result && result.meta && result.meta.changes) || 0);
   }
+  // The daily log routines ride the same piggyback under
+  // their own stamp (runDailyIfDue): on the self-host road
+  // no cron stands to run them.
+  await runDailyIfDue(authDb);
   return true;
 }
 

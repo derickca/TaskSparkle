@@ -289,6 +289,59 @@ CREATE TABLE IF NOT EXISTS auth_audit (
   detail TEXT NOT NULL DEFAULT ''
 );
 
+-- The audit log's closed-day proofs (Log Monitoring
+-- Standard; issue #104): one row per closed UTC
+-- day, written once by the daily routine and never
+-- rewritten — the day's digest over its entries and the
+-- log's running total of entries at the day's close. The
+-- centre's pull reads this table's counts and digests
+-- only. The expired count stands at 0 until a purge of
+-- the audit log exists; none runs today.
+CREATE TABLE IF NOT EXISTS auth_audit_days (
+  day TEXT PRIMARY KEY,
+  digest TEXT NOT NULL,
+  total INTEGER NOT NULL,
+  expired INTEGER NOT NULL DEFAULT 0,
+  computed_at INTEGER NOT NULL
+);
+
+-- The product error log (Log Monitoring Standard; issue
+-- #104): one row per failure of the product's own —
+-- when it happened, where (a fixed place name from the
+-- code, never anything a person typed), a signature from
+-- the fixed list in worker/auth.js, a scrubbed message,
+-- and the request id tying one request's entries together.
+-- A refused sign-in is not an error and never lands here;
+-- refusals stand in auth_audit. incident_open marks an
+-- entry an open incident stands on: the daily pruning
+-- keeps those past the seven-day line.
+CREATE TABLE IF NOT EXISTS error_log (
+  id TEXT PRIMARY KEY,
+  at INTEGER NOT NULL,
+  place TEXT NOT NULL,
+  signature TEXT NOT NULL,
+  message TEXT NOT NULL DEFAULT '',
+  request_id TEXT,
+  incident_open INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS error_log_at ON error_log (at);
+CREATE INDEX IF NOT EXISTS error_log_signature_at ON error_log (signature, at);
+
+-- The error log's closed-day proofs, in the audit log's
+-- shape (issue #104): one row per closed UTC day,
+-- written once by the daily routine and never rewritten —
+-- the day's digest over its entries and the log's running
+-- total at the day's close. The expired count is the
+-- day's own entries the pruning has since removed, so a
+-- lawful prune never reads as a broken proof.
+CREATE TABLE IF NOT EXISTS error_log_days (
+  day TEXT PRIMARY KEY,
+  digest TEXT NOT NULL,
+  total INTEGER NOT NULL,
+  expired INTEGER NOT NULL DEFAULT 0,
+  computed_at INTEGER NOT NULL
+);
+
 -- The sign-in throttle's counts: one row per watched source
 -- address, and one per source-and-account pair. Updated in
 -- place; pruned by the sweep in worker/auth.js.
