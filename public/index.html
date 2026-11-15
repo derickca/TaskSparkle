@@ -24,14 +24,16 @@
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#2b5fc7">
 <!-- A desktop browser's tab icon comes from rel="icon". Without
-     one it falls back to its own pale placeholder — the white,
-     hard to see mark; /favicon.ico at the root covers browsers
-     that only ask there. The mark is the Spark family's:
-     a white four-point spark on a tile of this product's
-     accent, the drawing the MemberSpark design system pins. The SVG leads and the PNGs follow as
-     fallbacks, in files the install bypass already serves
-     without a session — the same mark the phones use. -->
+     one it falls back to its own pale placeholder; /favicon.ico
+     at the root covers browsers that only ask there. The browser
+     icon is the Spark family's spark in this product's accent on
+     transparency, drawn full-bleed so it still reads at tab size
+     (Site and Email Standards, Part 5); the tile drawing
+     (mark.svg) is the page icon and never serves as the tab
+     icon. The SVG leads and the PNGs follow as fallbacks, in
+     files the install bypass already serves without a session. -->
 <link rel="icon" type="image/svg+xml" href="/icons/icon.svg?v=r2026-11-07-20">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png?v=r2026-11-07-20">
 <link rel="icon" type="image/png" sizes="64x64" href="/icons/icon-64.png?v=r2026-11-07-20">
 <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=r2026-11-07-20">
 <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png?v=r2026-11-07-20">
@@ -139,7 +141,7 @@
        unclaimed board sets, their shape only, with the account
        picker an administrator links one with. -->
   <div id="unlinked-state" hidden>
-    <h2>Your boards are not linked yet</h2>
+    <h2>Boards not linked</h2>
     <p id="unlinked-note"></p>
     <div id="unlinked-claims"></div>
     <p><a class="btn" href="/logout">Sign out</a></p>
