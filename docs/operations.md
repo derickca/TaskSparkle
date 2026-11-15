@@ -18,7 +18,7 @@ Zero on the Cloudflare free tier at personal scale: the app, the site, the datab
 
 - `public/` holds everything the browser loads: `app.js` (the front end: rendering, the editor, settings and the API data layer), `index.html`, `styles.css`, `sw.js`, the manifest and the icons
 - `worker/core.js` holds the whole API: every route, the caller checks, the seeding and the directions. It runs in both homes and takes its ties to the world as adapters: the database, the sign-in store and live updates
-- `worker/auth.js` holds the one sign-in both homes share: accounts, passwords and passkeys, invites, sessions, the throttle, the audit log, and the sign-in, setup and invite pages themselves
+- `worker/auth.js` holds the one sign-in both homes share: accounts, passwords and passkeys, invites, sessions, the throttle, the audit log, the error log and its daily routine, and the sign-in, setup and invite pages themselves
 - `worker/worker.js` holds the Cloudflare entry around the core: the plain-HTTP redirect, the hosted door's page routes and the OwnerPush Durable Object the core's push adapter speaks to
 - `server/` holds the self-host server. `server.mjs` is the local entry around the same core: the static app, the shared sign-in pages and the recovery commands. `d1-adapter.mjs` is the D1 shape over a local SQLite file, and `push-hub.mjs` is the socket hub that stands in for the Durable Object. `config.example.json` is the config template; the real `config.json` is gitignored
 ### Guides

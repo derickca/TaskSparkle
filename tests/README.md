@@ -248,6 +248,8 @@ The checks cover:
 - The config's `host` setting binds an instance to this machine only.
 - Behind an HTTPS front door on the same machine (issue #115, the shape Tailscale Serve makes): the config names the public https address and the bare agent name with no port. The first account is made through that shape and its session speaks at the one address, the startup line and the directions name the https base, the passkey ceremonies verify against the public origin the front door's forwarded-proto stamp names — and the same ceremony without the stamp is refused.
 
+One more family covers the two standard logs (issue #104), exercised directly against a throwaway store: the error log's writer (a signature from the fixed list, stored under the unnamed code when it stands outside the list; the message scrubbed of addresses, web addresses and long values before it is stored), the sign-in refusal writer, and the daily routine — one heartbeat a day through the audit writer, a closed-day proof for each log whose digest recomputes from the rows alone, the error prune past seven days sparing an open incident's entries and counting each pruned entry as expired on its own day's proof, and no proof rewritten by a second run.
+
 The last family is the recovery erasure command. It covers issue #57.
 
 - `--delete-person "A Name"` erases the account under that name in the data file.

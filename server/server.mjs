@@ -35,6 +35,7 @@ import {
   createAuthHandlers, getAccount, countAccounts, mintInvite,
   eraseAccountCredentials, ensureAdminStanding, sessionFromRequest,
   nameKey, nameProblem, newAccountId, randomBytes, b64uEncode,
+  writeErrorLog,
 } from "../worker/auth.js";
 import { openDatabase } from "./d1-adapter.mjs";
 import { createPushHub } from "./push-hub.mjs";
@@ -768,6 +769,11 @@ const server = createServer(async (req, res) => {
       return;
     }
     console.error(err);
+    // Issue #104: the throw stands in the product error
+    // log before the generic answer goes out.
+    await writeErrorLog(db, {
+      place: "server request", signature: "unhandled-throw", error: err,
+    });
     if (!res.headersSent) res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
     res.end("Something went wrong on the server.");
   }

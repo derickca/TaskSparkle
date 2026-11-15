@@ -18,14 +18,23 @@
 //   stand, and the cutover removes it;
 // - the push adapters, which speak to the OwnerPush Durable
 //   Object at the end of this file: notify it when a change
-//   lands, and hand it a live-updates socket to hold.
+//   lands, and hand it a live-updates socket to hold;
+// - the dispatch wrapper below, which writes whatever
+//   escapes every handler's own catches to the product
+//   error log before answering, and the scheduled handler,
+//   which runs the daily log routine (the audit heartbeat
+//   and both logs' closed-day proofs) on the Cron Trigger
+//   wrangler.toml names.
 //
 // The self-host server (server/) wraps the same core with its
 // own adapters instead; the two deployments share every route,
 // check and word of the directions.
 
 import { createApiHandler, browserHost, agentHost } from "./core.js";
-import { createAuthHandlers, sha256Hex } from "./auth.js";
+import {
+  createAuthHandlers, sha256Hex,
+  writeErrorLog, runAuditDaily, runErrorDaily
+} from "./auth.js";
 
 // --- Cloudflare Access token (JWT) verification ---
 
@@ -131,7 +140,42 @@ function notifyOwnerPush(env, ctx, ownerId, version) {
 }
 
 export default {
+  // The dispatch stands in its own function so this
+  // wrapper can catch whatever escapes every handler's
+  // own catches, write it to the error log (issue #104),
+  // and answer the generic 500 the runtime would
+  // otherwise have answered with no record standing.
   async fetch(request, env, ctx) {
+    try {
+      return await dispatchFetch(request, env, ctx);
+    } catch (e) {
+      var store = env && env.DB ? env.DB : null;
+      var authStore = env && env.AUTH_DB ? env.AUTH_DB : store;
+      await writeErrorLog(authStore, {
+        place: "worker fetch", signature: "unhandled-throw", error: e
+      });
+      return new Response("Something went wrong on the server.", {
+        status: 500,
+        headers: { "Content-Type": "text/plain; charset=utf-8" }
+      });
+    }
+  },
+  // The daily log routine (Log Monitoring Standard; issue
+  // #104): the Cron Trigger fires this once a day, and the
+  // routine writes the audit log's heartbeat and closes
+  // both logs' unproven days — the error log's half also
+  // prunes under its retention rule. The tables live in
+  // the sign-in store where one stands, as in fetch above.
+  async scheduled(event, env, ctx) {
+    var store = env && env.DB ? env.DB : null;
+    var authStore = env && env.AUTH_DB ? env.AUTH_DB : store;
+    if (!authStore) return;
+    ctx.waitUntil(runAuditDaily(authStore));
+    ctx.waitUntil(runErrorDaily(authStore));
+  }
+};
+
+async function dispatchFetch(request, env, ctx) {
     var url = new URL(request.url);
     var host = url.hostname;
 
@@ -211,8 +255,7 @@ export default {
       termsVersion: termsVersionOf(env)
     });
     return handler(request);
-  }
-};
+}
 
 // --- The push object ---
 //
