@@ -10,6 +10,24 @@ Read the first `FAIL` line first. It names the behaviour that broke. Later failu
 
 A setup error before the checks start is not an app failure. A missing module or a server that is not running can cause one. The UI drill section below gives the missing-module route in full.
 
+## Commands on record
+
+This file is the repo's testing record — the document named in place of docs/E2E.md — and this section carries its exact commands, as the fleet's Test, Build and Release standard (§2) asks a testing record to carry them.
+
+- **Test.** `npm test` runs the full harness: the API drill and the server drill against a throwaway self-host instance the harness starts itself. `npm run test:ui` runs the harness with the UI drill added. `npm run test:smoke` runs the smoke tier alone.
+- **A single test.** One drill is the single test, run on its own. The server drill is `node tests/server-drill.mjs`. The API drill and the UI drill each need a standing instance; their sections below carry their full commands.
+- **Typecheck.** There is no typecheck command. The codebase is plain JavaScript and carries no types to check. The static check is the syntax check, `node --check` over every `.js` and `.mjs` file in the tree — the loop the pull request checks run:
+
+  ```
+  git ls-files '*.js' '*.mjs' | while IFS= read -r f; do
+    node --check "$f" || exit 1
+  done
+  ```
+
+  The same check runs inside the smoke tier.
+- **Lint.** There is no lint command and no linter configuration. Two scans ride the smoke tier — the slop gate scan and the public-readiness scan, both described under Smoke checks below. They are scans over the tree, not a lint.
+- **Before new work.** Run the smoke tier once on the untouched tree before changing anything. A failure there is the baseline's, not the change's.
+
 ## Where these checks stand
 
 The fleet's E2E testing standard names six groups: Build Tests, Release Review, Scenario Review, Login Review, Heartbeat Check and Standards Review. This copy runs one of them.
