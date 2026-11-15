@@ -747,6 +747,16 @@ const server = createServer(async (req, res) => {
       return;
     }
 
+    // The /ops road (issue #105, the Admin and Ops standard):
+    // the copy's operator surface stands inside the app, at
+    // Settings, then Admin, and /ops on the copy's host exists
+    // and leads to it — the same redirect public/_redirects
+    // states for the Pages road; the two are kept alike by
+    // hand. The surface itself stays gated: the app steps
+    // into the Admin page only when the people route answers
+    // for the caller.
+    if (pathname === "/ops") { redirect(res, "/?settings=admin"); return; }
+
     // Page loads: the app itself. Without a session the door is
     // the sign-in page; the files around the app (its script,
     // styles, icons) carry no one's data and are served openly,

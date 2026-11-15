@@ -12,6 +12,16 @@ On a self-hosted copy there is no export workflow, because there is nothing to e
 
 Zero on the Cloudflare free tier at personal scale: the app, the site, the database, the live updates and the backup bucket all fit inside the free plan's allowances for a board one or two people use daily. Nothing in the setup asks for a card. A self-hosted copy costs the electricity of a machine you already run.
 
+## Administration and control
+
+A copy runs itself. It has no connection to any centre: no Admin console stands above it, and nothing reports out of it. Its audit log and its error log stand in its own store and never leave it.
+
+The copy's operator surface is the Admin page inside the app — Settings, then Admin. The address `/ops` on the copy's own host leads to it. Only an administrator ever sees the page: its entry in Settings stands only for an administrator, and the routes behind it refuse everyone else.
+
+The first account made on the setup page is the administrator. Standing is a flag on the account in the copy's own store. An administrator grants or removes the flag on the Admin page; the act ends that person's standing sessions, and the flag is read from the account on every request, so the change stands from their next request. The page holds the rest of the operator's work too: invite people, send reset and recovery links, sign a person out everywhere, remove a passkey by name, remove a person and link a waiting set of boards to its person. Each act writes its entry in the copy's audit log in the same act, and the page shows the log's latest entries.
+
+The control plane stands in the copy's own tooling, not in the app's pages. On a home copy it is `server/config.json` and the recovery commands in the self-hosting guide. On Cloudflare it is the settings in `wrangler.toml`, the Worker secrets — the setup code among them — the deployment's own repository secrets and the Cloudflare dashboard. Pages show credential standings only: a key's name and last four, a passkey's nickname. A secret value never stands in a page; a full agent key shows once, at its making, and is held in memory only.
+
 ## Repo files
 
 ### App and server

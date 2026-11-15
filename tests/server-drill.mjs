@@ -348,6 +348,19 @@ try {
     s1.exited() === null && afterRefusal.status === 200,
     "exited " + s1.exited() + " status " + afterRefusal.status);
 
+  // The /ops road (issue #105, the Admin and Ops standard):
+  // /ops on the copy's host exists and leads to the app with
+  // the Admin deep link, answered the same way signed out —
+  // the surface itself stays gated behind the administrator
+  // flag on its routes, which the API drill proves.
+  const opsRes = await fetch("http://127.0.0.1:" + portMain + "/ops",
+    { redirect: "manual" }).catch(() => null);
+  check("#105: /ops on the copy's host leads to the app's Admin page by its deep link",
+    !!opsRes && opsRes.status === 302 &&
+      (opsRes.headers.get("location") || "") === "/?settings=admin",
+    "status " + (opsRes ? opsRes.status : "no answer") +
+      " location " + (opsRes ? opsRes.headers.get("location") : ""));
+
   // With no accounts standing there is nobody to pick: the
   // sign-in page carries the invite box and no password form.
   let page = await getText("http://127.0.0.1:" + portMain + "/login");

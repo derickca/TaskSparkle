@@ -794,6 +794,38 @@ await page.screenshot({ path: join(OUT, "admin-invite-1280.png") });
 await page.evaluate(() => document.getElementById("invite-created-close").click());
 await page.click("#settings-close").catch(() => {});
 
+// --- The /ops deep link (issue #105) -------------------------------------------
+// The app address the /ops road lands on: arriving at
+// ?settings=admin takes an administrator into the Admin
+// page itself, through the people probe. The walk stands
+// in its own context with service workers blocked, like
+// the drill's other side surfaces, and not as a reload of
+// the main page: the main page's worker takes control on
+// a reload, and its pass-through would then carry the
+// failed-save walk's requests past the route aborts that
+// walk depends on (issue #137).
+{
+  const octx = await browser.newContext({
+    viewport: { width: 1280, height: 900 }, serviceWorkers: "block",
+  });
+  const opage = await octx.newPage();
+  await opage.goto(BASE + "/login", { waitUntil: "domcontentloaded" });
+  await opage.check('input[name="name"][value="' + NAME + '"]');
+  await showPasswordView(opage);
+  await opage.fill('input[name="password"]', PASSWORD);
+  await opage.click('button[type="submit"]');
+  await opage.waitForSelector("#board-ui:not([hidden])", { timeout: 15000 });
+  await opage.goto(BASE + "/?settings=admin", { waitUntil: "domcontentloaded" });
+  await opage.waitForSelector("#settings-people:not([hidden])", { timeout: 10000 })
+    .catch(() => {});
+  check("#105: the /ops deep link lands an administrator on the Admin page",
+    await opage.evaluate(() => {
+      const s = document.getElementById("settings-people");
+      return !!s && !s.hidden;
+    }), "");
+  await octx.close();
+}
+
 // --- Admin: no entry for a non-administrator (issue #124) -----------------------
 // The people read is what decides whether the entry
 // stands: an administrator's browser gets the roster, a
@@ -839,6 +871,21 @@ await page.click("#settings-close").catch(() => {});
   // list a person sees.
   check("#125: the Admin entry is not rendered for a non-administrator",
     !(await npage.locator("#settings-people-btn").isVisible()), "");
+  // The /ops deep link under the same refused probe (issue
+  // #105): Settings opens, and no Admin page stands in it —
+  // the road shows a non-administrator nothing of the surface.
+  await npage.goto(BASE + "/?settings=admin", { waitUntil: "domcontentloaded" });
+  await npage.waitForSelector("#settings-backdrop:not([hidden])", { timeout: 10000 })
+    .catch(() => {});
+  await npage.waitForTimeout(600);
+  const nonAdminDeep = await npage.evaluate(() => {
+    const s = document.getElementById("settings-people");
+    const b = document.getElementById("settings-people-btn");
+    return { sectionHidden: !s || s.hidden, btnHidden: !b || b.hidden };
+  });
+  check("#105: the /ops deep link shows a non-administrator no Admin page",
+    nonAdminDeep.sectionHidden && nonAdminDeep.btnHidden,
+    JSON.stringify(nonAdminDeep));
   await npage.screenshot({ path: join(OUT, "settings-list-nonadmin-1280.png") });
   await npage.setViewportSize({ width: 390, height: 844 });
   await npage.screenshot({ path: join(OUT, "settings-list-nonadmin-390.png") });

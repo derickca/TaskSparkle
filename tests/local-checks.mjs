@@ -1129,6 +1129,55 @@ function cssVarOf(block, name, tokenMap) {
     "same-name files' hour and the icons' day.");
 }
 
+// The Admin and Ops audit (issue #105): the copy's operator
+// surface stands inside the app, at Settings, then Admin,
+// and /ops on the copy's host exists and leads to it on
+// both roads — Pages through public/_redirects, the
+// self-host server through its own redirect — while the
+// app takes a person into the Admin page only when the
+// people probe answers for them, and docs/operations.md
+// states the copy's administration and control shape.
+// These pins hold the road at the source; the server
+// drill walks the redirect live and the UI drill walks
+// the deep link both ways.
+{
+  const failures = [];
+  const redirects = existsSync(join(ROOT, "public", "_redirects"))
+    ? readFileSync(join(ROOT, "public", "_redirects"), "utf8") : "";
+  if (!/^\/ops\s+\/\?settings=admin\s+302\s*$/m.test(redirects)) {
+    failures.push("public/_redirects does not carry the /ops road " +
+      "(/ops to /?settings=admin, 302)");
+  }
+  const server = readFileSync(join(ROOT, "server", "server.mjs"), "utf8");
+  if (!server.includes('pathname === "/ops"') ||
+      !server.includes('redirect(res, "/?settings=admin")')) {
+    failures.push("server/server.mjs does not carry the /ops road");
+  }
+  const app = readFileSync(join(ROOT, "public", "app.js"), "utf8");
+  if (!app.includes('params.get("settings") === "admin"')) {
+    failures.push("public/app.js does not take the ?settings=admin " +
+      "link into Settings");
+  }
+  if (!app.includes("peopleDeepLink")) {
+    failures.push("public/app.js does not hold the Admin deep link " +
+      "behind the people probe");
+  }
+  const opsDoc = readFileSync(join(ROOT, "docs", "operations.md"), "utf8");
+  if (!opsDoc.includes("## Administration and control")) {
+    failures.push("docs/operations.md does not state the copy's " +
+      "administration and control shape");
+  }
+  if (failures.length) {
+    console.error("Admin and Ops (issue #105): " +
+      failures.join("; ") + ".");
+    process.exit(1);
+  }
+  console.log("Admin and Ops: /ops leads to the copy's Admin page on " +
+    "both roads, the deep link spends itself only behind the people " +
+    "probe, and operations.md states the copy's administration and " +
+    "control shape.");
+}
+
 // The phone header's two rows (issue #90, carrying the live
 // service's fix, deploy issue #238, into this tree): the
 // Account button carries no name at any width — Lucide's

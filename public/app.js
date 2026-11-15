@@ -23,7 +23,7 @@
 // paints (see bootLoad). The deploy fails when the stamps differ,
 // so they can only ever disagree in a browser still holding an
 // older copy of this file — which is the case the reload cures.
-var BUILD_ID = "r2026-11-07-20";
+var BUILD_ID = "r2026-11-07-21";
 
 // Label colours are stored as palette ids. The person picks from this
 // palette in Settings and each card chip paints itself from it. Each
@@ -584,6 +584,12 @@ var SETTINGS_PAGES = [
 // The People page's last read from the sign-in routes:
 // {people, unclaimed, audit}, or null before the first read.
 var peopleData = null;
+// The /ops road's deep link (issue #105): a person who
+// arrived through /ops — the app opened at ?settings=admin —
+// is taken into the Admin page itself when the people probe
+// answers. The probe is the gate: the flag spends itself
+// only for an administrator, and a refused probe clears it.
+var peopleDeepLink = false;
 // The person the Remove-person dialog is armed for
 // ({key, name}), or null.
 var personToRemove = null;
@@ -6566,8 +6572,13 @@ function probePeople() {
     var btn = document.getElementById("settings-people-btn");
     if (btn) btn.hidden = false;
     renderPeople();
+    if (peopleDeepLink) {
+      peopleDeepLink = false;
+      showSettingsPage("settings-people");
+    }
   }).catch(function () {
     peopleData = null;
+    peopleDeepLink = false;
     var btn = document.getElementById("settings-people-btn");
     if (btn) btn.hidden = true;
   });
@@ -9219,9 +9230,13 @@ function loadInitial() {
     startPush();
 
     // Links like ?settings=agent and ?open=<card id> open those views.
-    // The screenshot tool uses them to capture panels.
+    // The screenshot tool uses them to capture panels. The
+    // ?settings=admin link is the /ops road's landing (issue
+    // #105): Settings opens, and the people probe takes an
+    // administrator on into the Admin page.
     var params = new URLSearchParams(window.location.search);
     if (params.get("settings") === "agent" || params.get("settings") === "Muse") openSettings("setup-agent");
+    else if (params.get("settings") === "admin") { peopleDeepLink = true; openSettings(); }
     else if (params.get("settings")) openSettings();
     var openId = params.get("open");
     if (openId && findCard(openId)) {
