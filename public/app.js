@@ -2033,7 +2033,7 @@ function render() {
         }
         // The maker tag stands only when the step holder
         // is not the key that made the card (issue #123,
-        // Derick's ruling): when the maker holds the step,
+        // the owner's ruling): when the maker holds the step,
         // the step chip below names it, and the face wears
         // one pill instead of two carrying the same name.
         // The comparison is by key id, never by name —

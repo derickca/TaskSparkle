@@ -25,6 +25,10 @@ It runs no browser, no Worker mode and none of the drill families. It proves the
 
 The budget is under a minute end to end. The run prints its own elapsed time as its last line, and never fails on time alone — a slow machine is not a broken build. Measured on the desktop rig (Node 24, warm) on 2026-11-03: 1.3 to 1.5 seconds across three runs.
 
+## Public readiness
+
+The smoke tier also carries the public-readiness scan (issue #108): a guard that checks tracked files for personal information, as the fleet's Privacy and Secrets policy asks. The names and addresses it looks for are themselves private, so they never stand in this repo. The scan reads them from the machine's own private file — one entry per line at `~/.tasksparkle-private/names.txt`, or the file the `TASKSparkle_PRIVATE_LIST` environment variable names. A machine without that file prints that the name scan did not run and passes; a machine with it fails the tier on any hit, naming the file and the line, never the entry. One shape needs no list: an email address at any domain but the example domains and the GitHub noreply domain fails the tier wherever it stands.
+
 ## Run all local checks
 
 `npm test` runs the harness.

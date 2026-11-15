@@ -1381,7 +1381,7 @@ function keyIdsByName(keyNames) {
 }
 
 // The name a stored key reference reads with (issue #121 —
-// Derick's rule: a name changed in the UI is reflected
+// The owner's rule: a name changed in the UI is reflected
 // everywhere). A reference is an id and, on rows written while
 // names were kept beside ids, the name text of that moment.
 // The id resolves first, live from the key's row — standing or
