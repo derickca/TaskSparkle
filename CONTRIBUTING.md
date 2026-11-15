@@ -25,6 +25,8 @@ Small, focused fixes are welcome as pull requests. Before sending one:
 
 Pull requests get the light checks in GitHub (syntax, the build-stamp agreement and the smoke tier) before anyone reads the code. The drills are not among them: they are yours to run before you push, as above.
 
+That road is for branches in this repository. A pull request from a fork gets no automatic check run — a stranger's code does not run on the project's own runner — and before a fork pull request is merged the maintainer runs these checks by hand.
+
 ## Text changes
 
 Reader-facing text is checked the way code is. Any change to a text-bearing file puts that file's extracted reader-facing strings in front of a reviewer who did not write them, under the antagonistic text review, before the change ships. Text-bearing files in this repo are `public/*.html`, `public/app.js` and `worker/auth.js`. The review runs on the extracted strings — the words a reader sees — not on the raw file.
