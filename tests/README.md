@@ -34,7 +34,7 @@ The fleet's E2E testing standard names six groups: Build Tests, Release Review, 
 
 The smoke tier and the three drills are this copy's Build Tests. They run on a change and they gate it. GitHub runs the smoke tier on a pull request; the full drills run on the writer's own machine before the push, by the owner's ruling (the drills exception, 2026-11-08). CONTRIBUTING.md carries that route. The smoke tier's live boot is also the copy's deploy smoke: one small honest walk over a copy that just started, named in the Smoke checks section below.
 
-The UI drill takes screenshots at desktop and phone widths for a person to look at. A person looking is the visual check. Nothing in this repo compares screenshots automatically.
+The UI drill takes screenshots at desktop and phone widths for a person to look at. A person looking is the visual check. Nothing in this repo compares screenshots automatically. The same step covers a change itself: every view a change touches is screenshotted at desktop and phone widths and looked at before the push. The drill's set covers the views it walks; a view outside that set is captured for the change.
 
 The other five groups run against the hosted service, and none of them stands in this copy:
 
