@@ -10,6 +10,25 @@ Read the first `FAIL` line first. It names the behaviour that broke. Later failu
 
 A setup error before the checks start is not an app failure. A missing module or a server that is not running can cause one. The UI drill section below gives the missing-module route in full.
 
+## Where these checks stand
+
+The fleet's E2E testing standard names six groups: Build Tests, Release Review, Scenario Review, Login Review, Heartbeat Check and Standards Review. This copy runs one of them.
+
+The smoke tier and the three drills are this copy's Build Tests. They run on a change and they gate it. GitHub runs the smoke tier on a pull request; the full drills run on the writer's own machine before the push, by the owner's ruling (the drills exception, 2026-11-08). CONTRIBUTING.md carries that route. The smoke tier's live boot is also the copy's deploy smoke: one small honest walk over a copy that just started, named in the Smoke checks section below.
+
+The UI drill takes screenshots at desktop and phone widths for a person to look at. A person looking is the visual check. Nothing in this repo compares screenshots automatically.
+
+The other five groups run against the hosted service, and none of them stands in this copy:
+
+- Release Review checks a production release 30 minutes after it lands. A copy you run yourself has no release train. Run the drills after you change or upgrade your copy instead.
+- Scenario Review runs on a schedule against throwaway copies of the hosted service. The drills here are the same kind of walks, run by hand when a change needs them.
+- Login Review walks the hosted sign-in with the fleet's test accounts. This copy has no MemberSpark or Google sign-in — its sign-in is its own — so there is nothing for Login Review to walk here.
+- Heartbeat Check and Standards Review are run by the centre against the live sites. A standalone copy is not on their list.
+
+Nothing in this copy reports to the fleet's results store, and the fleet's test accounts never sign in here. The standard's reporting rules and test-account rules have nothing to attach to.
+
+The standard's flake budget — quarantine, classification, the 14 days — is the hosted service's machinery. The rule here is plainer: a drill that fails and then passes on the same tree is filed as an issue and fixed, never deleted to make a run green. Two walks are the copy's core walks and are never dropped: arriving and signing in, and working a board.
+
 ## Smoke checks
 
 `npm run test:smoke` runs the smoke tier: a small change's quick verdict, before the full drills.
@@ -22,6 +41,8 @@ It runs four things, in this order:
 - One live boot: the harness stands up a throwaway self-host instance, mints an invite with the server's command, redeems it, signs in, reads the seeded state, makes one card, reads it back, and reads the version and directions stamps.
 
 It runs no browser, no Worker mode and none of the drill families. It proves the copy boots and its smallest honest walk works — nothing more. The drills below are the proof of behaviour.
+
+Two scans ride the tier as well: the slop gate scan over the public pages and the app's string files, and the public-readiness scan in its own section below.
 
 The budget is under a minute end to end. The run prints its own elapsed time as its last line, and never fails on time alone — a slow machine is not a broken build. Measured on the desktop rig (Node 24, warm) on 2026-11-03: 1.3 to 1.5 seconds across three runs.
 
@@ -41,7 +62,7 @@ The smoke tier also carries the public-readiness scan (issue #108): a guard that
 
 `npm run test:ui` adds the UI drill against the same instance. You can also pass `--ui` to the harness itself. The UI drill needs the Playwright setup in the UI drill section below.
 
-The pull request checks in GitHub run this same harness. A green run here is what a green check there means.
+The pull request checks in GitHub run the smoke tier only, not this harness. The full drills are yours to run before you push; CONTRIBUTING.md carries the route.
 
 The sections below describe each drill on its own. Use them when you want just one drill.
 

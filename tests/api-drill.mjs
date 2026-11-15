@@ -1,5 +1,5 @@
-// TaskSparkle API drill: the standing end-to-end checks for the
-// API, written to run against a throwaway rig or a throwaway
+// TaskSparkle API drill: the standing checks for the API,
+// written to run against a throwaway rig or a throwaway
 // self-host instance — never against production data. It works
 // two throwaway owners through the scenario families the rounds
 // have always drilled by hand: sign-in and the seeded state,
