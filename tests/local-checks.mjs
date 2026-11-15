@@ -21,7 +21,9 @@
 //                                          a warm machine. The
 //                                          smoke tier also carries
 //                                          the slop gate scan below
-//                                          (deploy issue #202).
+//                                          (deploy issue #202) and the
+//                                          public-readiness scan below
+//                                          (issue #108).
 //
 // The harness writes a throwaway nameless config (issue #107:
 // the config holds no people) into a scratch folder, starts the
@@ -52,7 +54,7 @@
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -329,6 +331,114 @@ function slopGateScan() {
   return true;
 }
 
+// --- The public-readiness scan (issue #108) ---------------------------
+// The fleet's Privacy and Secrets policy asks every project for a
+// guard that checks tracked files for personal information before
+// the tree is pushed. The names and addresses the guard looks for
+// are themselves private, so they never stand in this repo: the
+// scan reads them from the machine's own private file, one entry
+// per line, at ~/.tasksparkle-private/names.txt — or at the file
+// the TASKSparkle_PRIVATE_LIST environment variable names. A
+// machine without that file cannot run the name scan: the scan
+// says so and lets the tier pass, the only honest answer on a
+// machine that holds no list. A machine with the file fails the
+// tier on any hit and names the file and the line, never the
+// entry, which is private and never stands in a log.
+// Two tracked files stand outside the name scan, by path, for
+// stated reasons: LICENSE, whose copyright line is the owner's
+// standing remainder on issue #108, and worker/common-passwords.js,
+// a public dictionary of common passwords whose entries are
+// dictionary words. One shape needs no list at all: an email
+// address at any domain but the example domains and the GitHub
+// noreply domain is personal information standing in the open, and
+// it fails the tier wherever it stands, LICENSE included.
+function publicReadinessScan() {
+  const listPath = process.env.TASKSparkle_PRIVATE_LIST ||
+    join(homedir(), ".tasksparkle-private", "names.txt");
+  let listed;
+  try {
+    listed = execFileSync("git", ["ls-files"],
+      { cwd: ROOT, encoding: "utf8" }).split("\n").filter(Boolean);
+  } catch {
+    console.error("Public readiness: git ls-files failed, so the " +
+      "scan cannot name the tracked files, and the tier fails " +
+      "rather than passing over it.");
+    return false;
+  }
+  const skipName = new Set(["LICENSE", "worker/common-passwords.js"]);
+  const skipExt = new Set([".png", ".jpg", ".jpeg", ".gif", ".ico",
+    ".woff2", ".webp", ".pdf", ".zip"]);
+  const emailShape = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+  const emailAllowed = (addr) => {
+    const domain = addr.slice(addr.indexOf("@") + 1).toLowerCase();
+    return domain.startsWith("example.") ||
+      domain === "users.noreply.github.com";
+  };
+  let entries = null;
+  if (existsSync(listPath)) {
+    entries = readFileSync(listPath, "utf8").split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#"))
+      .map((entry) => /^[A-Za-z][A-Za-z ]*$/.test(entry)
+        ? { re: new RegExp("\\b" + entry
+            .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+            .replace(/ +/g, "\\s+") + "\\b", "i") }
+        : { text: entry.toLowerCase() });
+  }
+  const hits = [];
+  let scanned = 0;
+  for (const rel of listed) {
+    const dot = rel.lastIndexOf(".");
+    if (skipExt.has(dot >= 0 ? rel.slice(dot).toLowerCase() : "")) continue;
+    let text;
+    try {
+      const buf = readFileSync(join(ROOT, rel));
+      if (buf.subarray(0, 8000).includes(0)) continue;
+      text = buf.toString("utf8");
+    } catch { continue; }
+    scanned++;
+    const lines = text.split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      for (const m of line.matchAll(emailShape)) {
+        if (!emailAllowed(m[0])) {
+          hits.push(rel + ":" + (i + 1) + " carries an email " +
+            "address outside the example domains.");
+        }
+      }
+      if (!entries || skipName.has(rel)) continue;
+      for (const entry of entries) {
+        const found = entry.re ? entry.re.test(line) :
+          line.toLowerCase().includes(entry.text);
+        if (found) {
+          hits.push(rel + ":" + (i + 1) + " matches an entry on " +
+            "the machine's private list.");
+          break;
+        }
+      }
+    }
+  }
+  if (!entries) {
+    console.log("Public readiness: the name scan did not run — " +
+      "no private list stands on this machine at " + listPath +
+      ". The email shape check ran over " + scanned +
+      " tracked files.");
+  }
+  if (hits.length) {
+    for (const hit of hits) console.error("Public readiness: " + hit);
+    console.error("Public readiness: personal information stands " +
+      "in tracked files. Move it to the store its consumer reads, " +
+      "or refer to it by the name of the secret that holds it.");
+    return false;
+  }
+  if (entries) {
+    console.log("Public readiness: " + scanned + " tracked files " +
+      "scanned against the machine's private list; no personal " +
+      "information stands in the tree.");
+  }
+  return true;
+}
+
 function smokeStaticChecks() {
   const files = treeScriptFiles();
   const broken = [];
@@ -358,6 +468,7 @@ function smokeStaticChecks() {
   }
   console.log("Build stamps agree: " + workerStamp + ".");
   if (!slopGateScan()) return false;
+  if (!publicReadinessScan()) return false;
   return true;
 }
 
@@ -509,7 +620,7 @@ console.log("Standalone sign-in routes: every address the sign-in, " +
 }
 
 // The glyphs are Lucide's own drawings (deploy issue #198,
-// Derick's ruling of 2026-11-08, Option B): the path data
+// the owner's ruling of 2026-11-08, Option B): the path data
 // below is copied character for character from the lucide
 // repo's icon files (lucide-icons/lucide,
 // circle-question-mark.svg, search.svg,
@@ -594,7 +705,7 @@ console.log("Standalone sign-in routes: every address the sign-in, " +
     "are Lucide's own path data (deploy issue #198).");
 }
 
-// The Standard theme's hairlines (issue #142, Derick's ruling
+// The Standard theme's hairlines (issue #142, the owner's ruling
 // on sweep row THM-03): the border colour --line against the
 // page background --bg must clear 3:1 in both default
 // palettes, measured from the stylesheet itself — so a softer
@@ -749,7 +860,7 @@ function cssVarOf(block, name, tokenMap) {
   // the light accent, and the places a literal colour must
   // stand — the manifest and the app page's theme colour.
     // The browser icon is the family's spark drawn full-bleed \u2014
-  // MemberSpark's favicon construction (Derick, 2026-11-10):
+  // MemberSpark's favicon construction (the owner, 2026-11-10):
   // the glyph's tips touch the canvas edges, in the light
   // accent. The page mark's tile stands in public/icons/
   // mark.svg, held equal to the account pages' BRAND_MARK by
@@ -900,7 +1011,7 @@ function cssVarOf(block, name, tokenMap) {
   // The sign-in header's order: brand, tag, then Help and
   // the dark toggle — and no Feedback entry at all: Feedback
   // stands as the footer's word, never in the header
-  // (Derick's direction, 2026-11-10, on issue #214).
+  // (The owner's direction, 2026-11-10, on issue #214).
   const headFn = auth.slice(auth.indexOf("function pageHead"),
     auth.indexOf("\nfunction ", auth.indexOf("function pageHead") + 10));
   const order = ["BRAND_MARK", "pilot-tag", "/help", "data-theme-toggle"];

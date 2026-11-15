@@ -1271,7 +1271,7 @@ res = await a.call("DELETE", "/api/v1/me/token/" + hKey1Id);
 check("#119: the drill's handover keys clean up", res.status === 200, "status " + res.status);
 
 // --- Names resolve live (issue #121) -------------------------------------------------
-// One rule for every name on the work (Derick): a card's
+// One rule for every name on the work (the owner): a card's
 // maker, its step's holder and its last hander record WHO —
 // a key's id, or the person — and the name reads from that
 // record as the card is read, never from a copy stored on

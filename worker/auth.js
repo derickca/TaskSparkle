@@ -2040,7 +2040,7 @@ function inviteCodeForm() {
 // voice, and the password door stands as it always did. The
 // app prints the same line in the same places (public/app.js
 // carries its own copy), and the spend pages print it too.
-// The sign-in page itself carries Derick's settled words
+// The sign-in page itself carries the owner's settled words
 // instead (amendment A.8), with the link below.
 export var PASSKEY_OFF_LINE = "Passkeys need a secure address (HTTPS). " +
   "This copy is at an ordinary HTTP address, so passkeys are off here. " +
@@ -2180,7 +2180,7 @@ function loginPageHtml(cfg, error, names, rememberedName, secure, view, attempte
     '    <label class="remember"><input type="checkbox" id="remember-name" name="remember" value="1" checked> Remember my name on this device</label>',
     doors,
     "  </form>",
-    // At an ordinary HTTP address, Derick's settled words
+    // At an ordinary HTTP address, the owner's settled words
     // stand under the form (amendment A.8), displacing the
     // #113 stand-in line on this page only.
     secure ? "" :

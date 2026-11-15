@@ -1344,7 +1344,7 @@ await page.screenshot({ path: join(OUT, "creator-tag-1280.png") });
 
 // --- The editor names the maker (issue #126) -----------------------------------
 // The face names a card's maker, but the editor never did —
-// Derick: "when in edit mode I can't tell who wrote the card."
+// The owner: "when in edit mode I can't tell who wrote the card."
 // Under the title the editor now reads "Made by <name>", the
 // name in the creator-tag pill, resolved live the way the
 // face's tag and the comments' authors are: a key-made card
@@ -1502,7 +1502,7 @@ await page.waitForSelector("#board-ui:not([hidden])", { timeout: 15000 });
 // The maker tag and the step chip both read the key's name
 // from its record as the board is read — the card carries
 // the key's id, never a copy of the name (issue #121,
-// Derick's rule: a name change in the UI is reflected
+// The owner's rule: a name change in the UI is reflected
 // everywhere). Since issue #123 the two never stand on the
 // same card — the tag stands only when the maker does not
 // hold the step — so the walk proves the rename on each
@@ -1588,7 +1588,7 @@ await page.reload({ waitUntil: "domcontentloaded" });
 await page.waitForSelector("#board-ui:not([hidden])", { timeout: 15000 });
 
 // --- One pill when the maker holds the step (issue #123) -------------------------
-// Derick's ruling: the maker tag stands only when the step
+// The owner's ruling: the maker tag stands only when the step
 // holder is not the key that made the card, compared by key
 // id, never by name. The creators walk proved the plain
 // coincide case and the #121 walk the person's case; this
