@@ -469,6 +469,39 @@ function smokeStaticChecks() {
     return false;
   }
   console.log("Build stamps agree: " + workerStamp + ".");
+  // Every ?v= cache pin in the served tree carries the build
+  // stamp: the icon pins in public/index.html and the manifest,
+  // and the sign-in pages' pins in worker/auth.js, stand beside
+  // the two BUILD_ID copies above, and a stamp move that misses
+  // one leaves a stale address nothing else catches (issue
+  // #106). The walk reads the served folders as text and fails
+  // on any pin that differs, naming the file and the line.
+  const pinBad = [];
+  const pinWalk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === "node_modules" || entry.name === ".git") continue;
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) { pinWalk(full); continue; }
+      if (!/\.(js|mjs|html|json|webmanifest|css)$/.test(entry.name)) continue;
+      const lines = readFileSync(full, "utf8").split("\n");
+      lines.forEach((line, i) => {
+        for (const m of line.matchAll(/\?v=(r\d{4}-\d{2}-\d{2}-\d+)/g)) {
+          if (m[1] !== workerStamp) {
+            pinBad.push(full.slice(ROOT.length) + ":" + (i + 1) + " carries ?v=" + m[1]);
+          }
+        }
+      });
+    }
+  };
+  for (const top of ["public", "worker", "server"]) pinWalk(join(ROOT, top));
+  if (pinBad.length) {
+    for (const b of pinBad) {
+      console.error("Build stamp pins disagree: " + b +
+        ", the build stamp is " + workerStamp + ".");
+    }
+    return false;
+  }
+  console.log("Build stamp pins agree: every ?v= pin in the served tree carries " + workerStamp + ".");
   if (!slopGateScan()) return false;
   if (!publicReadinessScan()) return false;
   return true;
