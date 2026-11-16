@@ -50,6 +50,8 @@ The five starter columns are Inbox, Ready, Doing, Waiting and Done. A board made
 
 A person can add, rename, reorder and remove boards and columns. A board always keeps at least one column. When a removed column holds cards, the person picks another column for them. The cards move in the same act.
 
+A column can recur. The person sets a schedule on it — every day, every week on a weekday, or every month on a day of the month — and when the day comes, the cards standing in the column are archived and fresh copies land in their place: the same titles, notes, labels and projects, the steps unticked, the due dates one round on. The set that recurs is the set standing in the column when the round lands.
+
 A board can be deleted unless it is the person's last board. Deleting a board removes its columns, labels, projects and cards with it.
 
 ### Cards and details
@@ -297,7 +299,6 @@ TaskSparkle does not offer these things:
 - An offline mode
 - File attachments
 - A native phone app
-- Recurring tasks
 - Gantt charts
 - Calendar sync
 

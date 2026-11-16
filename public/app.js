@@ -23,7 +23,7 @@
 // paints (see bootLoad). The deploy fails when the stamps differ,
 // so they can only ever disagree in a browser still holding an
 // older copy of this file — which is the case the reload cures.
-var BUILD_ID = "r2026-11-07-21";
+var BUILD_ID = "r2026-11-16-1";
 
 // Label colours are stored as palette ids. The person picks from this
 // palette in Settings and each card chip paints itself from it. Each
@@ -6078,6 +6078,60 @@ function renderSettings() {
         // where the person reads it before the button.
         row.insertBefore(note, row.firstChild);
       }
+      // The Repeats control (issue #138): the column's
+      // recurrence schedule, set on the same column call the
+      // name uses. The day picker stands only beside a weekly
+      // or monthly schedule, naming a weekday or a day of the
+      // month to match, and the next round's date stands
+      // beside it when one is set.
+      var recurWrap = document.createElement("div");
+      recurWrap.className = "column-recur";
+      var recurLabel = document.createElement("span");
+      recurLabel.className = "column-recur-label";
+      recurLabel.textContent = "Repeats";
+      recurWrap.appendChild(recurLabel);
+      var recurEvery = document.createElement("select");
+      recurEvery.setAttribute("data-role", "column-recur-every");
+      recurEvery.setAttribute("aria-label", "Repeat schedule for column " + col.name);
+      [["", "Never"], ["day", "Every day"], ["week", "Every week"], ["month", "Every month"]].forEach(function (pair) {
+        var opt = document.createElement("option");
+        opt.value = pair[0];
+        opt.textContent = pair[1];
+        recurEvery.appendChild(opt);
+      });
+      recurEvery.value = col.recur ? col.recur.every : "";
+      recurWrap.appendChild(recurEvery);
+      if (col.recur && (col.recur.every === "week" || col.recur.every === "month")) {
+        var recurDay = document.createElement("select");
+        recurDay.setAttribute("data-role", "column-recur-day");
+        recurDay.setAttribute("aria-label", "Repeat day for column " + col.name);
+        if (col.recur.every === "week") {
+          ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].forEach(function (dayName, dayIndex) {
+            var dayOpt = document.createElement("option");
+            dayOpt.value = String(dayIndex);
+            dayOpt.textContent = dayName;
+            recurDay.appendChild(dayOpt);
+          });
+          recurDay.value = String(col.recur.weekday == null ? 1 : col.recur.weekday);
+        } else {
+          for (var monthDay = 1; monthDay <= 31; monthDay++) {
+            var monthOpt = document.createElement("option");
+            monthOpt.value = String(monthDay);
+            monthOpt.textContent = String(monthDay);
+            recurDay.appendChild(monthOpt);
+          }
+          recurDay.value = String(col.recur.monthDay == null ? 1 : col.recur.monthDay);
+        }
+        recurWrap.appendChild(recurDay);
+      }
+      if (col.recur && col.recur.next) {
+        var recurNext = document.createElement("span");
+        recurNext.className = "column-recur-next";
+        recurNext.setAttribute("data-role", "column-recur-next");
+        recurNext.textContent = "Next round: " + col.recur.next;
+        recurWrap.appendChild(recurNext);
+      }
+      row.appendChild(recurWrap);
       columnsWrap.appendChild(row);
     });
   }
@@ -8649,6 +8703,30 @@ function init() {
     if (!isTempId(column.id)) {
       saveQueued(function () {
         return api("PATCH", "/api/columns/" + encodeURIComponent(column.id), { name: cleanName });
+      }).catch(function () { /* reloadState already ran */ });
+    }
+  });
+  if (columnsWrap) columnsWrap.addEventListener("change", function (ev) {
+    var role = ev.target.getAttribute("data-role");
+    if (role !== "column-recur-every" && role !== "column-recur-day") return;
+    var found = columnFromRow(ev.target.closest("[data-column-row]"));
+    if (!found.column) return;
+    var column = found.column;
+    var row = ev.target.closest("[data-column-row]");
+    var everySel = row.querySelector("[data-role='column-recur-every']");
+    var daySel = row.querySelector("[data-role='column-recur-day']");
+    var every = everySel ? everySel.value : "";
+    var recur = null;
+    if (every === "day") recur = { every: "day" };
+    else if (every === "week") recur = { every: "week", weekday: daySel ? Number(daySel.value) : 1 };
+    else if (every === "month") recur = { every: "month", month_day: daySel ? Number(daySel.value) : 1 };
+    column.recur = recur
+      ? { every: recur.every, weekday: recur.weekday, monthDay: recur.month_day, next: null }
+      : null;
+    renderSettings();
+    if (!isTempId(column.id)) {
+      saveQueued(function () {
+        return api("PATCH", "/api/columns/" + encodeURIComponent(column.id), { recur: recur });
       }).catch(function () { /* reloadState already ran */ });
     }
   });

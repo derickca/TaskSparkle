@@ -6,6 +6,10 @@ Inside a release, the app stamps every deploy with a build stamp. The stamp is `
 
 ## [Unreleased]
 
+### Added
+
+- A list can now recur. Under Settings, then Columns, a column's row carries a Repeats control: every day, every week on a weekday, or every month on a day of the month. When the day comes, the cards standing in the column are archived and fresh copies land in their place — the same titles, notes, labels and projects, the steps unticked, no comments, and a due date moved one round on — so a weekly or monthly round of work stands ready without anyone rebuilding it by hand. The set that recurs is the set standing in the column when the round lands, missed rounds land once rather than stacking, and the same schedule can be set and read through the API on the column's own call, by the person and an agent key alike. Build r2026-11-16-1.
+
 ### Changed
 
 - The default look wears the Spark family look now. TaskSparkle is one of the MemberSpark family's products, and its Standard look — the default of the eight looks — takes the family's design tokens: dark blue on off-white in the light theme, the family's dark theme after dark, the main button filled with this product's accent blue and second buttons outlined. The product mark is the family's spark, a white four-point spark on a tile of the accent, in place of the mint sparkle on violet. The tokens stand pinned in this repo at design/system/, copied from the MemberSpark design system, and the sign-in pages wear the same colours. The other seven looks keep their own palettes, exactly as they were.
