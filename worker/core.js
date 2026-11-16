@@ -196,7 +196,7 @@ function countOf(row) {
 // loading line. The deploy checks the two stamps agree and fails
 // when they do not, so a release can never ship them mismatched.
 // Bump both together whenever the app files change.
-var BUILD_ID = "r2026-11-07-21";
+var BUILD_ID = "r2026-11-16-1";
 
 // Every API answer carries two standing headers. Cache-Control:
 // no-store, because state answers hold a person's boards and the
@@ -271,7 +271,7 @@ function agentDirections(env) {
     "Reading the boards",
     "GET /state returns the owner's whole state in one answer: me (the owner's id and the name they go by — never their email, which a key does not need), version, theme, boards, labels, projects, cards and keys, plus agentHost: the agents' door host from this deployment's settings, the host the base address above names. keys is the owner's live agent keys, each an id and a name: the app's Next step chooser names them, and a hand-over to another key names its id from this list (see Handing over). The person's own sign-in reads a fuller state than a key does: their email, the newest key's last four characters and the date it was made, and the stamp of the latest change ride on the person's answer only, because the app's settings pages and its change marker use them; a key's state carries none of the three.",
     "Reads speak camelCase. Writes speak snake_case. The same fact has two spellings, one per direction, and each call takes only its own.",
-    "A board reads as: id, name, icon, position, labelColourMode and columns. Its columns ride inside it: id, kind, name, icon and position, in board order.",
+    "A board reads as: id, name, icon, position, labelColourMode and columns. Its columns ride inside it: id, kind, name, icon, position and recur, in board order. recur is the column's recurrence schedule (see Recurring lists), or null when the column carries none.",
     "labelColourMode says how the app paints a card's first label colour on this board: chip keeps the colour on the label alone, background gives the card's face that colour faded, trim rings the card with a thick border in it, and top sets a thick band of it across the card's top. First means first in the board's own label order; a card with no labels is never painted. The label chips themselves always show. The mode is the board's own — it is part of what tells one board from another — and a board copy carries it. It starts at chip.",
     "A label reads as: id, boardId, name, icon and colour. A project reads as: id, boardId, name and icon. Each belongs to one board.",
     "A card reads as: id, boardId, columnId, title, notes, labels, due, projectId, archived, important, position, steps, links, comments, creatorKeyId, creatorKeyName and step.",
@@ -318,7 +318,7 @@ function agentDirections(env) {
     "PATCH /templates/{template id} - rename a template: name.",
     "DELETE /templates/{template id} - remove a template. Nothing it started is touched.",
     "POST /columns - add a column: board_id and name, plus kind and icon if given. The column lands at the end of its board. A kind is used only when it is a plain slug (lowercase letters, digits and hyphens) that no column on the board carries yet; otherwise one is generated.",
-    "PATCH /columns/{column id} - change a column: name, position and icon, any of them. Position is its place counting from the left, starting at 0; the board's other columns shift around it.",
+    "PATCH /columns/{column id} - change a column: name, position, icon and recur, any of them. Position is its place counting from the left, starting at 0; the board's other columns shift around it. recur sets or clears the column's recurrence schedule (see Recurring lists).",
     "DELETE /columns/{column id} - remove a column. When the column holds cards, the body names the column that receives them as move_to_column_id (a column id or kind, on the same board): every card moves to the end of that column, the active ones in their order, archived ones after them and still archived, and the column is removed in the same act. A column holding cards but naming no destination is refused, and so is the board's last column. An empty column takes no body.",
     "POST /labels - add a label: board_id and name, plus colour and icon if given. Colour defaults to grey.",
     "PATCH /labels/{label id} - change a label: name, colour and icon, any of them.",
@@ -374,6 +374,10 @@ function agentDirections(env) {
     "A template is a saved shape: a board's whole shape, or one card's shape with its steps and links, kept apart from the boards so a shape that works once is one act to start again. Save one with POST /boards/{board id}/templates or POST /cards/{card id}/templates; the name defaults to the board's name or the card's title. Saving takes the shape as it stands at that moment. Later changes to the board or the card never reach the template, and starting from a template reaches back into neither. Read the owner's templates with GET /templates; they never ride in the state.",
     "Start from a template with POST /templates/{template id}/start, as one act with one version rise. From a board template the call may carry a name for the new board and defaults to the template's name; it makes a whole new board the way a copy does, with the template's columns, labels, projects and active cards. From a card template the call names board_id, and may name column_id (the card lands in the board's first column otherwise) and a title of its own; the card lands at the end of its column, and its labels and project cross onto that board by name — a name the board does not carry is left behind, the rule a card moving boards follows. Starting changes nothing in the template, so a second start makes a second, separate board or card.",
     "A template holds the shape of work to do, not a record of one run. A started card's steps all start unticked, whatever their ticks stood at when the shape was saved, and no due date rides: a fixed date belongs to the run that set it. Comments never ride, and archived cards never ride into a board start. A started card's creator and next step belong to whoever starts it, the way a copy's do. Rename a template with PATCH /templates/{template id} and remove one with DELETE /templates/{template id}; removing one touches nothing it started.",
+    "",
+    "Recurring lists",
+    "A column can recur: the person sets a schedule on it, and when the day comes, the cards standing in the column are archived and fresh copies land in their place, so a weekly or monthly round of work stands ready without anyone rebuilding it by hand. Set or clear the schedule on the column's PATCH as recur: {every: \"day\"}, {every: \"week\", weekday: N} with N counting from 0 (Sunday) to 6, {every: \"month\", month_day: N} with N from 1 to 31, or null for no schedule. A month day past the end of a short month lands on that month's last day. A column reads its schedule back as recur — the same fields in camelCase (monthDay), plus next, the date the next round lands — or null when it has none.",
+    "A round lands at the start of its day (UTC), settled as the owner's next call is answered: the person's app opening, or your own poll, can be the call that lands it. The landing is one change with one version rise, however many cards land, and a write you send against the version from before it is refused as stale, like any other change landing first. A fresh copy carries its card's title, notes, labels, project and importance, its steps unticked and its links; it starts with no comments and its next step with the person, and a due date moves forward by one round. The set that recurs is the set standing in the column when the round lands: a card added during a round joins the next one, and a card moved out or deleted does not come back. Missed rounds do not stack: one round lands, however long the gap. A round whose copies would pass the board's card cap waits until there is room.",
     "",
     "Live updates",
     "GET /push opens a WebSocket, authorized exactly like every other route. Each time a change lands, the socket receives the new version number as plain text: the number and nothing else, never state or card data. A socket that misses an update catches up by reading /version or /state.",
@@ -1299,7 +1303,7 @@ function writeFieldsFor(method, parts) {
   if (rest[0] === "columns") {
     if (rest.length === 1 && method === "POST") return ["board_id", "name", "kind", "icon"];
     if (rest.length === 2) {
-      if (method === "PATCH") return ["name", "position", "icon"];
+      if (method === "PATCH") return ["name", "position", "icon", "recur"];
       // A column delete names the column that receives its cards.
       if (method === "DELETE") return ["move_to_column_id"];
       return [];
@@ -1353,10 +1357,203 @@ function isRealDateString(value) {
   return day <= daysInMonth[month - 1];
 }
 
+// --- Recurring lists (issue #138) -------------------------------------------
+// A list is a column, and the cards standing in it are the
+// round. The schedule keeps the app's own calendar: plain UTC
+// dates, YYYY-MM-DD, the shape a card's due date already
+// takes, and a round lands at the start of its day.
+
+function dayString(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function todayUtc() {
+  var n = new Date();
+  return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
+}
+
+function addDays(date, n) {
+  return new Date(date.getTime() + n * 86400000);
+}
+
+// The first date after `from` on which a schedule lands. A
+// daily schedule lands tomorrow; a weekly one lands on the
+// next day carrying its weekday (0 is Sunday); a monthly one
+// lands on the next month-day, clamped to the last day of a
+// short month.
+function nextRecurDate(every, weekday, monthDay, from) {
+  if (every === "day") return addDays(from, 1);
+  if (every === "week") {
+    var d = addDays(from, 1);
+    while (d.getUTCDay() !== weekday) d = addDays(d, 1);
+    return d;
+  }
+  var y = from.getUTCFullYear();
+  var m = from.getUTCMonth();
+  for (var i = 0; i < 25; i++) {
+    var last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    var cand = new Date(Date.UTC(y, m, Math.min(monthDay, last)));
+    if (cand > from) return cand;
+    m += 1;
+    if (m === 12) { m = 0; y += 1; }
+  }
+  return addDays(from, 1);
+}
+
+// A due date carried one round forward: a day, a week, or a
+// calendar month, clamped the way the monthly schedule is.
+function advanceDueDate(due, every) {
+  var d = new Date(due + "T00:00:00Z");
+  if (isNaN(d.getTime())) return due;
+  if (every === "day") return dayString(addDays(d, 1));
+  if (every === "week") return dayString(addDays(d, 7));
+  var y = d.getUTCFullYear();
+  var m = d.getUTCMonth() + 1;
+  if (m === 12) { m = 0; y += 1; }
+  var last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return dayString(new Date(Date.UTC(y, m, Math.min(d.getUTCDate(), last))));
+}
+
+// Judges a recur value sent on a column write. The answer is
+// { off: true } for null, { every, weekday, monthDay } for a
+// schedule, or { error } for a value the API does not carry —
+// a field the named schedule does not take refuses the write,
+// the way every field here is judged.
+function cleanRecur(value) {
+  if (value === null) return { off: true };
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { error: "recur must be an object naming every, or null." };
+  }
+  var every = value.every;
+  if (every !== "day" && every !== "week" && every !== "month") {
+    return { error: "recur.every must be \"day\", \"week\" or \"month\"." };
+  }
+  var allowed = every === "day" ? ["every"]
+    : every === "week" ? ["every", "weekday"] : ["every", "month_day"];
+  var keys = Object.keys(value);
+  for (var i = 0; i < keys.length; i++) {
+    if (allowed.indexOf(keys[i]) === -1) {
+      return { error: "\"" + keys[i] + "\" is not part of a " + every + " schedule." };
+    }
+  }
+  if (every === "week") {
+    if (!Number.isInteger(value.weekday) || value.weekday < 0 || value.weekday > 6) {
+      return { error: "recur.weekday must be a whole number from 0 (Sunday) to 6." };
+    }
+    return { every: every, weekday: value.weekday, monthDay: null };
+  }
+  if (every === "month") {
+    if (!Number.isInteger(value.month_day) || value.month_day < 1 || value.month_day > 31) {
+      return { error: "recur.month_day must be a whole number from 1 to 31." };
+    }
+    return { every: every, weekday: null, monthDay: value.month_day };
+  }
+  return { every: every, weekday: null, monthDay: null };
+}
+
+// A column's schedule in its read shape, or null when the
+// column carries none.
+function recurOut(row) {
+  if (!row.recur_every) return null;
+  var out = { every: row.recur_every };
+  if (row.recur_every === "week") out.weekday = Number(row.recur_weekday);
+  if (row.recur_every === "month") out.monthDay = Number(row.recur_month_day);
+  out.next = row.recur_next || null;
+  return out;
+}
+
+// Settles the owner's due rounds (issue #138): every list
+// whose next date has arrived archives the cards standing in
+// it and lands fresh copies of them — the card as it stood,
+// its steps unticked, its links and labels riding, no
+// comments, the next step the person's, a due date one round
+// on. The whole settling is gathered as statements and run
+// as one batch by the caller, who raises the version once
+// for it. Returns true when anything is due to land.
+//
+// The board's card cap counts every card, archived ones
+// included: a round whose copies would pass it waits — its
+// date stays due, and the round lands at the first call
+// after room exists — rather than landing part-way. Missed
+// rounds never stack: however long the gap, one round lands
+// and the schedule moves to its next date after today.
+async function settleDueRounds(db, owner, stamp) {
+  var today = dayString(todayUtc());
+  var due = (await db.prepare(
+    'SELECT "columns".* FROM "columns" JOIN boards ON boards.id = "columns".board_id ' +
+    'WHERE boards.owner_id = ? AND "columns".recur_every IS NOT NULL ' +
+    'AND "columns".recur_next IS NOT NULL AND "columns".recur_next <= ? ' +
+    'ORDER BY "columns".recur_next, "columns".created_at'
+  ).bind(owner.id, today).all()).results;
+  if (!due.length) return false;
+  var statements = [];
+  var boardCounts = {};
+  for (var di = 0; di < due.length; di++) {
+    var column = due[di];
+    if (boardCounts[column.board_id] == null) {
+      var boardCount = await db.prepare("SELECT COUNT(*) AS count FROM cards WHERE board_id = ?")
+        .bind(column.board_id).first();
+      boardCounts[column.board_id] = countOf(boardCount);
+    }
+    var standing = (await db.prepare(
+      "SELECT * FROM cards WHERE column_id = ? AND archived = 0 ORDER BY position, created_at"
+    ).bind(column.id).all()).results;
+    if (boardCounts[column.board_id] + standing.length > LIMITS.cardsPerBoard) continue;
+    boardCounts[column.board_id] += standing.length;
+    for (var ai = 0; ai < standing.length; ai++) {
+      statements.push(db.prepare("UPDATE cards SET archived = 1, updated_at = ? WHERE id = ?")
+        .bind(stamp, standing[ai].id));
+    }
+    for (var ci = 0; ci < standing.length; ci++) {
+      var source = standing[ci];
+      var copyId = newId("card");
+      // The maker stamp stands empty: no one made this card
+      // on a call — the person's own schedule did.
+      statements.push(db.prepare("INSERT INTO cards (id, board_id, column_id, project_id, title, notes, due_date, position, archived, important, creator_key_id, creator_key_name, step_holder, step_key_id, step_key_name, step_handed_at, step_handed_by_key_id, step_handed_by_key_name, step_waiting, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(copyId, source.board_id, source.column_id, source.project_id,
+          source.title, source.notes,
+          source.due_date ? advanceDueDate(source.due_date, column.recur_every) : source.due_date,
+          ci, 0, source.important,
+          null, null, "owner", null, null, null, null, null, 0,
+          stamp, stamp));
+      var stepRows = (await db.prepare(
+        "SELECT * FROM checklist_items WHERE card_id = ? ORDER BY position, created_at"
+      ).bind(source.id).all()).results;
+      for (var sti = 0; sti < stepRows.length; sti++) {
+        statements.push(db.prepare("INSERT INTO checklist_items (id, card_id, text, done, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+          .bind(newId("step"), copyId, stepRows[sti].text, 0, stepRows[sti].position, stamp, stamp));
+      }
+      var linkRows = (await db.prepare(
+        "SELECT * FROM card_links WHERE card_id = ? ORDER BY position, created_at"
+      ).bind(source.id).all()).results;
+      for (var lki = 0; lki < linkRows.length; lki++) {
+        statements.push(db.prepare("INSERT INTO card_links (id, card_id, url, name, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+          .bind(newId("link"), copyId, linkRows[lki].url, linkRows[lki].name, linkRows[lki].position, stamp, stamp));
+      }
+      var labelRows = (await db.prepare(
+        "SELECT label_id FROM card_labels WHERE card_id = ?"
+      ).bind(source.id).all()).results;
+      for (var lbi = 0; lbi < labelRows.length; lbi++) {
+        statements.push(db.prepare("INSERT INTO card_labels (card_id, label_id) VALUES (?, ?)")
+          .bind(copyId, labelRows[lbi].label_id));
+      }
+    }
+    var nextDate = nextRecurDate(column.recur_every,
+      column.recur_weekday == null ? null : Number(column.recur_weekday),
+      column.recur_month_day == null ? null : Number(column.recur_month_day),
+      todayUtc());
+    statements.push(db.prepare('UPDATE "columns" SET recur_next = ?, updated_at = ? WHERE id = ?')
+      .bind(dayString(nextDate), stamp, column.id));
+  }
+  if (!statements.length) return false;
+  await batchRun(db, statements);
+  return true;
+}
+
 // --- Output shapes. The front end works in these shapes. ---
 
 function columnOut(row) {
-  return { id: row.id, kind: columnKind(row), name: row.name, icon: columnIcon(row), position: row.position };
+  return { id: row.id, kind: columnKind(row), name: row.name, icon: columnIcon(row), position: row.position, recur: recurOut(row) };
 }
 
 function stepOut(row) {
@@ -2278,6 +2475,20 @@ export function createApiHandler(deps) {
       }
     }
     return erased;
+  }
+
+  // Recurring lists settle before the call is answered
+  // (issue #138). The erasure above stands apart and never
+  // reaches this: its owner's rounds end with the erasure.
+  if (owner) {
+    var roundsAt = nowIso();
+    if (await settleDueRounds(db, owner, roundsAt)) {
+      var roundsVersion = await bumpVersion(db, owner.id, "owner", roundsAt);
+      owner.state_version = roundsVersion;
+      owner.last_change_by = "owner";
+      owner.last_change_at = roundsAt;
+      deps.pushNotify(owner.id, roundsVersion);
+    }
   }
 
   // Every write passes one gate before its route runs, and the
@@ -3434,6 +3645,11 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         // every PATCH handler in this file.
         var columnPatchIcon = bodyIcon(columnPatch);
         if (columnPatchIcon === null) return error("icon must be a single emoji.");
+        var recurClean = null;
+        if (columnPatch.recur !== undefined) {
+          recurClean = cleanRecur(columnPatch.recur);
+          if (recurClean.error) return error(recurClean.error);
+        }
         var cleanColumnName = null;
         if (columnPatch.name != null) {
           cleanColumnName = String(columnPatch.name).trim();
@@ -3467,6 +3683,36 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
               var moved = siblings.splice(fromIndex, 1)[0];
               siblings.splice(toIndex, 0, moved);
               if (await renumberColumns(db, siblings)) noteChange();
+            }
+          }
+        }
+        if (recurClean) {
+          if (recurClean.off) {
+            if (theColumn.recur_every) {
+              noteChange();
+              await db.prepare('UPDATE "columns" SET recur_every = NULL, recur_weekday = NULL, recur_month_day = NULL, recur_next = NULL, updated_at = ? WHERE id = ?')
+                .bind(nowIso(), p.columnId).run();
+              theColumn.recur_every = null;
+              theColumn.recur_weekday = null;
+              theColumn.recur_month_day = null;
+              theColumn.recur_next = null;
+            }
+          } else {
+            var sameSchedule = theColumn.recur_every === recurClean.every &&
+              (recurClean.weekday == null ? theColumn.recur_weekday == null
+                : Number(theColumn.recur_weekday) === recurClean.weekday) &&
+              (recurClean.monthDay == null ? theColumn.recur_month_day == null
+                : Number(theColumn.recur_month_day) === recurClean.monthDay);
+            if (!sameSchedule) {
+              noteChange();
+              var recurNext = dayString(nextRecurDate(recurClean.every,
+                recurClean.weekday, recurClean.monthDay, todayUtc()));
+              await db.prepare('UPDATE "columns" SET recur_every = ?, recur_weekday = ?, recur_month_day = ?, recur_next = ?, updated_at = ? WHERE id = ?')
+                .bind(recurClean.every, recurClean.weekday, recurClean.monthDay, recurNext, nowIso(), p.columnId).run();
+              theColumn.recur_every = recurClean.every;
+              theColumn.recur_weekday = recurClean.weekday;
+              theColumn.recur_month_day = recurClean.monthDay;
+              theColumn.recur_next = recurNext;
             }
           }
         }

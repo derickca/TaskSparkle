@@ -57,6 +57,17 @@ CREATE TABLE IF NOT EXISTS "columns" (
   name TEXT NOT NULL,
   icon TEXT,
   position INTEGER NOT NULL DEFAULT 0,
+  -- A list can recur (issue #138): the schedule the person set
+  -- on the column. recur_every is 'day', 'week' or 'month', or
+  -- NULL when the column carries no schedule. recur_weekday
+  -- (0 is Sunday) stands for a weekly schedule and
+  -- recur_month_day (1 to 31) for a monthly one; recur_next is
+  -- the date, YYYY-MM-DD, the next round lands. The deploy's
+  -- column sync adds these to a table that already stands.
+  recur_every TEXT,
+  recur_weekday INTEGER,
+  recur_month_day INTEGER,
+  recur_next TEXT,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );

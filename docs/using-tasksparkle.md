@@ -61,6 +61,9 @@ Open this copy's address on the phone, sign in, and the browser offers to instal
 - Cards keep living after a project is deleted. They have no project.
 - Every board starts with five columns: Inbox, Ready, Doing, Waiting and Done.
 - Rename, add, remove and reorder columns for each board in Settings.
+- Set a column to repeat there too: every day, every week on a weekday, or every month on a day of the month.
+- When the day comes, the cards standing in the column are archived and fresh copies land in their place, steps unticked and due dates one round on.
+- A card added during a round joins the next round. A card moved out or deleted does not come back.
 - A board keeps at least one column.
 - When you remove a column with cards, choose where its cards go.
 - All cards move to the end of that column, in their order. Archived cards stay archived.

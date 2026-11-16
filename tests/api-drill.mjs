@@ -5,10 +5,13 @@
 // have always drilled by hand: sign-in and the seeded state,
 // isolation between owners, the card lifecycle, checklists,
 // links, labels, projects, columns (including the delete that
-// moves cards), boards (including copy and the keep-one rule),
-// templates (issue #139: a board or a card saved as a shape and
-// started again, on both doors, with its caps), keys (mint,
-// list, rename, revoke, the key-door rules), the
+// moves cards), recurring lists (issue #138: a column's schedule
+// set and read on the column call by the person and a key alike,
+// and the rounds landing as fresh copies), boards (including
+// copy and the keep-one rule), templates (issue #139: a board
+// or a card saved as a shape and started again, on both doors,
+// with its caps), keys (mint, list, rename, revoke, the
+// key-door rules), the
 // write gate (unknown fields refused by name, stale writes), the
 // version stamps, the directions, the push route's refusals and
 // the stale-session cookie expiry (issue #49). The doors section
@@ -640,6 +643,228 @@ card = (stA.cards || []).find((c) => c.id === cardId);
 check("columns: the card landed in the inbox", !!card && card.columnId === "inbox", card && card.columnId);
 res = await a.call("DELETE", "/api/v1/columns/" + somedayId);
 check("columns: deleting a gone column is a 404", res.status === 404, "status " + res.status);
+
+// --- Recurring lists (issue #138) ---------------------------------------------
+// A list is a column, and the cards standing in it are the round.
+// The family sets schedules on the column call — the person first,
+// then a key on the same call — and ages the stored next date in
+// the data file (the cap family's road, both modes) to watch the
+// rounds land.
+const dayMs138 = 24 * 60 * 60 * 1000;
+const isoDay138 = (d) => d.toISOString().slice(0, 10);
+const todayUtc138 = () => { const n = new Date(); return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate())); };
+const addDays138 = (d, n) => new Date(d.getTime() + n * dayMs138);
+const nextWeekly138 = (weekday, from) => { let d = addDays138(from, 1); while (d.getUTCDay() !== weekday) d = addDays138(d, 1); return d; };
+const nextMonthly138 = (monthDay, from) => {
+  let y = from.getUTCFullYear(); let m = from.getUTCMonth();
+  for (let i = 0; i < 25; i++) {
+    const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    const cand = new Date(Date.UTC(y, m, Math.min(monthDay, last)));
+    if (cand > from) return cand;
+    m += 1; if (m === 12) { m = 0; y += 1; }
+  }
+  return null;
+};
+const boardsDbFile138 = (boardId) => {
+  if (MODE === "selfhost" && args["server-config"]) {
+    const cfg = JSON.parse(readFileSync(args["server-config"], "utf8"));
+    return join(dirname(args["server-config"]), String(cfg.dataDir || "data"), "tasksparkle.sqlite");
+  }
+  if (MODE === "worker" && args.mint) {
+    try {
+      const mintAbs = args.mint.startsWith("/") ? args.mint : join(process.cwd(), args.mint);
+      const d1Dir = join(dirname(dirname(dirname(mintAbs))), ".wrangler", "state", "v3", "d1", "miniflare-D1DatabaseObject");
+      for (const name of readdirSync(d1Dir)) {
+        if (!name.endsWith(".sqlite")) continue;
+        const candidate = join(d1Dir, name);
+        try {
+          const ro = new DatabaseSync(candidate, { readOnly: true });
+          const hit = ro.prepare("SELECT id FROM boards WHERE id = ?").get(boardId);
+          ro.close();
+          if (hit) return candidate;
+        } catch (e) { /* a database that is not the boards one */ }
+      }
+    } catch (e) { /* no rig database found */ }
+  }
+  return null;
+};
+const setNextDue138 = (dbFile, columnRowId, dateStr) => {
+  try {
+    const rw = new DatabaseSync(dbFile);
+    rw.exec("PRAGMA busy_timeout = 10000");
+    rw.prepare('UPDATE "columns" SET recur_next = ? WHERE id = ?').run(dateStr, columnRowId);
+    rw.close();
+    return true;
+  } catch (e) { return false; }
+};
+const recurColOf = (st, boardId) => st.boards.find((b) => b.id === boardId).columns.find((c) => c.kind === "inbox");
+const inboxCardsOf = (st, boardId) => (st.cards || []).filter((c) => c.boardId === boardId && c.columnId === "inbox");
+
+res = await a.call("POST", "/api/v1/boards", { name: "Recurring 138" });
+check("#138: the family's board is made", res.status === 201, "status " + res.status);
+const rBoard138 = res.json.board;
+const rInbox138 = rBoard138.columns.find((c) => c.kind === "inbox");
+res = await a.call("POST", "/api/v1/labels", { board_id: rBoard138.id, name: "Round label", colour: "green" });
+const rLabel138 = res.json.label;
+res = await a.call("POST", "/api/v1/cards", { board_id: rBoard138.id, column_id: "inbox", title: "Round card one", notes: "first", labels: [rLabel138.id], due_date: isoDay138(todayUtc138()) });
+const rCard1 = res.json.card;
+await a.call("POST", "/api/v1/cards/" + rCard1.id + "/steps", { text: "Step done in the round", done: true });
+await a.call("POST", "/api/v1/cards/" + rCard1.id + "/steps", { text: "Step still open" });
+await a.call("POST", "/api/v1/cards/" + rCard1.id + "/links", { url: "https://example.com/round", name: "Round link" });
+await a.call("POST", "/api/v1/cards/" + rCard1.id + "/comments", { body: "A note from the round" });
+await a.call("POST", "/api/v1/cards", { board_id: rBoard138.id, column_id: "inbox", title: "Round card two" });
+await a.call("POST", "/api/v1/cards", { board_id: rBoard138.id, column_id: "inbox", title: "Round card three" });
+res = await a.call("POST", "/api/v1/cards", { board_id: rBoard138.id, column_id: "inbox", title: "Archived before the round" });
+const rCardOld = res.json.card;
+await a.call("PATCH", "/api/v1/cards/" + rCardOld.id, { archived: true });
+
+stA = await state(a);
+check("#138: a column with no schedule reads recur null",
+  recurColOf(stA, rBoard138.id).recur === null, JSON.stringify(recurColOf(stA, rBoard138.id).recur));
+
+const tomorrow138 = addDays138(todayUtc138(), 1);
+const vBeforeSet138 = stA.version;
+res = await a.call("PATCH", "/api/v1/columns/" + rInbox138.id, { recur: { every: "week", weekday: tomorrow138.getUTCDay() } });
+check("#138: the person sets a weekly schedule on the column call, and the first round lands on the first such day after today",
+  res.status === 200 && res.json.column.recur && res.json.column.recur.every === "week" &&
+    res.json.column.recur.weekday === tomorrow138.getUTCDay() && res.json.column.recur.next === isoDay138(tomorrow138),
+  "status " + res.status + " recur " + JSON.stringify(res.json && res.json.column && res.json.column.recur));
+check("#138: setting a schedule is one version rise",
+  res.json.version === vBeforeSet138 + 1, "version " + (res.json && res.json.version) + " vs " + vBeforeSet138);
+res = await a.call("PATCH", "/api/v1/columns/" + rInbox138.id, { recur: { every: "week", weekday: tomorrow138.getUTCDay() } });
+check("#138: setting the schedule that already stands changes nothing",
+  res.status === 200 && res.json.version === vBeforeSet138 + 1, "version " + (res.json && res.json.version));
+
+const badRecurs138 = [
+  { every: "fortnight" }, { every: "week" }, { every: "week", weekday: 7 }, { every: "week", weekday: -1 },
+  { every: "month" }, { every: "month", month_day: 0 }, { every: "month", month_day: 32 },
+  { every: "day", weekday: 1 }, "week", 5,
+];
+let badStatus138 = 0;
+for (const bad of badRecurs138) {
+  res = await a.call("PATCH", "/api/v1/columns/" + rInbox138.id, { recur: bad });
+  badStatus138 = res.status;
+  if (badStatus138 !== 400) break;
+}
+stA = await state(a);
+check("#138: a schedule the API does not carry is refused, and the refusals change nothing",
+  badStatus138 === 400 && stA.version === vBeforeSet138 + 1 &&
+    recurColOf(stA, rBoard138.id).recur.every === "week",
+  "last bad status " + badStatus138 + " version " + stA.version);
+
+res = await a.call("POST", "/api/v1/me/token", { name: "Recur Key 138" });
+const rKey138 = res.json.key; const rKeyId138 = res.json.id;
+res = await raw(AGENT_BASE, "PATCH", "/api/v1/columns/" + rInbox138.id, {
+  Authorization: "Bearer " + rKey138, "Content-Type": "application/json",
+}, JSON.stringify({ recur: { every: "day" } }));
+check("#138: a key caller sets recurrence on the same call the person uses",
+  res.status === 200 && res.json.column.recur && res.json.column.recur.every === "day" &&
+    res.json.column.recur.next === isoDay138(tomorrow138),
+  "status " + res.status + " recur " + JSON.stringify(res.json && res.json.column && res.json.column.recur));
+res = await a.agentCall("GET", "/api/v1/state", rKey138);
+check("#138: a key caller reads the schedule back in state",
+  res.status === 200 && recurColOf(res.json, rBoard138.id).recur &&
+    recurColOf(res.json, rBoard138.id).recur.every === "day",
+  "status " + res.status);
+res = await a.agentCall("GET", "/api/v1/directions", rKey138);
+check("#138: the served directions describe setting a list to recur",
+  res.status === 200 && /Recurring lists/.test(res.text), "status " + res.status);
+
+const todayWd138 = todayUtc138().getUTCDay();
+res = await a.call("PATCH", "/api/v1/columns/" + rInbox138.id, { recur: { every: "week", weekday: todayWd138 } });
+check("#138: a weekly schedule set for today's own weekday first lands next week, not today",
+  res.status === 200 && res.json.column.recur.next === isoDay138(nextWeekly138(todayWd138, todayUtc138())),
+  "next " + (res.json && res.json.column && res.json.column.recur && res.json.column.recur.next));
+res = await a.call("PATCH", "/api/v1/columns/" + rInbox138.id, { recur: { every: "month", month_day: 31 } });
+check("#138: a monthly schedule honours the day it was given, clamped to a short month's last day",
+  res.status === 200 && res.json.column.recur.next === isoDay138(nextMonthly138(31, todayUtc138())),
+  "next " + (res.json && res.json.column && res.json.column.recur && res.json.column.recur.next));
+res = await a.call("PATCH", "/api/v1/columns/" + rInbox138.id, { recur: { every: "month", month_day: todayUtc138().getUTCDate() } });
+check("#138: a monthly schedule set for today's own day first lands next month",
+  res.status === 200 && res.json.column.recur.next === isoDay138(nextMonthly138(todayUtc138().getUTCDate(), todayUtc138())),
+  "next " + (res.json && res.json.column && res.json.column.recur && res.json.column.recur.next));
+res = await a.call("PATCH", "/api/v1/columns/" + rInbox138.id, { recur: { every: "day" } });
+
+const rDbFile138 = boardsDbFile138(rBoard138.id);
+check("#138: the drill found the boards data file for the landing checks", !!rDbFile138, rDbFile138 || "no database found");
+if (rDbFile138) {
+  stA = await state(a);
+  const vBeforeFire138 = stA.version;
+  const aged138 = setNextDue138(rDbFile138, rInbox138.id, isoDay138(todayUtc138()));
+  check("#138: the drill aged the stored next date to today", aged138, aged138 ? "" : "the ageing write failed");
+  if (!aged138) throw new Error("the landing checks cannot run without the ageing write");
+  res = await a.call("GET", "/api/v1/version");
+  check("#138: a due round lands as one version rise",
+    res.json.version === vBeforeFire138 + 1, "version " + (res.json && res.json.version) + " vs " + vBeforeFire138);
+  stA = await state(a);
+  const inboxNow = inboxCardsOf(stA, rBoard138.id);
+  const freshNow = inboxNow.filter((c) => !c.archived);
+  const archivedNow = inboxNow.filter((c) => c.archived);
+  check("#138: a list set to recur produces its cards again at the next round — fresh copies stand in the list in order",
+    freshNow.map((c) => c.title).join("|") === "Round card one|Round card two|Round card three",
+    freshNow.map((c) => c.title).join("|"));
+  check("#138: the worked cards leave the board archived, and the card archived by hand stands untouched among them",
+    archivedNow.map((c) => c.title).sort().join("|") === "Archived before the round|Round card one|Round card three|Round card two",
+    archivedNow.map((c) => c.title).sort().join("|"));
+  const freshOne = freshNow.find((c) => c.title === "Round card one");
+  check("#138: a fresh copy starts unticked, keeps its steps, links, label and notes, holds no comments, starts with the person, and its due date moves one round on",
+    !!freshOne && freshOne.steps.length === 2 && freshOne.steps.every((s) => !s.done) &&
+      freshOne.links.length === 1 && freshOne.labels.includes(rLabel138.id) &&
+      freshOne.comments.length === 0 && freshOne.step.holder === "owner" &&
+      freshOne.due === isoDay138(tomorrow138) && freshOne.notes === "first",
+    JSON.stringify(freshOne));
+  const workedOne = archivedNow.find((c) => c.id === rCard1.id);
+  check("#138: the worked card keeps its ticked step and its comment in the archive",
+    !!workedOne && workedOne.comments.length === 1 && workedOne.steps.filter((s) => s.done).length === 1,
+    JSON.stringify(workedOne && { comments: workedOne.comments.length, steps: workedOne.steps }));
+  check("#138: after the landing, the daily schedule stands at tomorrow",
+    recurColOf(stA, rBoard138.id).recur.next === isoDay138(tomorrow138),
+    "next " + recurColOf(stA, rBoard138.id).recur.next);
+  const vAfterFire138 = stA.version;
+  stA = await state(a);
+  check("#138: a round lands once — the next read changes nothing",
+    stA.version === vAfterFire138, "version " + stA.version + " vs " + vAfterFire138);
+
+  await a.call("POST", "/api/v1/cards", { board_id: rBoard138.id, column_id: "inbox", title: "Joined mid-round" });
+  res = await a.call("PATCH", "/api/v1/columns/" + rInbox138.id, { recur: { every: "week", weekday: todayWd138 } });
+  const vWeekSet138 = res.json.version;
+  setNextDue138(rDbFile138, rInbox138.id, isoDay138(todayUtc138()));
+  res = await a.call("GET", "/api/v1/version");
+  stA = await state(a);
+  const freshWeek = inboxCardsOf(stA, rBoard138.id).filter((c) => !c.archived);
+  check("#138: the weekly schedule is the schedule honoured — its round lands on its day, a card added mid-round joins it, and the next date stands a week on",
+    res.json.version === vWeekSet138 + 1 && freshWeek.length === 4 &&
+      freshWeek.some((c) => c.title === "Joined mid-round") &&
+      recurColOf(stA, rBoard138.id).recur.next === isoDay138(addDays138(todayUtc138(), 7)),
+    "version " + (res.json && res.json.version) + " fresh " + freshWeek.length +
+      " next " + recurColOf(stA, rBoard138.id).recur.next);
+
+  res = await a.call("PATCH", "/api/v1/columns/" + rInbox138.id, { recur: null });
+  check("#138: the person turns recurrence off on the same call",
+    res.status === 200 && res.json.column.recur === null, "status " + res.status);
+  const vOff138 = res.json.version;
+  setNextDue138(rDbFile138, rInbox138.id, "2000-01-01");
+  stA = await state(a);
+  check("#138: turning recurrence off stops it — a past date standing with no schedule lands nothing",
+    stA.version === vOff138 && inboxCardsOf(stA, rBoard138.id).filter((c) => !c.archived).length === 4,
+    "version " + stA.version + " vs " + vOff138);
+
+  res = await a.call("PATCH", "/api/v1/columns/" + rInbox138.id, { recur: { every: "day" } });
+  const vRearm138 = res.json.version;
+  setNextDue138(rDbFile138, rInbox138.id, isoDay138(addDays138(todayUtc138(), -10)));
+  stA = await state(a);
+  check("#138: ten missed days land one round, not ten",
+    stA.version === vRearm138 + 1 &&
+      inboxCardsOf(stA, rBoard138.id).filter((c) => !c.archived).length === 4 &&
+      recurColOf(stA, rBoard138.id).recur.next === isoDay138(tomorrow138),
+    "version " + stA.version + " vs " + vRearm138);
+}
+
+res = await a.call("DELETE", "/api/v1/me/token/" + rKeyId138);
+check("#138: the family's key is revoked again", res.status === 200, "status " + res.status);
+res = await a.call("DELETE", "/api/v1/boards/" + rBoard138.id);
+check("#138: the family's board is deleted again", res.status === 200, "status " + res.status);
+
 
 // --- Boards: make, copy, delete rules (on person B, kept tidy) -----------------
 // Person B's name comes from the invite their account was made
