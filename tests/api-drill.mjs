@@ -6,7 +6,9 @@
 // isolation between owners, the card lifecycle, checklists,
 // links, labels, projects, columns (including the delete that
 // moves cards), boards (including copy and the keep-one rule),
-// keys (mint, list, rename, revoke, the key-door rules), the
+// templates (issue #139: a board or a card saved as a shape and
+// started again, on both doors, with its caps), keys (mint,
+// list, rename, revoke, the key-door rules), the
 // write gate (unknown fields refused by name, stale writes), the
 // version stamps, the directions, the push route's refusals and
 // the stale-session cookie expiry (issue #49). The doors section
@@ -1396,6 +1398,295 @@ res = await a.call("PATCH", "/api/v1/me", { name: NAME_A });
 check("#131: A's name is the drill name again for the families below",
   res.status === 200 && res.json.name === NAME_A,
   "status " + res.status + " body " + (res.text || "").slice(0, 120));
+
+// --- Templates (issue #139) ------------------------------------------------------
+// A person saves a board, or a card with its steps, as a
+// template and starts new work from it. A template is a saved
+// shape in its own table: it never stands in the state, and
+// starting from one reaches back into neither the template nor
+// the thing it was saved from. Comments never ride, archived
+// cards never ride, a step's tick never rides and a due date
+// never rides — a template is the shape of work to do, not a
+// record of work done. This family builds its own source board
+// on person A, walks both kinds on both doors, and leaves both
+// people as it found them.
+res = await a.call("GET", "/api/v1/templates");
+check("templates: the list starts empty",
+  res.status === 200 && Array.isArray(res.json.templates) && res.json.templates.length === 0,
+  "status " + res.status);
+res = await a.call("POST", "/api/v1/boards", { name: "Template Source" });
+const tSrc = res.json.board;
+res = await a.call("POST", "/api/v1/labels", { board_id: tSrc.id, name: "Template Label", colour: "red" });
+const tLabel = res.json.label;
+res = await a.call("POST", "/api/v1/projects", { board_id: tSrc.id, name: "Template Project" });
+const tProject = res.json.project;
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: tSrc.id, column_id: "doing", title: "Template Card",
+  notes: "Notes that ride", labels: [tLabel.id], project_id: tProject.id,
+  due_date: "2027-01-15", important: true,
+});
+const tCard = res.json.card;
+res = await a.call("POST", "/api/v1/cards/" + tCard.id + "/steps", { text: "First step" });
+res = await a.call("POST", "/api/v1/cards/" + tCard.id + "/steps", { text: "Second step", done: true });
+res = await a.call("POST", "/api/v1/cards/" + tCard.id + "/links",
+  { url: "https://example.com/shape", name: "Shape link" });
+res = await a.call("POST", "/api/v1/cards/" + tCard.id + "/comments",
+  { body: "A comment that stays behind" });
+res = await a.call("POST", "/api/v1/cards", { board_id: tSrc.id, column_id: "inbox", title: "Archived Card" });
+const tArchived = res.json.card;
+res = await a.call("PATCH", "/api/v1/cards/" + tArchived.id, { archived: true });
+
+res = await a.call("POST", "/api/v1/boards/" + tSrc.id + "/templates", { name: "Weekly Shape" });
+check("templates: saving a board answers 201 with the template",
+  res.status === 201 && !!res.json.template && res.json.template.kind === "board" &&
+    res.json.template.name === "Weekly Shape" && res.json.template.sourceId === tSrc.id,
+  "status " + res.status + " body " + JSON.stringify(res.json).slice(0, 200));
+const tBoardTemplate = res.json.template;
+res = await a.call("GET", "/api/v1/templates");
+check("templates: the list carries the saved template",
+  res.status === 200 && res.json.templates.length === 1 &&
+    res.json.templates[0].id === tBoardTemplate.id,
+  "status " + res.status + " count " + (res.json.templates || []).length);
+res = await a.call("POST", "/api/v1/boards/" + tSrc.id + "/templates", {});
+check("templates: a save with no name takes the board's name",
+  res.status === 201 && res.json.template && res.json.template.name === "Template Source",
+  "status " + res.status + " name " + (res.json.template && res.json.template.name));
+const tUnnamed = res.json.template;
+res = await a.call("DELETE", "/api/v1/templates/" + tUnnamed.id);
+check("templates: the unnamed save deletes again", res.status === 200, "status " + res.status);
+res = await a.call("POST", "/api/v1/boards/" + tSrc.id + "/templates", { name: "x".repeat(121) });
+check("templates: a template name past 120 characters is refused",
+  res.status === 400 && /too long/.test(res.json.error || ""), "status " + res.status);
+
+let stT = await state(a);
+const vBeforeStart = stT.version;
+res = await a.call("POST", "/api/v1/templates/" + tBoardTemplate.id + "/start", { name: "Started One" });
+check("templates: starting a board template answers 201 and raises the version once",
+  res.status === 201 && !!res.json.board && res.json.version === vBeforeStart + 1,
+  "status " + res.status + " version " + (res.json && res.json.version) + " vs " + vBeforeStart);
+const tStarted1 = res.json.board;
+stT = await state(a);
+check("templates: the started board carries the template's columns",
+  !!tStarted1 && tStarted1.columns.map((c) => c.kind).join(",") === "inbox,ready,doing,waiting,done",
+  tStarted1 && tStarted1.columns.map((c) => c.kind).join(","));
+const startedLabel = (stT.labels || []).find((l) => l.boardId === tStarted1.id && l.name === "Template Label");
+const startedProject = (stT.projects || []).find((p) => p.boardId === tStarted1.id && p.name === "Template Project");
+check("templates: the started board carries the template's labels and projects",
+  !!startedLabel && startedLabel.colour === "red" && !!startedProject,
+  "label " + !!startedLabel + " project " + !!startedProject);
+const startedCard = (stT.cards || []).find((c) => c.boardId === tStarted1.id && c.title === "Template Card");
+check("templates: the started card carries its steps unticked, its link and its flag, and no due date and no comments",
+  !!startedCard && startedCard.columnId === "doing" && startedCard.important === true &&
+    startedCard.notes === "Notes that ride" && startedCard.due === "" &&
+    startedCard.steps.map((s) => s.text).join("|") === "First step|Second step" &&
+    startedCard.steps.every((s) => s.done === false) &&
+    startedCard.links.length === 1 && startedCard.links[0].url === "https://example.com/shape" &&
+    startedCard.comments.length === 0,
+  startedCard && JSON.stringify(startedCard).slice(0, 300));
+check("templates: the started card wears the new board's own label and project",
+  !!startedCard && !!startedLabel && !!startedProject &&
+    startedCard.labels.length === 1 && startedCard.labels[0] === startedLabel.id &&
+    startedCard.projectId === startedProject.id,
+  startedCard && JSON.stringify(startedCard.labels) + " project " + (startedCard && startedCard.projectId));
+check("templates: the archived card never rides",
+  !(stT.cards || []).some((c) => c.boardId === tStarted1.id && c.title === "Archived Card"),
+  "started board cards " + (stT.cards || []).filter((c) => c.boardId === tStarted1.id).length);
+res = await a.call("GET", "/api/v1/templates");
+const tAfterStart = (res.json.templates || []).find((t) => t.id === tBoardTemplate.id);
+check("templates: starting changed nothing in the template",
+  !!tAfterStart && tAfterStart.name === "Weekly Shape" && tAfterStart.kind === "board" &&
+    tAfterStart.sourceId === tSrc.id && tAfterStart.createdAt === tBoardTemplate.createdAt,
+  JSON.stringify(tAfterStart));
+res = await a.call("POST", "/api/v1/templates/" + tBoardTemplate.id + "/start", {});
+check("templates: a second start makes a second, separate board under the template's name",
+  res.status === 201 && !!res.json.board && res.json.board.id !== tStarted1.id &&
+    res.json.board.name === "Weekly Shape",
+  "status " + res.status);
+const tStarted2 = res.json.board;
+const started1Column = tStarted1.columns[0];
+res = await a.call("PATCH", "/api/v1/columns/" + started1Column.id, { name: "Renamed Column" });
+res = await a.call("DELETE", "/api/v1/cards/" + startedCard.id);
+res = await a.call("POST", "/api/v1/templates/" + tBoardTemplate.id + "/start", { name: "Started Three" });
+const tStarted3 = res.json.board;
+stT = await state(a);
+check("templates: work on a started board never reaches the template",
+  !!tStarted3 && tStarted3.columns[0].name === "Inbox" &&
+    (stT.cards || []).some((c) => c.boardId === tStarted3.id && c.title === "Template Card"),
+  "columns " + (tStarted3 && tStarted3.columns.map((c) => c.name).join(",")));
+res = await a.call("DELETE", "/api/v1/boards/" + tStarted2.id);
+res = await a.call("DELETE", "/api/v1/boards/" + tStarted3.id);
+
+res = await a.call("POST", "/api/v1/cards/" + tCard.id + "/templates", {});
+check("templates: saving a card answers 201 with the template, named for the card",
+  res.status === 201 && !!res.json.template && res.json.template.kind === "card" &&
+    res.json.template.name === "Template Card" && res.json.template.sourceId === tCard.id,
+  "status " + res.status + " body " + JSON.stringify(res.json).slice(0, 200));
+const tCardTemplate = res.json.template;
+const profBoard = boardByName(stT, "Professional");
+res = await a.call("POST", "/api/v1/templates/" + tCardTemplate.id + "/start",
+  { board_id: profBoard.id, column_id: "ready" });
+check("templates: a card template starts a card on the named board and column",
+  res.status === 201 && !!res.json.card && res.json.card.boardId === profBoard.id &&
+    res.json.card.columnId === "ready" && res.json.card.title === "Template Card",
+  "status " + res.status + " body " + JSON.stringify(res.json).slice(0, 200));
+stT = await state(a);
+const profCard = (stT.cards || []).find((c) => c.boardId === profBoard.id && c.title === "Template Card");
+check("templates: the started card carries its steps unticked, and an unmatched label and project are left behind",
+  !!profCard && profCard.steps.map((s) => s.text).join("|") === "First step|Second step" &&
+    profCard.steps.every((s) => s.done === false) &&
+    profCard.labels.length === 0 && profCard.projectId === null,
+  profCard && JSON.stringify(profCard).slice(0, 300));
+res = await a.call("POST", "/api/v1/templates/" + tCardTemplate.id + "/start", { board_id: tSrc.id });
+stT = await state(a);
+const homeCard = (stT.cards || []).find((c) => c.boardId === tSrc.id && c.id !== tCard.id && c.title === "Template Card");
+check("templates: a card start crosses labels and project onto the board by name",
+  res.status === 201 && !!homeCard && homeCard.labels.length === 1 &&
+    homeCard.labels[0] === tLabel.id && homeCard.projectId === tProject.id,
+  "status " + res.status + " card " + (homeCard && JSON.stringify(homeCard.labels)));
+res = await a.call("POST", "/api/v1/templates/" + tCardTemplate.id + "/start",
+  { board_id: tSrc.id, title: "A Start Of Its Own" });
+check("templates: a card start takes a title of its own",
+  res.status === 201 && !!res.json.card && res.json.card.title === "A Start Of Its Own",
+  "status " + res.status + " title " + (res.json.card && res.json.card.title));
+
+res = await a.call("POST", "/api/v1/me/token", { name: "Template Key" });
+const tKey = res.json.key; const tKeyId = res.json.id;
+res = await agentPost("/api/v1/boards/" + tSrc.id + "/templates", tKey, { name: "Key Shape" });
+check("templates: a key saves a board template",
+  res.status === 201 && !!res.json.template && res.json.template.kind === "board",
+  "status " + res.status);
+const tKeyTemplate = res.json.template;
+res = await agentPost("/api/v1/templates/" + tKeyTemplate.id + "/start", tKey, { name: "Key Started" });
+check("templates: a key starts a board from a template",
+  res.status === 201 && !!res.json.board && res.json.board.name === "Key Started",
+  "status " + res.status);
+const tKeyStarted = res.json.board;
+res = await a.call("DELETE", "/api/v1/boards/" + tKeyStarted.id);
+res = await a.call("DELETE", "/api/v1/templates/" + tKeyTemplate.id);
+res = await a.call("DELETE", "/api/v1/me/token/" + tKeyId);
+
+res = await a.call("PATCH", "/api/v1/templates/" + tBoardTemplate.id, { name: "Weekly Shape Renamed" });
+check("templates: a rename answers the template under its new name",
+  res.status === 200 && !!res.json.template && res.json.template.name === "Weekly Shape Renamed",
+  "status " + res.status);
+res = await a.call("DELETE", "/api/v1/templates/" + tCardTemplate.id);
+stT = await state(a);
+check("templates: a delete removes the template and leaves what it started standing",
+  res.status === 200 &&
+    (stT.cards || []).some((c) => c.boardId === profBoard.id && c.title === "Template Card"),
+  "status " + res.status);
+
+res = await b.call("GET", "/api/v1/templates");
+check("templates: the list shows an owner only their own",
+  res.status === 200 && !(res.json.templates || []).some((t) => t.id === tBoardTemplate.id),
+  "status " + res.status + " count " + ((res.json.templates || []).length));
+res = await b.call("POST", "/api/v1/templates/" + tBoardTemplate.id + "/start", {});
+check("templates: another owner's template reads as not found on a start",
+  res.status === 404, "status " + res.status);
+res = await b.call("DELETE", "/api/v1/templates/" + tBoardTemplate.id);
+check("templates: another owner's template reads as not found on a delete",
+  res.status === 404, "status " + res.status);
+
+// The caps, on person B: fifty templates stand for one owner
+// and the fifty-first is refused; a board start at the board
+// cap is refused and raises nothing.
+let capSaves = 0;
+for (let ci = 0; ci < 50; ci++) {
+  const saveRes = await b.call("POST", "/api/v1/boards/" + bPersonal.id + "/templates",
+    { name: "Cap Shape " + ci });
+  if (saveRes.status === 201) capSaves++;
+}
+check("templates: fifty templates stand for one owner", capSaves === 50, "saved " + capSaves);
+res = await b.call("POST", "/api/v1/boards/" + bPersonal.id + "/templates", { name: "One Too Many" });
+check("templates: the fifty-first template is refused",
+  res.status === 400 && /as many templates/.test(res.json.error || ""),
+  "status " + res.status + " error " + (res.json.error || ""));
+res = await b.call("GET", "/api/v1/templates");
+const bCapTemplates = res.json.templates || [];
+for (const t of bCapTemplates) await b.call("DELETE", "/api/v1/templates/" + t.id);
+res = await b.call("GET", "/api/v1/templates");
+check("templates: the cap shapes delete again",
+  res.status === 200 && (res.json.templates || []).length === 0,
+  "left " + ((res.json.templates || []).length));
+const bExtraBoards = [];
+for (let bi = 0; bi < 49; bi++) {
+  const boardRes = await b.call("POST", "/api/v1/boards", { name: "Cap Board " + bi });
+  if (boardRes.json && boardRes.json.board) bExtraBoards.push(boardRes.json.board.id);
+}
+res = await b.call("POST", "/api/v1/boards/" + bPersonal.id + "/templates", { name: "Cap Start Shape" });
+const bCapTemplate = res.json.template;
+let stBCap = await state(b);
+const vBeforeCapStart = stBCap.version;
+res = await b.call("POST", "/api/v1/templates/" + bCapTemplate.id + "/start", {});
+stBCap = await state(b);
+check("templates: a board start at the board cap is refused and raises nothing",
+  bExtraBoards.length === 49 && res.status === 400 &&
+    /as many boards/.test(res.json.error || "") && stBCap.version === vBeforeCapStart,
+  "boards made " + bExtraBoards.length + " status " + res.status +
+    " version " + stBCap.version + " vs " + vBeforeCapStart);
+res = await b.call("DELETE", "/api/v1/templates/" + bCapTemplate.id);
+for (const id of bExtraBoards) await b.call("DELETE", "/api/v1/boards/" + id);
+
+// A card start onto a board already holding as many cards as
+// one board holds is refused: the board is filled directly in
+// the data file, the drill's standing way (issue #163's shape).
+res = await a.call("POST", "/api/v1/boards", { name: "Template Full" });
+const tFull = res.json.board;
+const tFullInbox = tFull.columns.find((c) => c.kind === "inbox");
+res = await a.call("POST", "/api/v1/cards/" + tCard.id + "/templates", { name: "Full Start Shape" });
+const tFullTemplate = res.json.template;
+let tCapFile = null;
+let tCapError = "";
+if (MODE === "selfhost" && args["server-config"]) {
+  const cfgT = JSON.parse(readFileSync(args["server-config"], "utf8"));
+  tCapFile = join(dirname(args["server-config"]), String(cfgT.dataDir || "data"), "tasksparkle.sqlite");
+} else if (MODE === "worker" && args.mint) {
+  try {
+    const mintAbsT = args.mint.startsWith("/") ? args.mint : join(process.cwd(), args.mint);
+    const d1DirT = join(dirname(dirname(dirname(mintAbsT))), ".wrangler", "state", "v3", "d1", "miniflare-D1DatabaseObject");
+    for (const name of readdirSync(d1DirT)) {
+      if (!name.endsWith(".sqlite")) continue;
+      const candidate = join(d1DirT, name);
+      try {
+        const ro = new DatabaseSync(candidate, { readOnly: true });
+        const hit = ro.prepare("SELECT id FROM boards WHERE id = ?").get(tFull.id);
+        ro.close();
+        if (hit) { tCapFile = candidate; break; }
+      } catch (e) { /* a database that is not the boards one */ }
+    }
+    if (!tCapFile) tCapError = "no rig database holds the full board";
+  } catch (e) { tCapError = String((e && e.message) || e); }
+}
+let tSeeded = false;
+if (tCapFile && tFullInbox) {
+  try {
+    const rw = new DatabaseSync(tCapFile);
+    rw.exec("PRAGMA busy_timeout = 10000");
+    const ins = rw.prepare("INSERT INTO cards (id, board_id, column_id, title, notes, position) VALUES (?, ?, ?, ?, '', ?)");
+    rw.exec("BEGIN");
+    for (let i = 0; i < 2000; i++) ins.run("card_tcap139_" + i, tFull.id, tFullInbox.id, "Cap filler " + i, i);
+    rw.exec("COMMIT");
+    rw.close();
+    tSeeded = true;
+  } catch (e) { tCapError = String((e && e.message) || e); }
+}
+check("templates: the full board stands filled to the cap for the refusal check",
+  tSeeded, tCapError || "no database found");
+res = await a.call("POST", "/api/v1/templates/" + tFullTemplate.id + "/start", { board_id: tFull.id });
+check("templates: a card start onto a full board is refused",
+  res.status === 400 && (res.json.error || "") === "That is as many cards as one board holds.",
+  "status " + res.status + " error " + (res.json.error || ""));
+res = await a.call("DELETE", "/api/v1/boards/" + tFull.id);
+res = await a.call("DELETE", "/api/v1/templates/" + tFullTemplate.id);
+res = await a.call("DELETE", "/api/v1/cards/" + profCard.id);
+res = await a.call("DELETE", "/api/v1/templates/" + tBoardTemplate.id);
+res = await a.call("DELETE", "/api/v1/boards/" + tStarted1.id);
+res = await a.call("DELETE", "/api/v1/boards/" + tSrc.id);
+res = await a.call("GET", "/api/v1/templates");
+check("templates: the family leaves no templates standing",
+  res.status === 200 && (res.json.templates || []).length === 0,
+  "left " + ((res.json.templates || []).length));
+
 
 // --- Moving a card to another board (issue #163) ------------------------------
 // One card edit names the new board, the column on it and the
