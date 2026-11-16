@@ -12,6 +12,9 @@ Inside a release, the app stamps every deploy with a build stamp. The stamp is `
 
 ### Changed
 
+- The agent directions now state the MemberSpark key road's answers in full. The 503 — MemberSpark could not be checked just now — stands named with its Retry-After, apart from a 401; the 429 for too many refused key checks stands with its count; the outage standing stands stated (a vouched key keeps working on its last good check for ten days, and no call answered from that check extends them); and the directions carry the standing that all API use is by real MemberSpark users, with no public access. A check in the local suite pins the directions against the code's limits, so a limit that stands in the code with no line in the directions fails the run.
+
+
 - The default look wears the Spark family look now. TaskSparkle is one of the MemberSpark family's products, and its Standard look — the default of the eight looks — takes the family's design tokens: dark blue on off-white in the light theme, the family's dark theme after dark, the main button filled with this product's accent blue and second buttons outlined. The product mark is the family's spark, a white four-point spark on a tile of the accent, in place of the mint sparkle on violet. The tokens stand pinned in this repo at design/system/, copied from the MemberSpark design system, and the sign-in pages wear the same colours. The other seven looks keep their own palettes, exactly as they were.
 
 ## [1.0.0] - 2026-11-04

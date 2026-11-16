@@ -1636,6 +1636,104 @@ function paletteBlocksOf(css) {
   }
 }
 
+// The directions pin (issue #152): the served directions must
+// state every limit the code can refuse a call with, in
+// numbers, beside the answer it produces — the standing rule
+// MemberSpark's Spec 2 names ("Directions state every limit").
+// This block reads worker/core.js twice over: the LIMITS table
+// the write paths judge by, and the very lines agentDirections
+// serves. It fails when a number stands in the code with no
+// line in the directions, and when a standing refusal line is
+// missing or renumbered: the 503 a MemberSpark key check
+// answers when MemberSpark cannot be reached (Retry-After:
+// 60, never a 401), the 429 its gate answers (20 refused
+// checks from one address inside a minute, Retry-After: 60),
+// the outage standing (a vouched key keeps working on its
+// last good check for ten days, and no call answered from
+// that check extends them), and the owner's sentence on who
+// may use the API at all. The MemberSpark road itself stands
+// in the deployment's kit and core, and the deployment's own
+// drills pin its behaviour; this pin holds the words, which
+// both deployments serve from this one text.
+{
+  const failures = [];
+  const core = readFileSync(join(ROOT, "worker", "core.js"), "utf8");
+  const limitsAt = core.indexOf("var LIMITS = {");
+  const limitsSpan = core.slice(limitsAt, core.indexOf("};", limitsAt));
+  const limits = {};
+  for (const m of limitsSpan.matchAll(/(\w+):\s*(\d+)/g)) limits[m[1]] = Number(m[2]);
+  const knownLimits = ["nameChars", "colourChars", "titleChars", "notesChars",
+    "stepChars", "linkNameChars", "linkUrlChars", "commentChars",
+    "boardsPerOwner", "keysPerOwner", "templatesPerOwner", "columnsPerBoard",
+    "labelsPerBoard", "projectsPerBoard", "cardsPerBoard", "stepsPerCard",
+    "linksPerCard", "commentsPerCard"];
+  for (const name of Object.keys(limits)) {
+    if (!knownLimits.includes(name)) {
+      failures.push("worker/core.js's LIMITS carries " + name + ", which this pin " +
+        "does not know: give the new limit its line in the directions and in this pin");
+    }
+  }
+  const dirAt = core.indexOf("function agentDirections(env)");
+  const dirSpan = core.slice(dirAt, core.indexOf("return lines.join", dirAt));
+  const dirLines = [...dirSpan.matchAll(/"((?:[^"\\]|\\.)*)"/g)]
+    .map((m) => m[1].replace(/\\"/g, "\"").replace(/\\\\/g, "\\"));
+  const directions = dirLines.join("\n");
+  const sizeLine = "Names (board, column, label and project): " + limits.nameChars +
+    " characters. A colour: " + limits.colourChars + ". A card title: " +
+    limits.titleChars + ". A card's notes: " + limits.notesChars + ". A step: " +
+    limits.stepChars + ". A link's name: " + limits.linkNameChars +
+    ". A link's address, after cleaning: " + limits.linkUrlChars +
+    ". A comment's body: " + limits.commentChars + ".";
+  if (!directions.includes(sizeLine)) {
+    failures.push("the directions' size limits do not carry worker/core.js's " +
+      "LIMITS values: " + sizeLine);
+  }
+  const countLine = "Per owner: " + limits.boardsPerOwner + " boards, " +
+    limits.templatesPerOwner + " templates and " + limits.keysPerOwner +
+    " agent keys. Per board: " + limits.columnsPerBoard + " columns, " +
+    limits.labelsPerBoard + " labels, " + limits.projectsPerBoard +
+    " projects and " + limits.cardsPerBoard + " cards. Per card: " +
+    limits.stepsPerCard + " steps, " + limits.linksPerCard + " links and " +
+    limits.commentsPerCard + " comments.";
+  if (!directions.includes(countLine)) {
+    failures.push("the directions' count limits do not carry worker/core.js's " +
+      "LIMITS values: " + countLine);
+  }
+  const lineStarting = (prefix) => dirLines.find((l) => l.startsWith(prefix)) || "";
+  if (!lineStarting("- 401 means")) {
+    failures.push("the directions carry no 401 line for a key caller");
+  }
+  const line503 = lineStarting("- A MemberSpark key is checked");
+  if (!line503.includes("503 means") || !line503.includes("Retry-After: 60") ||
+      !line503.includes("never with a 401")) {
+    failures.push("the directions carry no 503 line with its Retry-After: 60 " +
+      "for a MemberSpark key that could not be checked");
+  }
+  const outageLine = dirLines.find((l) => l.includes("last good check")) || "";
+  if (!outageLine.includes("ten days") || !outageLine.includes("does not extend the ten days")) {
+    failures.push("the directions do not state the outage standing: ten days " +
+      "on the last good check, never extended by a call answered from it");
+  }
+  const line429 = lineStarting("- 429 means");
+  if (!line429.includes("20 key checks") || !line429.includes("inside a minute") ||
+      !line429.includes("Retry-After: 60")) {
+    failures.push("the directions carry no 429 line with its count (20 refused " +
+      "key checks inside a minute) and its Retry-After: 60");
+  }
+  if (!dirLines.includes("All API use need to be from real MemberSpark users. No public access.")) {
+    failures.push("the directions do not carry the owner's sentence: " +
+      "\"All API use need to be from real MemberSpark users. No public access.\"");
+  }
+  if (failures.length) {
+    console.error("Directions pin (issue #152): " + failures.join("; ") + ".");
+    process.exit(1);
+  }
+  console.log("Directions pin: every LIMITS value in worker/core.js stands " +
+    "in the served directions, and the standing refusal lines stand with " +
+    "their numbers — the 503 and its Retry-After, the 429 and its count, " +
+    "the ten days of the outage standing, and the owner's sentence.");
+}
+
 let server = null;
 function stopServer() {
   if (server && !server.killed) server.kill();
