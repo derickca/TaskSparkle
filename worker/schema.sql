@@ -191,6 +191,28 @@ SELECT cards.id, cards.label_id FROM cards
 JOIN labels ON labels.id = cards.label_id
 WHERE cards.label_id IS NOT NULL;
 
+-- Templates (issue #139): a saved shape an owner starts new
+-- work from — a whole board's shape, or one card's. kind is
+-- "board" or "card". The shape itself stands in data as one
+-- JSON snapshot, taken as the board or card stood when it was
+-- saved; it is read whole and written whole and nothing inside
+-- it is ever queried, so it stands as one value the way an
+-- auth challenge's payload does. source_id names the board or
+-- card the shape was saved from, as a record only: the source
+-- can be renamed or deleted without touching the template, so
+-- the column carries no foreign key. Deleting the owner takes
+-- their templates with them, the way it takes their boards.
+CREATE TABLE IF NOT EXISTS templates (
+  id TEXT PRIMARY KEY,
+  owner_id TEXT NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL,
+  name TEXT NOT NULL,
+  source_id TEXT,
+  data TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 -- The sign-in tables (issue #109): one account system on both
 -- copies, worked by the shared code in worker/auth.js. On a
 -- home copy these tables sit in the same file as the boards;
@@ -380,6 +402,7 @@ CREATE INDEX IF NOT EXISTS idx_checklist_items_card ON checklist_items (card_id,
 CREATE INDEX IF NOT EXISTS idx_card_links_card ON card_links (card_id, position);
 CREATE INDEX IF NOT EXISTS idx_card_comments_card ON card_comments (card_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_card_labels_label ON card_labels (label_id);
+CREATE INDEX IF NOT EXISTS idx_templates_owner ON templates (owner_id, created_at);
 
 -- Seed shape used by the Worker at an owner's first authenticated
 -- request. An allowlisted owner with no boards gets two boards, with
@@ -479,3 +502,10 @@ CREATE INDEX IF NOT EXISTS idx_card_labels_label ON card_labels (label_id);
 -- through a Durable Object (OwnerPush in worker.js), so an open
 -- board shows changes as they happen; the number is all a push
 -- ever carries, never state or card data.
+-- A template (the templates table above) is a snapshot, not a
+-- standing board or card: it stands outside the state entirely,
+-- counts toward no board or card cap, and holds at most 50 rows
+-- per owner — a cap the API judges, the way the key cap is
+-- judged. Starting from a template writes ordinary boards and
+-- cards through the same shapes a copy writes, and leaves the
+-- template row exactly as it stood.

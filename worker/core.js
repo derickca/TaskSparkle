@@ -168,6 +168,7 @@ var LIMITS = {
   commentChars: 2000,    // one comment's body
   boardsPerOwner: 50,
   keysPerOwner: 10,
+  templatesPerOwner: 50,
   columnsPerBoard: 30,
   labelsPerBoard: 100,
   projectsPerBoard: 100,
@@ -294,7 +295,7 @@ function agentDirections(env) {
     "- Every field of a write is judged before anything is written. A refused write changes nothing at all: no field lands, no update is sent and the version does not rise.",
     "- A body that is not JSON is refused with a 400. A route that needs a body refuses a missing or empty one the same way.",
     "- Ids that belong to another owner read as not found (404), on reads and writes alike. Your key reaches only its owner's boards.",
-    "- Multi-step changes land as one act. A board copy, a new board with its columns and a card with its labels are each written as one database batch, so a failure partway leaves nothing half-done standing.",
+    "- Multi-step changes land as one act. A board copy, a start from a template, a new board with its columns and a card with its labels are each written as one database batch, so a failure partway leaves nothing half-done standing.",
     "- Answers to a write carry the thing written (board, column, label, project, card, step or link) plus the new version. A delete answers {ok: true} plus the new version.",
     "",
     "Routes",
@@ -310,6 +311,12 @@ function agentDirections(env) {
     "PATCH /boards/{board id} - change a board: name, position, icon and label_colour_mode, any of them. label_colour_mode takes chip, background, trim or top; anything else is refused.",
     "DELETE /boards/{board id} - delete a board. The board goes whole: its cards, active and archived alike, and its columns, labels and projects go with it. The one refusal is the owner's last board — a person always keeps at least one board.",
     "POST /boards/{board id}/copy - copy a board in one call: name for the copy, plus four true-or-false flags named columns, labels, projects and cards, saying what rides along. See Copying a board.",
+    "POST /boards/{board id}/templates - save a board as a template: name if one is given, otherwise the board's name. See Templates.",
+    "POST /cards/{card id}/templates - save a card as a template: name if one is given, otherwise the card's title. See Templates.",
+    "GET /templates - the owner's templates: each one's id, kind (board or card), name, what it was saved from, and its stamps. Templates never ride in the state; this list is their read.",
+    "POST /templates/{template id}/start - start from a template in one call. See Templates.",
+    "PATCH /templates/{template id} - rename a template: name.",
+    "DELETE /templates/{template id} - remove a template. Nothing it started is touched.",
     "POST /columns - add a column: board_id and name, plus kind and icon if given. The column lands at the end of its board. A kind is used only when it is a plain slug (lowercase letters, digits and hyphens) that no column on the board carries yet; otherwise one is generated.",
     "PATCH /columns/{column id} - change a column: name, position and icon, any of them. Position is its place counting from the left, starting at 0; the board's other columns shift around it.",
     "DELETE /columns/{column id} - remove a column. When the column holds cards, the body names the column that receives them as move_to_column_id (a column id or kind, on the same board): every card moves to the end of that column, the active ones in their order, archived ones after them and still archived, and the column is removed in the same act. A column holding cards but naming no destination is refused, and so is the board's last column. An empty column takes no body.",
@@ -363,6 +370,11 @@ function agentDirections(env) {
     "Copying a board",
     "POST /boards/{board id}/copy makes the whole copy as one act with one version rise. The body names the copy and sets the four flags. Without columns: true, the copy starts with the five standard columns. Copied cards are the source's active cards only; archived cards never copy. A copied card lands in the new board's column at the same position index as its source column, clamped to the last column. Its labels and project point at the copies when labels and projects ride along, and land empty when those flags are off. Steps and links ride along with their cards. Comments never ride along: a copied card starts with no comments. A copied card's creator is whoever made the copy (see Cards).",
     "",
+    "Templates",
+    "A template is a saved shape: a board's whole shape, or one card's shape with its steps and links, kept apart from the boards so a shape that works once is one act to start again. Save one with POST /boards/{board id}/templates or POST /cards/{card id}/templates; the name defaults to the board's name or the card's title. Saving takes the shape as it stands at that moment. Later changes to the board or the card never reach the template, and starting from a template reaches back into neither. Read the owner's templates with GET /templates; they never ride in the state.",
+    "Start from a template with POST /templates/{template id}/start, as one act with one version rise. From a board template the call may carry a name for the new board and defaults to the template's name; it makes a whole new board the way a copy does, with the template's columns, labels, projects and active cards. From a card template the call names board_id, and may name column_id (the card lands in the board's first column otherwise) and a title of its own; the card lands at the end of its column, and its labels and project cross onto that board by name — a name the board does not carry is left behind, the rule a card moving boards follows. Starting changes nothing in the template, so a second start makes a second, separate board or card.",
+    "A template holds the shape of work to do, not a record of one run. A started card's steps all start unticked, whatever their ticks stood at when the shape was saved, and no due date rides: a fixed date belongs to the run that set it. Comments never ride, and archived cards never ride into a board start. A started card's creator and next step belong to whoever starts it, the way a copy's do. Rename a template with PATCH /templates/{template id} and remove one with DELETE /templates/{template id}; removing one touches nothing it started.",
+    "",
     "Live updates",
     "GET /push opens a WebSocket, authorized exactly like every other route. Each time a change lands, the socket receives the new version number as plain text: the number and nothing else, never state or card data. A socket that misses an update catches up by reading /version or /state.",
     "",
@@ -375,7 +387,7 @@ function agentDirections(env) {
     "Limits",
     "Sizes are capped well past ordinary use, and a write past a cap is refused whole. Lengths count characters as sent.",
     "- Names (board, column, label and project): 120 characters. A colour: 40. A card title: 300. A card's notes: 10000. A step: 500. A link's name: 200. A link's address, after cleaning: 2000. A comment's body: 2000.",
-    "- Per owner: 50 boards and 10 agent keys. Per board: 30 columns, 100 labels, 100 projects and 2000 cards. Per card: 200 steps, 100 links and 500 comments.",
+    "- Per owner: 50 boards, 50 templates and 10 agent keys. Per board: 30 columns, 100 labels, 100 projects and 2000 cards. Per card: 200 steps, 100 links and 500 comments.",
     "",
     "Keys and access",
     "- An owner holds a list of named keys, all live at once, up to 10. Each key stands on its own: it carries its owner's full powers over the boards, and making, renaming or revoking another key never touches it.",
@@ -713,6 +725,14 @@ async function ownerCardRow(db, ownerId, cardId) {
     "SELECT cards.* FROM cards JOIN boards ON boards.id = cards.board_id " +
     "WHERE cards.id = ? AND boards.owner_id = ?"
   ).bind(cardId, ownerId).first();
+}
+
+// One of the caller's templates. A template scopes to its owner
+// directly: it stands outside the boards, so no join carries it.
+async function ownerTemplate(db, ownerId, templateId) {
+  return db.prepare(
+    "SELECT * FROM templates WHERE id = ? AND owner_id = ?"
+  ).bind(templateId, ownerId).first();
 }
 
 // One checklist step on one of the caller's cards. The step scopes
@@ -1261,7 +1281,20 @@ function writeFieldsFor(method, parts) {
     if (rest.length === 3 && rest[2] === "copy" && method === "POST") {
       return ["name", "columns", "labels", "projects", "cards"];
     }
+    if (rest.length === 3 && rest[2] === "templates" && method === "POST") {
+      return ["name"];
+    }
     if (rest.length === 2) return method === "PATCH" ? ["name", "position", "icon", "label_colour_mode"] : [];
+  }
+  if (rest[0] === "templates") {
+    // A start names the new board (a board template) or where
+    // the card lands (a card template); each kind reads only
+    // its own fields and refuses the other's by name in the
+    // route, the way the gate refuses a field here.
+    if (rest.length === 3 && rest[2] === "start" && method === "POST") {
+      return ["name", "board_id", "column_id", "title"];
+    }
+    if (rest.length === 2) return method === "PATCH" ? ["name"] : [];
   }
   if (rest[0] === "columns") {
     if (rest.length === 1 && method === "POST") return ["board_id", "name", "kind", "icon"];
@@ -1296,6 +1329,7 @@ function writeFieldsFor(method, parts) {
     if (rest.length === 3 && rest[2] === "steps" && method === "POST") return ["text", "done"];
     if (rest.length === 3 && rest[2] === "links" && method === "POST") return ["url", "name"];
     if (rest.length === 3 && rest[2] === "comments" && method === "POST") return ["body"];
+    if (rest.length === 3 && rest[2] === "templates" && method === "POST") return ["name"];
     if (rest.length === 4 && rest[2] === "steps") return method === "PATCH" ? ["text", "done", "position"] : [];
     if (rest.length === 4 && rest[2] === "links") return method === "PATCH" ? ["url", "name"] : [];
     if (rest.length === 4 && rest[2] === "comments") return [];
@@ -1821,6 +1855,163 @@ async function boardOut(db, boardRow) {
     labelColourMode: boardLabelMode(boardRow),
     columns: columnRows.map(columnOut)
   };
+}
+
+// A template in its read shape: the saved shape itself never
+// rides on the answer — a template is worked by starting from
+// it, and what a start makes is read in the state like any
+// other board or card.
+function templateOut(row) {
+  return {
+    id: row.id,
+    kind: row.kind,
+    name: row.name,
+    sourceId: row.source_id || null,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+// The shape a board template holds (issue #139), gathered from
+// the board as it stands at the save: its icon and label colour
+// mode, its columns, labels and projects, and its active cards.
+// A card names its column, its project and its labels by their
+// place in the template's own lists, so the snapshot carries no
+// id that belongs to the source board. A step rides as its text
+// alone and a card carries no due date: a template is the shape
+// of work to do, not a record of one run — its ticks and its
+// dates stay with the run that set them. Comments never ride,
+// the board copy's rule, and archived cards never ride either.
+async function boardTemplateData(db, boardRow) {
+  var columns = await boardColumns(db, boardRow.id);
+  var labels = (await db.prepare(
+    "SELECT * FROM labels WHERE board_id = ? ORDER BY created_at, rowid"
+  ).bind(boardRow.id).all()).results;
+  var projects = (await db.prepare(
+    "SELECT * FROM projects WHERE board_id = ? ORDER BY created_at, rowid"
+  ).bind(boardRow.id).all()).results;
+  var columnIndex = {};
+  columns.forEach(function (row, i) { columnIndex[row.id] = i; });
+  var labelIndex = {};
+  labels.forEach(function (row, i) { labelIndex[row.id] = i; });
+  var projectIndex = {};
+  projects.forEach(function (row, i) { projectIndex[row.id] = i; });
+  var cardRows = (await db.prepare(
+    "SELECT * FROM cards WHERE board_id = ? AND archived = 0 ORDER BY position, created_at"
+  ).bind(boardRow.id).all()).results;
+  cardRows.sort(function (a, b) {
+    var byColumn = (columnIndex[a.column_id] || 0) - (columnIndex[b.column_id] || 0);
+    return byColumn !== 0 ? byColumn : Number(a.position) - Number(b.position);
+  });
+  var cards = [];
+  for (var ci = 0; ci < cardRows.length; ci++) {
+    var cardRow = cardRows[ci];
+    var cardLabelRows = (await db.prepare(
+      "SELECT label_id FROM card_labels WHERE card_id = ?"
+    ).bind(cardRow.id).all()).results;
+    var stepRows = (await db.prepare(
+      "SELECT * FROM checklist_items WHERE card_id = ? ORDER BY position, created_at"
+    ).bind(cardRow.id).all()).results;
+    var linkRows = (await db.prepare(
+      "SELECT * FROM card_links WHERE card_id = ? ORDER BY position, created_at"
+    ).bind(cardRow.id).all()).results;
+    cards.push({
+      column: columnIndex[cardRow.column_id] || 0,
+      title: cardRow.title,
+      notes: cardRow.notes || "",
+      important: !!cardRow.important,
+      project: cardRow.project_id && projectIndex[cardRow.project_id] !== undefined
+        ? projectIndex[cardRow.project_id] : null,
+      labels: cardLabelRows
+        .map(function (row) { return labelIndex[row.label_id]; })
+        .filter(function (i) { return i !== undefined; }),
+      steps: stepRows.map(function (row) { return row.text || ""; }),
+      links: linkRows.map(function (row) { return { url: row.url || "", name: row.name || "" }; })
+    });
+  }
+  return {
+    icon: boardRow.icon || null,
+    labelColourMode: boardLabelMode(boardRow),
+    columns: columns.map(function (row) {
+      return { kind: columnKind(row), name: row.name, icon: row.icon || null };
+    }),
+    labels: labels.map(function (row) {
+      return { name: row.name, icon: row.icon || null, colour: row.colour };
+    }),
+    projects: projects.map(function (row) {
+      return { name: row.name, icon: row.icon || null };
+    }),
+    cards: cards
+  };
+}
+
+// The shape a card template holds (issue #139): the card's
+// title, notes and Important flag, its steps' text and its
+// links — and its labels and project by name, so the shape
+// stands free of the board it was saved from and crosses onto
+// the board a start names, the way a card moving boards
+// crosses. The same rule as a board template for what never
+// rides: no tick, no due date, no comments.
+async function cardTemplateData(db, cardRow) {
+  var labelRows = (await db.prepare(
+    "SELECT labels.* FROM card_labels JOIN labels ON labels.id = card_labels.label_id " +
+    "WHERE card_labels.card_id = ? ORDER BY labels.created_at, labels.rowid"
+  ).bind(cardRow.id).all()).results;
+  var projectName = null;
+  if (cardRow.project_id) {
+    var projectRow = await db.prepare("SELECT name FROM projects WHERE id = ?")
+      .bind(cardRow.project_id).first();
+    projectName = projectRow ? projectRow.name : null;
+  }
+  var stepRows = (await db.prepare(
+    "SELECT * FROM checklist_items WHERE card_id = ? ORDER BY position, created_at"
+  ).bind(cardRow.id).all()).results;
+  var linkRows = (await db.prepare(
+    "SELECT * FROM card_links WHERE card_id = ? ORDER BY position, created_at"
+  ).bind(cardRow.id).all()).results;
+  return {
+    title: cardRow.title,
+    notes: cardRow.notes || "",
+    important: !!cardRow.important,
+    project: projectName,
+    labels: labelRows.map(function (row) { return row.name; }),
+    steps: stepRows.map(function (row) { return row.text || ""; }),
+    links: linkRows.map(function (row) { return { url: row.url || "", name: row.name || "" }; })
+  };
+}
+
+// The template's name on a save: the body's name when one is
+// sent, trimmed the way every name is trimmed, or the fallback
+// (the board's name, the card's title) when none is. The route
+// judges the result — an empty name and a name past the cap
+// refuse the way they refuse on every other route.
+function templateNameFor(body, fallback) {
+  if (!body || body.name == null) return fallback;
+  return String(body.name).trim();
+}
+
+// Saves one template row for the owner, under the per-owner
+// cap: the row once it stands, or null when the cap stands
+// full — the route answers the cap refusal in its own words.
+async function saveTemplate(db, owner, kind, name, sourceId, data, stamp) {
+  var count = await db.prepare("SELECT COUNT(*) AS count FROM templates WHERE owner_id = ?")
+    .bind(owner.id).first();
+  if (countOf(count) >= LIMITS.templatesPerOwner) return null;
+  var row = {
+    id: newId("template"),
+    owner_id: owner.id,
+    kind: kind,
+    name: name,
+    source_id: sourceId,
+    data: JSON.stringify(data),
+    created_at: stamp,
+    updated_at: stamp
+  };
+  await db.prepare(
+    "INSERT INTO templates (id, owner_id, kind, name, source_id, data, created_at, updated_at) " +
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ).bind(row.id, row.owner_id, row.kind, row.name, row.source_id, row.data, row.created_at, row.updated_at).run();
+  return row;
 }
 
 async function readBody(request) {
@@ -2877,6 +3068,315 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
       }
     }
 
+    // Save a board as a template (issue #139): a snapshot of
+    // the board's shape as it stands now, held in its own row
+    // outside the state. Later work on the board never reaches
+    // the template, and starting from the template never
+    // reaches back into the board.
+    if ((p = match(parts, ["api", "boards", ":boardId", "templates"]))) {
+      var boardTemplateSource = await ownerBoard(db, owner.id, p.boardId);
+      if (!boardTemplateSource) return error("Board not found.", 404);
+      if (method === "POST") {
+        var boardTemplateBody = await readBody(request);
+        var boardTemplateName = templateNameFor(boardTemplateBody, boardTemplateSource.name);
+        if (!boardTemplateName) return error("name is required.");
+        if (overLimit(boardTemplateName, LIMITS.nameChars)) return error("name is too long.");
+        var boardTemplateRow = await saveTemplate(db, owner, "board", boardTemplateName,
+          boardTemplateSource.id, await boardTemplateData(db, boardTemplateSource), nowIso());
+        if (!boardTemplateRow) {
+          return error("That is as many templates as TaskSparkle holds for one person.", 400);
+        }
+        noteChange();
+        return json({ template: templateOut(boardTemplateRow) }, 201);
+      }
+    }
+
+    // The owner's templates: their own list, read apart from
+    // the state the way the queue is (issue #139).
+    if ((p = match(parts, ["api", "templates"]))) {
+      if (method === "GET") {
+        var templateRows = (await db.prepare(
+          "SELECT * FROM templates WHERE owner_id = ? ORDER BY created_at, rowid"
+        ).bind(owner.id).all()).results;
+        return json({ templates: templateRows.map(templateOut) });
+      }
+    }
+
+    if ((p = match(parts, ["api", "templates", ":templateId"]))) {
+      var theTemplate = await ownerTemplate(db, owner.id, p.templateId);
+      if (!theTemplate) return error("Template not found.", 404);
+      if (method === "PATCH") {
+        var templatePatch = await readBody(request);
+        if (!templatePatch || templatePatch.name == null || !String(templatePatch.name).trim()) {
+          return error("name is required.");
+        }
+        if (overLimit(String(templatePatch.name).trim(), LIMITS.nameChars)) {
+          return error("name is too long.");
+        }
+        var templateNewName = String(templatePatch.name).trim();
+        await db.prepare("UPDATE templates SET name = ?, updated_at = ? WHERE id = ? AND owner_id = ?")
+          .bind(templateNewName, nowIso(), theTemplate.id, owner.id).run();
+        if (templateNewName !== theTemplate.name) noteChange();
+        theTemplate.name = templateNewName;
+        return json({ template: templateOut(theTemplate) });
+      }
+      if (method === "DELETE") {
+        await db.prepare("DELETE FROM templates WHERE id = ? AND owner_id = ?")
+          .bind(theTemplate.id, owner.id).run();
+        noteChange();
+        return json({ ok: true });
+      }
+    }
+
+    // Start from a template (issue #139). One call makes the
+    // whole start — a whole board, or one card with its steps
+    // and links — as one batch under the gate's single version
+    // rise, and the template row is never written: starting
+    // changes nothing in the template, so a second start makes
+    // a second, separate piece of work. A started card's
+    // creator and next step belong to whoever starts it, the
+    // way a copy's do.
+    if ((p = match(parts, ["api", "templates", ":templateId", "start"]))) {
+      var startTemplate = await ownerTemplate(db, owner.id, p.templateId);
+      if (!startTemplate) return error("Template not found.", 404);
+      if (method === "POST") {
+        var startBody = await readBody(request);
+        if (!startBody) startBody = {};
+        var startData = null;
+        try { startData = JSON.parse(startTemplate.data || "{}"); } catch (e) { startData = null; }
+        if (!startData || typeof startData !== "object") {
+          return error("This template's shape cannot be read, so nothing was started.", 400);
+        }
+        var startStamp = nowIso();
+        if (startTemplate.kind === "board") {
+          // A board start takes a name alone; the card fields
+          // are refused by name, the gate's own rule worked by
+          // hand because the route shape is shared.
+          var boardOnlyFields = ["board_id", "column_id", "title"];
+          for (var bof = 0; bof < boardOnlyFields.length; bof++) {
+            if (Object.prototype.hasOwnProperty.call(startBody, boardOnlyFields[bof])) {
+              return error("\"" + boardOnlyFields[bof] + "\" is not part of this call.", 400);
+            }
+          }
+          var startBoardName = startBody.name == null
+            ? startTemplate.name : String(startBody.name).trim();
+          if (!startBoardName) return error("name is required.");
+          if (overLimit(startBoardName, LIMITS.nameChars)) return error("name is too long.");
+          var startBoardCount = await db.prepare("SELECT COUNT(*) AS count FROM boards WHERE owner_id = ?")
+            .bind(owner.id).first();
+          if (countOf(startBoardCount) >= LIMITS.boardsPerOwner) {
+            return error("That is as many boards as TaskSparkle holds for one person.", 400);
+          }
+          var startStatements = [];
+          var lastStartBoard = await db.prepare(
+            "SELECT MAX(position) AS maxp FROM boards WHERE owner_id = ?"
+          ).bind(owner.id).first();
+          var startedBoardRow = {
+            id: newId("board"),
+            owner_id: owner.id,
+            name: startBoardName,
+            icon: startData.icon || null,
+            label_colour_mode: LABEL_COLOUR_MODES.indexOf(startData.labelColourMode) !== -1
+              ? startData.labelColourMode : "chip",
+            position: lastStartBoard && lastStartBoard.maxp != null ? Number(lastStartBoard.maxp) + 1 : 0,
+            created_at: startStamp,
+            updated_at: startStamp
+          };
+          startStatements.push(db.prepare("INSERT INTO boards (id, owner_id, name, icon, label_colour_mode, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+            .bind(startedBoardRow.id, startedBoardRow.owner_id, startedBoardRow.name, startedBoardRow.icon, startedBoardRow.label_colour_mode, startedBoardRow.position, startedBoardRow.created_at, startedBoardRow.updated_at));
+          // The template's columns keep their kinds under the
+          // new board's id, the way a copy's do; a shape saved
+          // with no columns starts from the five standard ones.
+          var shapeColumns = Array.isArray(startData.columns) && startData.columns.length
+            ? startData.columns : null;
+          var startedColumns = [];
+          if (shapeColumns) {
+            for (var scol = 0; scol < shapeColumns.length; scol++) {
+              var shapeColumn = shapeColumns[scol];
+              var startedColumnId = startedBoardRow.id + "-" + (shapeColumn.kind || ("c" + scol));
+              startStatements.push(db.prepare('INSERT INTO "columns" (id, board_id, name, icon, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+                .bind(startedColumnId, startedBoardRow.id, shapeColumn.name || "", shapeColumn.icon || null, scol, startStamp, startStamp));
+              startedColumns.push({ id: startedColumnId });
+            }
+          } else {
+            for (var sdcol = 0; sdcol < DEFAULT_COLUMNS.length; sdcol++) {
+              var defaultStartedId = startedBoardRow.id + "-" + DEFAULT_COLUMNS[sdcol].kind;
+              startStatements.push(db.prepare('INSERT INTO "columns" (id, board_id, name, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+                .bind(defaultStartedId, startedBoardRow.id, DEFAULT_COLUMNS[sdcol].name, DEFAULT_COLUMNS[sdcol].position, startStamp, startStamp));
+              startedColumns.push({ id: defaultStartedId });
+            }
+          }
+          var startedLabelIds = [];
+          var shapeLabels = Array.isArray(startData.labels) ? startData.labels : [];
+          for (var slab = 0; slab < shapeLabels.length; slab++) {
+            var startedLabelId = newId("label");
+            startedLabelIds.push(startedLabelId);
+            startStatements.push(db.prepare("INSERT INTO labels (id, board_id, name, icon, colour, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+              .bind(startedLabelId, startedBoardRow.id, shapeLabels[slab].name || "", shapeLabels[slab].icon || null, shapeLabels[slab].colour || "grey", startStamp, startStamp));
+          }
+          var startedProjectIds = [];
+          var shapeProjects = Array.isArray(startData.projects) ? startData.projects : [];
+          for (var sproj = 0; sproj < shapeProjects.length; sproj++) {
+            var startedProjectId = newId("project");
+            startedProjectIds.push(startedProjectId);
+            startStatements.push(db.prepare("INSERT INTO projects (id, board_id, name, icon, created_at) VALUES (?, ?, ?, ?, ?)")
+              .bind(startedProjectId, startedBoardRow.id, shapeProjects[sproj].name || "", shapeProjects[sproj].icon || null, startStamp));
+          }
+          var shapeCards = Array.isArray(startData.cards) ? startData.cards : [];
+          var startedRun = {};
+          for (var scar = 0; scar < shapeCards.length; scar++) {
+            var shapeCard = shapeCards[scar];
+            var shapeColumnIndex = Number(shapeCard.column) || 0;
+            var startedColumn = startedColumns[Math.min(Math.max(shapeColumnIndex, 0), startedColumns.length - 1)];
+            var startedPosition = startedRun[startedColumn.id] || 0;
+            startedRun[startedColumn.id] = startedPosition + 1;
+            var startedCardId = newId("card");
+            startStatements.push(db.prepare("INSERT INTO cards (id, board_id, column_id, project_id, title, notes, due_date, position, archived, important, creator_key_id, creator_key_name, step_holder, step_key_id, step_key_name, step_handed_at, step_handed_by_key_id, step_handed_by_key_name, step_waiting, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+              .bind(startedCardId, startedBoardRow.id, startedColumn.id,
+                shapeCard.project != null && startedProjectIds[shapeCard.project]
+                  ? startedProjectIds[shapeCard.project] : null,
+                shapeCard.title || "", shapeCard.notes || "", null, startedPosition, 0,
+                shapeCard.important ? 1 : 0,
+                callerKey ? callerKey.id : null, null,
+                callerKey ? "agent" : "owner", callerKey ? callerKey.id : null, null,
+                null, null, null, 0,
+                startStamp, startStamp));
+            var shapeCardLabels = Array.isArray(shapeCard.labels) ? shapeCard.labels : [];
+            for (var sclab = 0; sclab < shapeCardLabels.length; sclab++) {
+              var mappedStartedLabel = startedLabelIds[shapeCardLabels[sclab]];
+              if (mappedStartedLabel) {
+                startStatements.push(db.prepare("INSERT INTO card_labels (card_id, label_id) VALUES (?, ?)")
+                  .bind(startedCardId, mappedStartedLabel));
+              }
+            }
+            var shapeSteps = Array.isArray(shapeCard.steps) ? shapeCard.steps : [];
+            for (var sstep = 0; sstep < shapeSteps.length; sstep++) {
+              startStatements.push(db.prepare("INSERT INTO checklist_items (id, card_id, text, done, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+                .bind(newId("step"), startedCardId, shapeSteps[sstep] || "", 0, sstep, startStamp, startStamp));
+            }
+            var shapeCardLinks = Array.isArray(shapeCard.links) ? shapeCard.links : [];
+            for (var slink = 0; slink < shapeCardLinks.length; slink++) {
+              startStatements.push(db.prepare("INSERT INTO card_links (id, card_id, url, name, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+                .bind(newId("link"), startedCardId, shapeCardLinks[slink].url || "", shapeCardLinks[slink].name || "", slink, startStamp, startStamp));
+            }
+          }
+          await batchRun(db, startStatements);
+          noteChange();
+          return json({ board: await boardOut(db, startedBoardRow) }, 201);
+        }
+        if (startTemplate.kind === "card") {
+          // A card start names where the card lands; the board
+          // field is refused by name, as above.
+          if (Object.prototype.hasOwnProperty.call(startBody, "name")) {
+            return error("\"name\" is not part of this call.", 400);
+          }
+          if (!startBody.board_id) return error("board_id is required.");
+          var startCardBoard = await ownerBoard(db, owner.id, String(startBody.board_id));
+          if (!startCardBoard) return error("Board not found.", 404);
+          var startCardColumn = null;
+          if (startBody.column_id) {
+            startCardColumn = await columnForBoard(db, startCardBoard.id, String(startBody.column_id));
+            if (!startCardColumn) return error("column_id does not belong to this board.");
+          } else {
+            var startBoardColumns = await boardColumns(db, startCardBoard.id);
+            startCardColumn = startBoardColumns[0] || null;
+            if (!startCardColumn) return error("This board has no columns.", 400);
+          }
+          var startCardTitle = startBody.title == null
+            ? String(startData.title || "") : String(startBody.title).trim();
+          if (!startCardTitle) return error("title is required.");
+          if (overLimit(startCardTitle, LIMITS.titleChars)) return error("title is too long.");
+          if (startData.notes != null && overLimit(startData.notes, LIMITS.notesChars)) {
+            return error("notes are too long.");
+          }
+          var startCardCount = await db.prepare("SELECT COUNT(*) AS count FROM cards WHERE board_id = ?")
+            .bind(startCardBoard.id).first();
+          if (countOf(startCardCount) >= LIMITS.cardsPerBoard) {
+            return error("That is as many cards as one board holds.", 400);
+          }
+          // The shape's labels and project cross onto the board
+          // by name — a name the board does not carry is left
+          // behind, the rule a card moving boards follows.
+          var startBoardLabels = (await db.prepare(
+            "SELECT * FROM labels WHERE board_id = ? ORDER BY created_at, rowid"
+          ).bind(startCardBoard.id).all()).results;
+          var startLabelByName = {};
+          startBoardLabels.forEach(function (row) {
+            if (startLabelByName[row.name] === undefined) startLabelByName[row.name] = row.id;
+          });
+          var startCardLabelIds = [];
+          var shapeCardLabelNames = Array.isArray(startData.labels) ? startData.labels : [];
+          for (var snlab = 0; snlab < shapeCardLabelNames.length; snlab++) {
+            var crossedLabel = startLabelByName[shapeCardLabelNames[snlab]];
+            if (crossedLabel && startCardLabelIds.indexOf(crossedLabel) === -1) {
+              startCardLabelIds.push(crossedLabel);
+            }
+          }
+          var startCardProjectId = null;
+          if (startData.project) {
+            var startProjectRow = await db.prepare(
+              "SELECT id FROM projects WHERE board_id = ? AND name = ? ORDER BY created_at, rowid LIMIT 1"
+            ).bind(startCardBoard.id, String(startData.project)).first();
+            startCardProjectId = startProjectRow ? startProjectRow.id : null;
+          }
+          var startMaxCard = await db.prepare(
+            "SELECT MAX(position) AS maxp FROM cards WHERE board_id = ? AND column_id = ? AND archived = 0"
+          ).bind(startCardBoard.id, startCardColumn.id).first();
+          var startedCardRow = {
+            id: newId("card"),
+            board_id: startCardBoard.id,
+            column_id: startCardColumn.id,
+            project_id: startCardProjectId,
+            title: startCardTitle,
+            notes: startData.notes ? String(startData.notes) : "",
+            due_date: null,
+            position: startMaxCard && startMaxCard.maxp != null ? Number(startMaxCard.maxp) + 1 : 0,
+            archived: 0,
+            important: startData.important ? 1 : 0,
+            creator_key_id: callerKey ? callerKey.id : null,
+            creator_key_name: null,
+            step_holder: callerKey ? "agent" : "owner",
+            step_key_id: callerKey ? callerKey.id : null,
+            step_key_name: null,
+            step_handed_at: null,
+            step_handed_by_key_id: null,
+            step_handed_by_key_name: null,
+            step_waiting: 0,
+            created_at: startStamp,
+            updated_at: startStamp
+          };
+          var startCardStatements = [
+            db.prepare("INSERT INTO cards (id, board_id, column_id, project_id, title, notes, due_date, position, archived, important, creator_key_id, creator_key_name, step_holder, step_key_id, step_key_name, step_handed_at, step_handed_by_key_id, step_handed_by_key_name, step_waiting, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+              .bind(startedCardRow.id, startedCardRow.board_id, startedCardRow.column_id, startedCardRow.project_id, startedCardRow.title, startedCardRow.notes, startedCardRow.due_date, startedCardRow.position, startedCardRow.archived, startedCardRow.important, startedCardRow.creator_key_id, startedCardRow.creator_key_name, startedCardRow.step_holder, startedCardRow.step_key_id, startedCardRow.step_key_name, startedCardRow.step_handed_at, startedCardRow.step_handed_by_key_id, startedCardRow.step_handed_by_key_name, startedCardRow.step_waiting, startedCardRow.created_at, startedCardRow.updated_at)
+          ];
+          for (var scross = 0; scross < startCardLabelIds.length; scross++) {
+            startCardStatements.push(db.prepare("INSERT INTO card_labels (card_id, label_id) VALUES (?, ?)")
+              .bind(startedCardRow.id, startCardLabelIds[scross]));
+          }
+          var shapeCardSteps = Array.isArray(startData.steps) ? startData.steps : [];
+          for (var scstep = 0; scstep < shapeCardSteps.length; scstep++) {
+            startCardStatements.push(db.prepare("INSERT INTO checklist_items (id, card_id, text, done, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+              .bind(newId("step"), startedCardRow.id, shapeCardSteps[scstep] || "", 0, scstep, startStamp, startStamp));
+          }
+          var shapeStartLinks = Array.isArray(startData.links) ? startData.links : [];
+          for (var sclink = 0; sclink < shapeStartLinks.length; sclink++) {
+            startCardStatements.push(db.prepare("INSERT INTO card_links (id, card_id, url, name, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+              .bind(newId("link"), startedCardRow.id, shapeStartLinks[sclink].url || "", shapeStartLinks[sclink].name || "", sclink, startStamp, startStamp));
+          }
+          await batchRun(db, startCardStatements);
+          noteChange();
+          var startKindMap = {};
+          startKindMap[startCardColumn.id] = columnKind(startCardColumn);
+          var startKeyNames = await keyNameMap(db, owner.id);
+          return json({ card: cardOut(startedCardRow, startKindMap,
+            await stepsForCard(db, startedCardRow.id), await linksForCard(db, startedCardRow.id),
+            await labelsForCard(db, startedCardRow.id), [], effectiveName(owner),
+            startKeyNames, keyIdsByName(startKeyNames)) }, 201);
+        }
+        return error("Template not found.", 404);
+      }
+    }
+
     // Columns. A board's columns are the owner's own: they can be
     // renamed, added, removed and reordered. A removal is refused
     // while the column holds active cards, and the last column on a
@@ -3339,6 +3839,28 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         kindMap[cardColumn.id] = columnKind(cardColumn);
         var createKeyNames = await keyNameMap(db, owner.id);
         return json({ card: cardOut(cardRow, kindMap, [], [], await labelsForCard(db, cardRow.id), [], effectiveName(owner), createKeyNames, keyIdsByName(createKeyNames)) }, 201);
+      }
+    }
+
+    // Save a card as a template (issue #139): a snapshot of
+    // the card's shape — its steps and links with it — held in
+    // its own row outside the state, the way a board template
+    // is held. Later work on the card never reaches it.
+    if ((p = match(parts, ["api", "cards", ":cardId", "templates"]))) {
+      var cardTemplateSource = await ownerCardRow(db, owner.id, p.cardId);
+      if (!cardTemplateSource) return error("Card not found.", 404);
+      if (method === "POST") {
+        var cardTemplateBody = await readBody(request);
+        var cardTemplateName = templateNameFor(cardTemplateBody, cardTemplateSource.title);
+        if (!cardTemplateName) return error("name is required.");
+        if (overLimit(cardTemplateName, LIMITS.nameChars)) return error("name is too long.");
+        var cardTemplateRow = await saveTemplate(db, owner, "card", cardTemplateName,
+          cardTemplateSource.id, await cardTemplateData(db, cardTemplateSource), nowIso());
+        if (!cardTemplateRow) {
+          return error("That is as many templates as TaskSparkle holds for one person.", 400);
+        }
+        noteChange();
+        return json({ template: templateOut(cardTemplateRow) }, 201);
       }
     }
 
