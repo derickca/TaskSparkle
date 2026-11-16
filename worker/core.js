@@ -305,6 +305,7 @@ function agentDirections(env) {
     "GET /state - the whole state (see Reading the boards).",
     "GET /queue - the cards whose next step is yours, across every board, each in the full card shape state carries (see Handing over). For the person it answers the cards whose step is theirs.",
     "GET /following - the cards you follow, each in the full card shape state carries, with changed saying whether the card changed since you last read the list (see Following a card).",
+    "GET /boards/{board id}/activity - the board's activity: the acts that landed on it, oldest first (see Board activity).",
     "GET /version - just the version number and the build stamp.",
     "GET /directions - these directions, as plain text.",
     "GET /push - a WebSocket for live updates (see Live updates).",
@@ -389,10 +390,14 @@ function agentDirections(env) {
     "GET /push opens a WebSocket, authorized exactly like every other route. Each time a change lands, the socket receives the new version number as plain text: the number and nothing else, never state or card data. A socket that misses an update catches up by reading /version or /state.",
     "",
     "Watching for changes",
-    "Polling GET /version is one small request, and a key's answer carries the version number alone (with the build stamp): the change stamp the server keeps — who made the latest change, and when — rides on the person's own answers only, never on a key's (see Version and baseVersion). When the number has moved past the last one you saw, something changed; read GET /state and compare it with the snapshot you keep to work out what. For a card you follow, GET /following does that work for that card: it names only your followed cards, and says which of them changed since your last read of it.",
-    "Who did the work is read off the work itself, from the stamps the work carries. A card's creatorKeyName names the key that created the card, as that key is named as the card is read, standing null when the person made the card in the app. A comment names its author outright: authorName is the writing key's current name for a key's comment and the person's current name for theirs, resolved as the comment is read, and authorKeyName names the writing key the same way or stands null when the person wrote it. Moves, edits and ticks carry no stamp: a card that changed columns, a step ticked, a title rewritten — the state shows the new shape and names nobody, so a watcher cannot attribute those, and must not guess.",
-    "A hand-over is the one change of shape that does carry its author. When a card's step names a different holder than the last state you read, that change is a handed-over entry: it carries the name the step left and the name it went to — each the person, a key's name, or no one — and step.handedByKeyName names the key that handed it over, or stands null when the person did. A card that stops waiting between two states was picked up by its holder.",
-    "Offer the person a recurring check (a cron) that watches their boards: on each run it reads /version, and when the number has moved it reads /state, works out what changed against the snapshot it keeps, and sends a short note about those changes to the chat each change belongs to. A few minutes between polls is plenty: the poll is one small request. Keep the snapshot and the version you last reported, so each change is reported once. Tell the person's work from an agent's by the stamps above: a new card or comment carrying a key's name is that key's work; one carrying none is the person's. The rest — moves, edits and ticks — arrive unattributed; report them as changes, never as the person's own acts. Offer the check; never set it up unasked. When you work out what changed, comments are part of it: a new comment on a card is a change worth routing, and the note about it carries the comment's text, not just the fact of it.",
+    "Polling GET /version is one small request, and a key's answer carries the version number alone (with the build stamp): the change stamp the server keeps — who made the latest change, and when — rides on the person's own answers only, never on a key's (see Version and baseVersion). When the number has moved past the last one you saw, something changed; read the board's activity with since_version set to the last version you saw to name the acts themselves (see Board activity), or read GET /state and compare it with the snapshot you keep. For a card you follow, GET /following does that work for that card: it names only your followed cards, and says which of them changed since your last read of it.",
+    "Who did the work is read from the board's activity (see Board activity): every act there names its actor, so a move, an edit or a tick is attributed by its entry, never guessed from the state. The stamps on the work itself still stand for what they cover. A card's creatorKeyName names the key that created the card, as that key is named as the card is read, standing null when the person made the card in the app. A comment names its author outright: authorName is the writing key's current name for a key's comment and the person's current name for theirs, resolved as the comment is read, and authorKeyName names the writing key the same way or stands null when the person wrote it. A card's step names its holder, who handed it over and when.",
+    "A hand-over stands in the board's activity as a card-handed-over entry: it names the holder the step left and the holder it went to — each the person, a key, or no one — and on the card itself, step.handedByKeyName names the key that handed it over, or stands null when the person did. A card that stops waiting was picked up by its holder, and the activity carries that too, as a card-picked-up entry.",
+    "Offer the person a recurring check (a cron) that watches their boards: on each run it reads /version, and when the number has moved it reads each board's activity with since_version set to the last version it reported, and sends a short note about those acts to the chat each act belongs to. A few minutes between polls is plenty: the poll is one small request. Keep the version you last reported, so each act is reported once. Tell the person's work from an agent's by each entry's actor: actorKind agent is that key's work, named by actorKeyName; actorKind owner is the person's; actorKind schedule is a round landing. Offer the check; never set it up unasked. Comments are part of it: a comment entry's detail carries the comment's text, not just the fact of it, and a note about a comment carries that text.",
+    "",
+    "Board activity",
+    "Every accepted change to a board writes its acts to the board's activity as it lands, one entry per act, all under the one version the change raises. Read a board's activity with GET /boards/{board id}/activity. Entries read oldest first. Each entry carries: id; boardId; version, the owner's version the act landed under; at, when it landed; act, what happened — board-created, board-edited, column-created, column-edited, column-deleted, label-created, label-edited, label-deleted, project-created, project-edited, project-deleted, card-created, card-moved, card-edited, card-archived, card-restored, card-handed-over, card-picked-up, card-deleted, step-added, step-edited, step-ticked, step-unticked, step-moved, step-deleted, link-added, link-edited, link-deleted, comment-added, comment-deleted, and round-landed for a round a column's schedule landed; who did it — actorKind, owner for the person, agent for a key, schedule for a round, with actorKeyId naming the acting key, actorKeyName its name as the entry is read, and actorName naming the actor either way, standing null for the schedule; the object the act touched — objectType (board, column, label, project, card, step, link or comment), objectId, and objectName, its name or title as it stood at that moment, so deleted work still reads by its last name; cardId for an act on a card or one of its parts; and detail, the act's own facts: where a card moved from and to, by board and column name; a hand-over's holder before and after; a tick's before and after; a comment's body; an edit's changed fields with their before and after values; the cards a column delete moved; and the cards a round archived and landed.",
+    "Filter the read with card_id (one card's acts), act (one kind of act) or since_version (the acts that landed after a version you already hold), and page it with limit (1 to 500, default 100) and after (the id of the last entry you read): nextAfter names the last entry of a page when more stand after it, and stands null at the end of the history. A card that moves boards writes its move on both boards. A board copy and a template start open the new board's history with one board-created entry naming where it came from and what it holds; a column delete and a recurring round each stand as one entry naming the cards they moved or landed. A write that changes nothing, a refused write, following or unfollowing a card, saving a template, and making, renaming or deleting a key write no entry — except that deleting a key writes a card-handed-over entry for each card it hands back. The history starts with the build that added it: acts from before it were never recorded, and no entry can say when an older card was moved, edited or ticked, or who did it. Deleting a board deletes its activity with it.",
     "",
     "Limits",
     "Sizes are capped well past ordinary use, and a write past a cap is refused whole. Lengths count characters as sent.",
@@ -1484,7 +1489,7 @@ function recurOut(row) {
 // after room exists — rather than landing part-way. Missed
 // rounds never stack: however long the gap, one round lands
 // and the schedule moves to its next date after today.
-async function settleDueRounds(db, owner, stamp) {
+async function settleDueRounds(db, owner, stamp, activityVersion) {
   var today = dayString(todayUtc());
   var due = (await db.prepare(
     'SELECT "columns".* FROM "columns" JOIN boards ON boards.id = "columns".board_id ' +
@@ -1514,9 +1519,11 @@ async function settleDueRounds(db, owner, stamp) {
       statements.push(db.prepare("UPDATE cards SET archived = 1, updated_at = ?, change_stamp = ? WHERE id = ?")
         .bind(stamp, stamp, standing[ai].id));
     }
+    var freshCards = [];
     for (var ci = 0; ci < standing.length; ci++) {
       var source = standing[ci];
       var copyId = newId("card");
+      freshCards.push({ id: copyId, title: source.title });
       // The maker stamp stands empty: no one made this card
       // on a call — the person's own schedule did.
       statements.push(db.prepare("INSERT INTO cards (id, board_id, column_id, project_id, title, notes, due_date, position, archived, important, creator_key_id, creator_key_name, step_holder, step_key_id, step_key_name, step_handed_at, step_handed_by_key_id, step_handed_by_key_name, step_waiting, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
@@ -1554,6 +1561,22 @@ async function settleDueRounds(db, owner, stamp) {
       todayUtc());
     statements.push(db.prepare('UPDATE "columns" SET recur_next = ?, updated_at = ? WHERE id = ?')
       .bind(dayString(nextDate), stamp, column.id));
+    // The round stands in the board's activity as one summary
+    // row (issue #141), acted by the schedule itself: it names
+    // the list, the cards the round archived and the fresh
+    // copies it landed, and rides inside this same batch under
+    // the version the caller raises for the settling.
+    statements.push(boardActivityStatement(db, {
+      id: newId("activity"), boardId: column.board_id,
+      version: activityVersion, at: stamp, act: "round-landed",
+      actorKeyId: null, actorOwnerId: null, cardId: null,
+      objectType: "column", objectId: column.id, objectName: column.name,
+      detail: {
+        columnId: column.id, columnName: column.name,
+        archivedCards: standing.map(function (row) { return { id: row.id, title: row.title }; }),
+        freshCards: freshCards
+      }
+    }));
   }
   if (!statements.length) return false;
   await batchRun(db, statements);
@@ -1879,6 +1902,82 @@ function cardChangeStamp(cardRow) {
 async function touchCardChange(db, cardId) {
   await db.prepare("UPDATE cards SET change_stamp = ? WHERE id = ?")
     .bind(nowIso(), cardId).run();
+}
+
+// --- Board activity (issue #141) -------------------------------------------
+//
+// One row per act that lands on a board, written by the act
+// itself under the version the act lands (see the schema's
+// note). An entry here is a plain object in the table's own
+// terms; boardActivityStatement turns it into the prepared
+// statement, so a change gathered as a batch — a board copy, a
+// template start, a recurring round — carries its rows inside
+// the same batch as the change itself, and a change worked
+// statement by statement runs its row the moment it lands.
+
+function boardActivityStatement(db, entry) {
+  return db.prepare(
+    "INSERT INTO board_activity (id, board_id, version, act, actor_key_id, actor_owner_id, card_id, object_type, object_id, object_name, detail, created_at) " +
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  ).bind(
+    entry.id, entry.boardId, entry.version, entry.act,
+    entry.actorKeyId || null, entry.actorOwnerId || null,
+    entry.cardId || null, entry.objectType, entry.objectId || null,
+    entry.objectName == null ? null : String(entry.objectName),
+    JSON.stringify(entry.detail || {}), entry.at
+  );
+}
+
+// A step holder in an activity detail's shape: the holder, the
+// holding key's id, and that key's name resolved live where a
+// name map stands (issue #121's rule, the one the card's own
+// step read follows).
+function activityStepTarget(holder, keyId, keyName) {
+  return {
+    holder: holder,
+    keyId: keyId || null,
+    keyName: holder === "agent" ? (keyName || null) : null
+  };
+}
+
+// One activity row in its read shape. The actor stands as an
+// identity on the row — a key's id, the person's owner id, or
+// neither for a round the schedule landed — and the names here
+// resolve from those records as the row is read: actorKeyName
+// is the acting key's current name, and actorName names the
+// actor either way, the key's current name or the person's
+// current name, standing null for the schedule. A hand-over
+// detail's holder names resolve the same way from their ids.
+function boardActivityOut(row, personName, keyNames) {
+  var actorKind = row.actor_key_id ? "agent"
+    : (row.actor_owner_id ? "owner" : "schedule");
+  var actorKeyName = row.actor_key_id
+    ? (keyNames && keyNames[row.actor_key_id]) || null : null;
+  var detail = {};
+  try { detail = JSON.parse(row.detail || "{}"); } catch (e) { detail = {}; }
+  if (!detail || typeof detail !== "object" || Array.isArray(detail)) detail = {};
+  ["from", "to"].forEach(function (side) {
+    var target = detail[side];
+    if (target && typeof target === "object" && target.keyId) {
+      target.keyName = (keyNames && keyNames[target.keyId]) || target.keyName || null;
+    }
+  });
+  return {
+    id: row.id,
+    boardId: row.board_id,
+    version: Number(row.version),
+    at: row.created_at,
+    act: row.act,
+    actorKind: actorKind,
+    actorKeyId: row.actor_key_id || null,
+    actorKeyName: actorKeyName,
+    actorName: actorKeyName || (actorKind === "owner" ? personName : null),
+    cardId: row.card_id || null,
+    objectType: row.object_type,
+    objectId: row.object_id || null,
+    objectName: row.object_name == null ? null : String(row.object_name),
+    detail: detail
+  };
 }
 
 // A card in its read shape. The names it wears — its maker's
@@ -2531,7 +2630,7 @@ export function createApiHandler(deps) {
   // reaches this: its owner's rounds end with the erasure.
   if (owner) {
     var roundsAt = nowIso();
-    if (await settleDueRounds(db, owner, roundsAt)) {
+    if (await settleDueRounds(db, owner, roundsAt, currentVersion(owner) + 1)) {
       var roundsVersion = await bumpVersion(db, owner.id, "owner", roundsAt);
       owner.state_version = roundsVersion;
       owner.last_change_by = "owner";
@@ -2617,7 +2716,17 @@ export function createApiHandler(deps) {
   // set has no state to report on: its writes are the sign-in
   // routes' own, and the version machinery below is skipped
   // for them whole.
-  var report = { changed: false };
+  var report = {
+    changed: false,
+    // The version an accepted write on this call lands under
+    // (issue #141): the claim's own version when a baseVersion
+    // claimed it, and the next version when the gate's rise
+    // below is still to come. The routes' activity rows are
+    // written as the change lands, before that rise is worked,
+    // and they carry this number, so every row of one write
+    // names the one version the write raises.
+    activityVersion: claimedVersion != null ? claimedVersion : currentVersion(owner) + 1
+  };
 
   var response = null;
   try {
@@ -2737,6 +2846,57 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
     var noteCardChange = async function (cardId) {
       noteChange();
       await touchCardChange(db, cardId);
+    };
+    // A board-activity act on this call (issue #141). The
+    // actor stands as an identity: the calling key's id for a
+    // key caller, the person's owner id for the person, and
+    // neither when a call names the schedule as its actor. The
+    // version is the write gate's own answer for this call (see
+    // the report's activityVersion), so the rows of one
+    // accepted write all carry the one version that write
+    // raises, and they are written as the change lands — a
+    // write the gate refuses or a no-change write never reaches
+    // a row, and a row never raises a version of its own.
+    var activityEntry = function (fields) {
+      var actorKind = fields.actorKind
+        || (callerKey ? "agent" : "owner");
+      return {
+        id: newId("activity"),
+        boardId: fields.boardId,
+        version: report.activityVersion,
+        at: fields.at || nowIso(),
+        act: fields.act,
+        actorKeyId: actorKind === "agent" && callerKey ? callerKey.id
+          : (fields.actorKeyId !== undefined ? fields.actorKeyId : null),
+        actorOwnerId: actorKind === "agent" || actorKind === "schedule"
+          ? null : owner.id,
+        cardId: fields.cardId || null,
+        objectType: fields.objectType,
+        objectId: fields.objectId || null,
+        objectName: fields.objectName == null ? null : String(fields.objectName),
+        detail: fields.detail || {}
+      };
+    };
+    var recordActivity = async function (fields) {
+      await boardActivityStatement(db, activityEntry(fields)).run();
+    };
+    var activityStmt = function (fields) {
+      return boardActivityStatement(db, activityEntry(fields));
+    };
+    var noteCardPickupActivity = async function (card) {
+      if (!(await noteCardPickup(db, card, callerKey))) return;
+      await noteCardChange(card.id);
+      var pickupStep = stepOf(card);
+      var pickupNames = await keyNameMap(db, owner.id);
+      await recordActivity({
+        boardId: card.board_id, act: "card-picked-up",
+        cardId: card.id, objectType: "card", objectId: card.id,
+        objectName: card.title,
+        detail: {
+          holder: activityStepTarget(pickupStep.holder, pickupStep.keyId,
+            resolvedKeyName(pickupStep.keyId, pickupStep.keyName, pickupNames, keyIdsByName(pickupNames)))
+        }
+      });
     };
     var env = deps.env;
     var takePasswords = deps.passwordsAllowed !== false;
@@ -3096,10 +3256,30 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         // on each card stays as it was written. Each card's
         // change stamp is set with the hand-back (issue #140):
         // the card changed holder, and its followers are told.
+        var handbackCards = (await db.prepare(
+          "SELECT id, board_id, title FROM cards WHERE step_key_id = ? " +
+          "AND board_id IN (SELECT id FROM boards WHERE owner_id = ?)"
+        ).bind(theToken.id, owner.id).all()).results;
         await db.prepare(
           "UPDATE cards SET step_holder = 'owner', step_key_id = NULL, step_key_name = NULL, step_waiting = 0, change_stamp = ? " +
           "WHERE step_key_id = ? AND board_id IN (SELECT id FROM boards WHERE owner_id = ?)"
         ).bind(nowIso(), theToken.id, owner.id).run();
+        // Each hand-back stands in its board's activity as a
+        // hand-over (issue #141), naming the deleted key as the
+        // holder it came from and the deletion as its reason.
+        for (var hbi = 0; hbi < handbackCards.length; hbi++) {
+          await recordActivity({
+            boardId: handbackCards[hbi].board_id, act: "card-handed-over",
+            cardId: handbackCards[hbi].id,
+            objectType: "card", objectId: handbackCards[hbi].id,
+            objectName: handbackCards[hbi].title,
+            detail: {
+              from: activityStepTarget("agent", theToken.id, theToken.label || null),
+              to: activityStepTarget("owner", null, null),
+              reason: "key-deleted"
+            }
+          });
+        }
         return json({ ok: true });
       }
     }
@@ -3144,6 +3324,11 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
           boardStatements.push(db.prepare('INSERT INTO "columns" (id, board_id, name, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
             .bind(boardRow.id + "-" + columnDef.kind, boardRow.id, columnDef.name, columnDef.position, boardRow.created_at, boardRow.updated_at));
         }
+        boardStatements.push(activityStmt({
+          boardId: boardRow.id, act: "board-created",
+          objectType: "board", objectId: boardRow.id, objectName: boardRow.name,
+          at: boardRow.created_at, detail: { source: { type: "new" } }
+        }));
         await batchRun(db, boardStatements);
         noteChange();
         return json({ board: await boardOut(db, boardRow) }, 201);
@@ -3187,7 +3372,30 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
             (boardPatch.label_colour_mode != null &&
               boardLabelMode({ label_colour_mode: boardPatch.label_colour_mode }) !== boardLabelMode(theBoard)) ||
             (boardPatchIcon !== undefined && (boardPatchIcon || null) !== (theBoard.icon || null))) {
+          var boardEditFields = {};
+          if (boardPatch.name != null && String(boardPatch.name) !== theBoard.name) {
+            boardEditFields.name = { from: theBoard.name, to: String(boardPatch.name) };
+          }
+          if (boardPatch.position != null && Number(boardPatch.position) !== Number(theBoard.position)) {
+            boardEditFields.position = { from: Number(theBoard.position), to: Number(boardPatch.position) };
+          }
+          if (boardPatch.label_colour_mode != null &&
+              boardLabelMode({ label_colour_mode: boardPatch.label_colour_mode }) !== boardLabelMode(theBoard)) {
+            boardEditFields.labelColourMode = {
+              from: boardLabelMode(theBoard),
+              to: boardLabelMode({ label_colour_mode: boardPatch.label_colour_mode })
+            };
+          }
+          if (boardPatchIcon !== undefined && (boardPatchIcon || null) !== (theBoard.icon || null)) {
+            boardEditFields.icon = { from: theBoard.icon || null, to: boardPatchIcon || null };
+          }
           noteChange();
+          await recordActivity({
+            boardId: p.boardId, act: "board-edited",
+            objectType: "board", objectId: p.boardId,
+            objectName: boardEditFields.name ? boardEditFields.name.to : theBoard.name,
+            detail: { fields: boardEditFields }
+          });
         }
         return json({ board: await boardOut(db, await ownerBoard(db, owner.id, p.boardId)) });
       }
@@ -3222,6 +3430,76 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
     // column, the same rule a card moving boards follows; their
     // labels and project point at the copies, and land empty when
     // those flags are off. Archived cards never copy.
+    // A board's activity (issue #141): the acts that landed
+    // on it, oldest first, in the same answer shape for the
+    // person and for a key. The board scopes to the caller
+    // through its owner, so another owner's board reads as not
+    // found — the rule every board route keeps. Filters:
+    // card_id and act narrow to one card or one kind of act;
+    // since_version keeps the acts that landed after a version
+    // the reader already holds; after pages past an entry id
+    // the reader already read, and nextAfter names the last
+    // entry of a page when more stand after it, standing null
+    // at the end of the history. limit runs 1 to 500 and
+    // defaults to 100.
+    if ((p = match(parts, ["api", "boards", ":boardId", "activity"]))) {
+      var activityBoard = await ownerBoard(db, owner.id, p.boardId);
+      if (!activityBoard) return error("Board not found.", 404);
+      if (method === "GET") {
+        var activityQuery = new URL(request.url).searchParams;
+        var activityLimit = activityQuery.get("limit") == null
+          ? 100 : Number(activityQuery.get("limit"));
+        if (!Number.isInteger(activityLimit) || activityLimit < 1 || activityLimit > 500) {
+          return error("limit must be a whole number from 1 to 500.");
+        }
+        var activitySince = null;
+        if (activityQuery.get("since_version") != null) {
+          activitySince = Number(activityQuery.get("since_version"));
+          if (!Number.isInteger(activitySince) || activitySince < 0) {
+            return error("since_version must be a whole number, 0 or more.");
+          }
+        }
+        var activityClauses = ["board_id = ?"];
+        var activityBinds = [activityBoard.id];
+        if (activityQuery.get("card_id")) {
+          activityClauses.push("card_id = ?");
+          activityBinds.push(activityQuery.get("card_id"));
+        }
+        if (activityQuery.get("act")) {
+          activityClauses.push("act = ?");
+          activityBinds.push(activityQuery.get("act"));
+        }
+        if (activitySince != null) {
+          activityClauses.push("version > ?");
+          activityBinds.push(activitySince);
+        }
+        if (activityQuery.get("after")) {
+          var activityAfter = await db.prepare(
+            "SELECT seq FROM board_activity WHERE id = ? AND board_id = ?"
+          ).bind(activityQuery.get("after"), activityBoard.id).first();
+          if (!activityAfter) return error("Activity entry not found.", 404);
+          activityClauses.push("seq > ?");
+          activityBinds.push(activityAfter.seq);
+        }
+        activityBinds.push(activityLimit + 1);
+        var activityRows = (await db.prepare(
+          "SELECT * FROM board_activity WHERE " + activityClauses.join(" AND ") +
+          " ORDER BY seq ASC LIMIT ?"
+        ).bind(...activityBinds).all()).results;
+        var activityMore = activityRows.length > activityLimit;
+        if (activityMore) activityRows = activityRows.slice(0, activityLimit);
+        var activityKeyNames = await keyNameMap(db, owner.id);
+        return json({
+          boardId: activityBoard.id,
+          activity: activityRows.map(function (row) {
+            return boardActivityOut(row, effectiveName(owner), activityKeyNames);
+          }),
+          nextAfter: activityMore && activityRows.length
+            ? activityRows[activityRows.length - 1].id : null
+        });
+      }
+    }
+
     if ((p = match(parts, ["api", "boards", ":boardId", "copy"]))) {
       var copySource = await ownerBoard(db, owner.id, p.boardId);
       if (!copySource) return error("Board not found.", 404);
@@ -3386,6 +3664,20 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
           }
         }
 
+        copyStatements.push(activityStmt({
+          boardId: newBoardRow.id, act: "board-created",
+          objectType: "board", objectId: newBoardRow.id, objectName: newBoardRow.name,
+          at: copyStamp,
+          detail: {
+            source: { type: "copy", boardId: copySource.id, boardName: copySource.name },
+            counts: {
+              columns: targetColumns.length,
+              labels: Object.keys(labelIdMap).length,
+              projects: Object.keys(projectIdMap).length,
+              cards: wantCards ? sourceCards.length : 0
+            }
+          }
+        }));
         await batchRun(db, copyStatements);
         noteChange();
         return json({ board: await boardOut(db, newBoardRow) }, 201);
@@ -3584,6 +3876,20 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
                 .bind(newId("link"), startedCardId, shapeCardLinks[slink].url || "", shapeCardLinks[slink].name || "", slink, startStamp, startStamp));
             }
           }
+          startStatements.push(activityStmt({
+            boardId: startedBoardRow.id, act: "board-created",
+            objectType: "board", objectId: startedBoardRow.id, objectName: startedBoardRow.name,
+            at: startStamp,
+            detail: {
+              source: { type: "template", templateId: startTemplate.id, templateName: startTemplate.name },
+              counts: {
+                columns: startedColumns.length,
+                labels: startedLabelIds.length,
+                projects: startedProjectIds.length,
+                cards: shapeCards.length
+              }
+            }
+          }));
           await batchRun(db, startStatements);
           noteChange();
           return json({ board: await boardOut(db, startedBoardRow) }, 201);
@@ -3687,6 +3993,16 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
             startCardStatements.push(db.prepare("INSERT INTO card_links (id, card_id, url, name, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
               .bind(newId("link"), startedCardRow.id, shapeStartLinks[sclink].url || "", shapeStartLinks[sclink].name || "", sclink, startStamp, startStamp));
           }
+          startCardStatements.push(activityStmt({
+            boardId: startedCardRow.board_id, act: "card-created",
+            cardId: startedCardRow.id,
+            objectType: "card", objectId: startedCardRow.id, objectName: startedCardRow.title,
+            at: startStamp,
+            detail: {
+              source: { type: "template", templateId: startTemplate.id, templateName: startTemplate.name },
+              columnId: startedCardRow.column_id, columnName: startCardColumn.name
+            }
+          }));
           await batchRun(db, startCardStatements);
           noteChange();
           var startKindMap = {};
@@ -3741,6 +4057,11 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         await db.prepare('INSERT INTO "columns" (id, board_id, name, icon, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
           .bind(columnRow.id, columnRow.board_id, columnRow.name, columnRow.icon, columnRow.position, columnRow.created_at, columnRow.updated_at).run();
         noteChange();
+        await recordActivity({
+          boardId: columnRow.board_id, act: "column-created",
+          objectType: "column", objectId: columnRow.id, objectName: columnRow.name,
+          at: columnRow.created_at, detail: {}
+        });
         return json({ column: columnOut(columnRow) }, 201);
       }
     }
@@ -3764,19 +4085,38 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
           if (recurClean.error) return error(recurClean.error);
         }
         var cleanColumnName = null;
+        // The column as it stood, and the fields this PATCH
+        // changes, for the one activity row the edit writes
+        // (issue #141): the sections below note a field here at
+        // the same moment they note the change itself.
+        var columnBefore = {
+          name: theColumn.name, icon: theColumn.icon || null,
+          recur: {
+            every: theColumn.recur_every || null,
+            weekday: theColumn.recur_weekday == null ? null : Number(theColumn.recur_weekday),
+            monthDay: theColumn.recur_month_day == null ? null : Number(theColumn.recur_month_day)
+          }
+        };
+        var columnEditFields = {};
         if (columnPatch.name != null) {
           cleanColumnName = String(columnPatch.name).trim();
           if (!cleanColumnName) return error("name is required.");
           if (overLimit(cleanColumnName, LIMITS.nameChars)) return error("name is too long.");
         }
         if (columnPatchIcon !== undefined) {
-          if ((columnPatchIcon || null) !== (theColumn.icon || null)) noteChange();
+          if ((columnPatchIcon || null) !== (theColumn.icon || null)) {
+            noteChange();
+            columnEditFields.icon = { from: columnBefore.icon, to: columnPatchIcon || null };
+          }
           await db.prepare('UPDATE "columns" SET icon = ?, updated_at = ? WHERE id = ?')
             .bind(columnPatchIcon || null, nowIso(), p.columnId).run();
           theColumn.icon = columnPatchIcon || null;
         }
         if (cleanColumnName != null) {
-          if (cleanColumnName !== theColumn.name) noteChange();
+          if (cleanColumnName !== theColumn.name) {
+            noteChange();
+            columnEditFields.name = { from: columnBefore.name, to: cleanColumnName };
+          }
           await db.prepare('UPDATE "columns" SET name = ?, updated_at = ? WHERE id = ?')
             .bind(cleanColumnName, nowIso(), p.columnId).run();
           theColumn.name = cleanColumnName;
@@ -3795,7 +4135,10 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
             if (toIndex !== fromIndex) {
               var moved = siblings.splice(fromIndex, 1)[0];
               siblings.splice(toIndex, 0, moved);
-              if (await renumberColumns(db, siblings)) noteChange();
+              if (await renumberColumns(db, siblings)) {
+                noteChange();
+                columnEditFields.position = { from: fromIndex, to: toIndex };
+              }
             }
           }
         }
@@ -3803,6 +4146,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
           if (recurClean.off) {
             if (theColumn.recur_every) {
               noteChange();
+              columnEditFields.recur = { from: columnBefore.recur, to: null };
               await db.prepare('UPDATE "columns" SET recur_every = NULL, recur_weekday = NULL, recur_month_day = NULL, recur_next = NULL, updated_at = ? WHERE id = ?')
                 .bind(nowIso(), p.columnId).run();
               theColumn.recur_every = null;
@@ -3818,6 +4162,10 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
                 : Number(theColumn.recur_month_day) === recurClean.monthDay);
             if (!sameSchedule) {
               noteChange();
+              columnEditFields.recur = {
+                from: columnBefore.recur,
+                to: { every: recurClean.every, weekday: recurClean.weekday, monthDay: recurClean.monthDay }
+              };
               var recurNext = dayString(nextRecurDate(recurClean.every,
                 recurClean.weekday, recurClean.monthDay, todayUtc()));
               await db.prepare('UPDATE "columns" SET recur_every = ?, recur_weekday = ?, recur_month_day = ?, recur_next = ?, updated_at = ? WHERE id = ?')
@@ -3828,6 +4176,13 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
               theColumn.recur_next = recurNext;
             }
           }
+        }
+        if (Object.keys(columnEditFields).length) {
+          await recordActivity({
+            boardId: theColumn.board_id, act: "column-edited",
+            objectType: "column", objectId: p.columnId, objectName: theColumn.name,
+            detail: { fields: columnEditFields }
+          });
         }
         var updatedColumn = await ownerColumn(db, owner.id, p.columnId);
         return json({ column: columnOut(updatedColumn) });
@@ -3912,6 +4267,15 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
               .bind(rni, moveStamp, remainingColumns[rni].id));
           }
         }
+        deleteStatements.push(activityStmt({
+          boardId: theColumn.board_id, act: "column-deleted",
+          objectType: "column", objectId: p.columnId, objectName: theColumn.name,
+          at: moveStamp,
+          detail: cardsInColumn.length ? {
+            toColumnId: destColumn.id, toColumnName: destColumn.name,
+            movedCards: cardsInColumn.map(function (row) { return { id: row.id, title: row.title }; })
+          } : {}
+        }));
         await batchRun(db, deleteStatements);
         noteChange();
         return json({ ok: true });
@@ -3954,6 +4318,11 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         await db.prepare("INSERT INTO labels (id, board_id, name, icon, colour, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
           .bind(labelRow.id, labelRow.board_id, labelRow.name, labelRow.icon, labelRow.colour, labelRow.created_at, labelRow.updated_at).run();
         noteChange();
+        await recordActivity({
+          boardId: labelRow.board_id, act: "label-created",
+          objectType: "label", objectId: labelRow.id, objectName: labelRow.name,
+          at: labelRow.created_at, detail: {}
+        });
         return json({ label: { id: labelRow.id, boardId: labelRow.board_id, name: labelRow.name, icon: labelRow.icon || "", colour: labelRow.colour } }, 201);
       }
     }
@@ -3988,7 +4357,26 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         if ((labelPatch.name != null && String(labelPatch.name) !== theLabel.name) ||
             (labelPatch.colour != null && String(labelPatch.colour) !== (theLabel.colour == null ? "" : String(theLabel.colour))) ||
             (labelPatchIcon !== undefined && (labelPatchIcon || null) !== (theLabel.icon || null))) {
+          var labelEditFields = {};
+          if (labelPatch.name != null && String(labelPatch.name) !== theLabel.name) {
+            labelEditFields.name = { from: theLabel.name, to: String(labelPatch.name) };
+          }
+          if (labelPatch.colour != null && String(labelPatch.colour) !== (theLabel.colour == null ? "" : String(theLabel.colour))) {
+            labelEditFields.colour = {
+              from: theLabel.colour == null ? "" : String(theLabel.colour),
+              to: String(labelPatch.colour)
+            };
+          }
+          if (labelPatchIcon !== undefined && (labelPatchIcon || null) !== (theLabel.icon || null)) {
+            labelEditFields.icon = { from: theLabel.icon || null, to: labelPatchIcon || null };
+          }
           noteChange();
+          await recordActivity({
+            boardId: theLabel.board_id, act: "label-edited",
+            objectType: "label", objectId: p.labelId,
+            objectName: labelEditFields.name ? labelEditFields.name.to : theLabel.name,
+            detail: { fields: labelEditFields }
+          });
         }
         var updatedLabel = await ownerLabel(db, owner.id, p.labelId);
         return json({ label: { id: updatedLabel.id, boardId: updatedLabel.board_id, name: updatedLabel.name, icon: updatedLabel.icon || "", colour: updatedLabel.colour } });
@@ -3997,6 +4385,11 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         await db.prepare("DELETE FROM labels WHERE id = ? AND board_id = ?")
           .bind(p.labelId, theLabel.board_id).run();
         noteChange();
+        await recordActivity({
+          boardId: theLabel.board_id, act: "label-deleted",
+          objectType: "label", objectId: p.labelId, objectName: theLabel.name,
+          detail: {}
+        });
         return json({ ok: true });
       }
     }
@@ -4035,6 +4428,11 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         await db.prepare("INSERT INTO projects (id, board_id, name, icon, created_at) VALUES (?, ?, ?, ?, ?)")
           .bind(projectRow.id, projectRow.board_id, projectRow.name, projectRow.icon, projectRow.created_at).run();
         noteChange();
+        await recordActivity({
+          boardId: projectRow.board_id, act: "project-created",
+          objectType: "project", objectId: projectRow.id, objectName: projectRow.name,
+          at: projectRow.created_at, detail: {}
+        });
         return json({ project: { id: projectRow.id, boardId: projectRow.board_id, name: projectRow.name, icon: projectRow.icon || "" } }, 201);
       }
     }
@@ -4064,7 +4462,20 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         }
         if ((projectPatch.name != null && String(projectPatch.name) !== theProject.name) ||
             (projectPatchIcon !== undefined && (projectPatchIcon || null) !== (theProject.icon || null))) {
+          var projectEditFields = {};
+          if (projectPatch.name != null && String(projectPatch.name) !== theProject.name) {
+            projectEditFields.name = { from: theProject.name, to: String(projectPatch.name) };
+          }
+          if (projectPatchIcon !== undefined && (projectPatchIcon || null) !== (theProject.icon || null)) {
+            projectEditFields.icon = { from: theProject.icon || null, to: projectPatchIcon || null };
+          }
           noteChange();
+          await recordActivity({
+            boardId: theProject.board_id, act: "project-edited",
+            objectType: "project", objectId: p.projectId,
+            objectName: projectEditFields.name ? projectEditFields.name.to : theProject.name,
+            detail: { fields: projectEditFields }
+          });
         }
         var updatedProject = await ownerProject(db, owner.id, p.projectId);
         return json({ project: { id: updatedProject.id, boardId: updatedProject.board_id, name: updatedProject.name, icon: updatedProject.icon || "" } });
@@ -4073,6 +4484,11 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         await db.prepare("DELETE FROM projects WHERE id = ? AND board_id = ?")
           .bind(p.projectId, theProject.board_id).run();
         noteChange();
+        await recordActivity({
+          boardId: theProject.board_id, act: "project-deleted",
+          objectType: "project", objectId: p.projectId, objectName: theProject.name,
+          detail: {}
+        });
         return json({ ok: true });
       }
     }
@@ -4196,6 +4612,13 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
           cardStatements.push(db.prepare("INSERT INTO card_labels (card_id, label_id) VALUES (?, ?)")
             .bind(cardRow.id, cardLabelIds[csi]));
         }
+        cardStatements.push(activityStmt({
+          boardId: cardRow.board_id, act: "card-created",
+          cardId: cardRow.id,
+          objectType: "card", objectId: cardRow.id, objectName: cardRow.title,
+          at: cardRow.created_at,
+          detail: { columnId: cardColumn.id, columnName: cardColumn.name }
+        }));
         await batchRun(db, cardStatements);
         noteChange();
         var kindMap = {};
@@ -4449,6 +4872,16 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         // whole run once the card stands in its new column.
         var wantsPosition = has("position") && cardPatch.position != null;
 
+        // The card as it stands, in the terms the write's
+        // activity rows name (issue #141): its board and column
+        // by name, its labels, and the key-name map its step's
+        // holder resolves through.
+        var cardFromBoard = await ownerBoard(db, owner.id, cardBefore.board_id);
+        var cardFromColumn = await ownerColumn(db, owner.id, cardBefore.column_id);
+        var cardLabelsBefore = await labelsForCard(db, p.cardId);
+        var cardKeyNames = await keyNameMap(db, owner.id);
+        var cardKeyIdsByName = keyIdsByName(cardKeyNames);
+
         await db.prepare(
           "UPDATE cards SET board_id = ?, column_id = ?, project_id = ?, " +
           "title = COALESCE(?, title), notes = COALESCE(?, notes), due_date = ?, " +
@@ -4508,13 +4941,19 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
             rideComment !== null) {
           noteChange();
         }
-        if (labelsChange && (await setCardLabels(db, p.cardId, nextLabelIds))) noteChange();
+        var cardLabelsChanged = false;
+        if (labelsChange) {
+          cardLabelsChanged = await setCardLabels(db, p.cardId, nextLabelIds);
+          if (cardLabelsChanged) noteChange();
+        }
         // The riding comment posts inside the same write, after
         // the card itself stands updated, stamped with its
         // author the way a comment on its own route is.
+        var rideCommentId = null;
         if (rideComment !== null) {
+          rideCommentId = newId("comment");
           await db.prepare("INSERT INTO card_comments (id, card_id, body, author_key_id, author_key_name, author_owner_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-            .bind(newId("comment"), p.cardId, rideComment,
+            .bind(rideCommentId, p.cardId, rideComment,
               callerKey ? callerKey.id : null, null,
               callerKey ? null : owner.id, nowIso()).run();
         }
@@ -4523,14 +4962,18 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         // and column. An archived card stands outside its column's
         // run, so a card this call archives — or one already
         // archived — keeps the position it had.
+        var cardPlaced = false;
         if (wantsPosition && !cardAfter.archived) {
-          if (await placeCardAtIndex(db, cardBefore, cardAfter, cardPatch.position)) noteChange();
+          cardPlaced = await placeCardAtIndex(db, cardBefore, cardAfter, cardPatch.position);
+          if (cardPlaced) noteChange();
           cardAfter = await ownerCardRow(db, owner.id, p.cardId);
         }
         // A board move that names no place lands at the end of
         // its new column (issue #163), the way a new card does.
         if (boardChanged && !wantsPosition && !cardAfter.archived) {
-          if (await placeCardAtIndex(db, cardBefore, cardAfter, Number.MAX_SAFE_INTEGER)) noteChange();
+          var boardPlaced = await placeCardAtIndex(db, cardBefore, cardAfter, Number.MAX_SAFE_INTEGER);
+          if (boardPlaced) noteChange();
+          cardPlaced = cardPlaced || boardPlaced;
           cardAfter = await ownerCardRow(db, owner.id, p.cardId);
         }
         var afterColumns = (await db.prepare(
@@ -4538,6 +4981,125 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         ).bind(cardAfter.board_id).all()).results;
         var afterKinds = {};
         afterColumns.forEach(function (row) { afterKinds[row.id] = columnKind(row); });
+        // The write's acts stand in the board's activity
+        // (issue #141), in the order they are named here: a
+        // move, an archive or restore, a hand-over, the edit
+        // itself, a riding comment, a pickup. A board move
+        // writes its row on both boards — the one the card
+        // leaves and the one it joins — and the rows that
+        // follow it stand on the board the card stands on now.
+        // Nothing here runs for a write that changed nothing:
+        // every row is gated on the change that names it, the
+        // same judgements the version rise above stands on.
+        var cardToBoard = boardChanged ? targetBoard : cardFromBoard;
+        var cardToColumn = null;
+        for (var atc = 0; atc < afterColumns.length; atc++) {
+          if (afterColumns[atc].id === cardAfter.column_id) cardToColumn = afterColumns[atc];
+        }
+        var cardMoveDetail = {
+          fromBoardId: cardBefore.board_id,
+          fromBoardName: cardFromBoard ? cardFromBoard.name : null,
+          fromColumnId: cardBefore.column_id,
+          fromColumnName: cardFromColumn ? cardFromColumn.name : null,
+          toBoardId: cardAfter.board_id,
+          toBoardName: cardToBoard ? cardToBoard.name : null,
+          toColumnId: cardAfter.column_id,
+          toColumnName: cardToColumn ? cardToColumn.name : null
+        };
+        if (boardChanged || nextColumnId !== cardBefore.column_id) {
+          await recordActivity({
+            boardId: cardBefore.board_id, act: "card-moved",
+            cardId: p.cardId, objectType: "card", objectId: p.cardId,
+            objectName: cardAfter.title, detail: cardMoveDetail
+          });
+          if (boardChanged) {
+            await recordActivity({
+              boardId: cardAfter.board_id, act: "card-moved",
+              cardId: p.cardId, objectType: "card", objectId: p.cardId,
+              objectName: cardAfter.title, detail: cardMoveDetail
+            });
+          }
+        }
+        var cardArchivedChanged = has("archived") &&
+          (cardPatch.archived ? 1 : 0) !== (cardBefore.archived ? 1 : 0);
+        if (cardArchivedChanged) {
+          await recordActivity({
+            boardId: cardAfter.board_id,
+            act: cardPatch.archived ? "card-archived" : "card-restored",
+            cardId: p.cardId, objectType: "card", objectId: p.cardId,
+            objectName: cardAfter.title, detail: {}
+          });
+        }
+        var cardHolderChanged = !cardArchivedChanged &&
+          (cardStepAfter.holder !== cardStepBefore.holder ||
+            cardStepAfter.keyId !== cardStepBefore.keyId);
+        if (cardHolderChanged) {
+          await recordActivity({
+            boardId: cardAfter.board_id, act: "card-handed-over",
+            cardId: p.cardId, objectType: "card", objectId: p.cardId,
+            objectName: cardAfter.title,
+            detail: {
+              from: activityStepTarget(cardStepBefore.holder, cardStepBefore.keyId,
+                resolvedKeyName(cardStepBefore.keyId, cardStepBefore.keyName, cardKeyNames, cardKeyIdsByName)),
+              to: activityStepTarget(cardStepAfter.holder, cardStepAfter.keyId,
+                resolvedKeyName(cardStepAfter.keyId, cardStepAfter.keyName, cardKeyNames, cardKeyIdsByName))
+            }
+          });
+        }
+        var cardEditFields = {};
+        if (has("title") && String(cardPatch.title) !== textOf(cardBefore.title)) {
+          cardEditFields.title = { from: textOf(cardBefore.title), to: String(cardPatch.title) };
+        }
+        if (has("notes") && String(cardPatch.notes) !== textOf(cardBefore.notes)) {
+          cardEditFields.notes = { from: textOf(cardBefore.notes), to: String(cardPatch.notes) };
+        }
+        if (has("due_date") && textOf(cardPatch.due_date ? String(cardPatch.due_date) : null) !== textOf(cardBefore.due_date)) {
+          cardEditFields.dueDate = {
+            from: textOf(cardBefore.due_date) || null,
+            to: textOf(cardPatch.due_date ? String(cardPatch.due_date) : null) || null
+          };
+        }
+        if ((nextProjectId || null) !== (cardBefore.project_id || null) && !boardChanged) {
+          cardEditFields.projectId = { from: cardBefore.project_id || null, to: nextProjectId || null };
+        }
+        if (has("important") && (cardPatch.important ? 1 : 0) !== (cardBefore.important ? 1 : 0)) {
+          cardEditFields.important = { from: !!cardBefore.important, to: !!cardPatch.important };
+        }
+        if (cardLabelsChanged) {
+          cardEditFields.labels = {
+            from: cardLabelsBefore,
+            to: await labelsForCard(db, cardAfter.id)
+          };
+        }
+        if (cardPlaced && !boardChanged && nextColumnId === cardBefore.column_id) {
+          cardEditFields.position = { from: Number(cardBefore.position), to: Number(cardAfter.position) };
+        }
+        if (Object.keys(cardEditFields).length) {
+          await recordActivity({
+            boardId: cardAfter.board_id, act: "card-edited",
+            cardId: p.cardId, objectType: "card", objectId: p.cardId,
+            objectName: cardAfter.title, detail: { fields: cardEditFields }
+          });
+        }
+        if (rideComment !== null) {
+          await recordActivity({
+            boardId: cardAfter.board_id, act: "comment-added",
+            cardId: p.cardId, objectType: "comment", objectId: rideCommentId,
+            objectName: cardAfter.title, detail: { body: rideComment }
+          });
+        }
+        if (!cardHolderChanged && !cardArchivedChanged &&
+            cardStepBefore.waiting && !cardStepAfter.waiting) {
+          await recordActivity({
+            boardId: cardAfter.board_id, act: "card-picked-up",
+            cardId: p.cardId, objectType: "card", objectId: p.cardId,
+            objectName: cardAfter.title,
+            detail: {
+              holder: activityStepTarget(cardStepAfter.holder, cardStepAfter.keyId,
+                resolvedKeyName(cardStepAfter.keyId, cardStepAfter.keyName, cardKeyNames, cardKeyIdsByName))
+            }
+          });
+        }
         // The card's followers are told of this write (issue
         // #140): the report this route filled in as it worked
         // says whether anything a reader of the card can see
@@ -4552,6 +5114,12 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         await db.prepare("DELETE FROM cards WHERE id = ? AND board_id = ?")
           .bind(p.cardId, cardBefore.board_id).run();
         noteChange();
+        await recordActivity({
+          boardId: cardBefore.board_id, act: "card-deleted",
+          cardId: p.cardId, objectType: "card", objectId: p.cardId,
+          objectName: cardBefore.title,
+          detail: { columnId: cardBefore.column_id }
+        });
         return json({ ok: true });
       }
     }
@@ -4593,7 +5161,12 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         await db.prepare("INSERT INTO checklist_items (id, card_id, text, done, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
           .bind(stepRow.id, stepRow.card_id, stepRow.text, stepRow.done, stepRow.position, stepRow.created_at, stepRow.updated_at).run();
         await noteCardChange(stepCard.id);
-        await noteCardPickup(db, stepCard, callerKey);
+        await recordActivity({
+          boardId: stepCard.board_id, act: "step-added",
+          cardId: stepCard.id, objectType: "step", objectId: stepRow.id,
+          objectName: stepRow.text, at: stepRow.created_at, detail: {}
+        });
+        await noteCardPickupActivity(stepCard);
         return json({ step: stepOut(stepRow) }, 201);
       }
     }
@@ -4623,20 +5196,53 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         var wantsStepPosition = stepHas("position") && stepPatch.position != null;
         await db.prepare("UPDATE checklist_items SET text = ?, done = ?, updated_at = ? WHERE id = ?")
           .bind(nextText, nextDone, nowIso(), p.stepId).run();
-        if (nextText !== theStep.text || nextDone !== (theStep.done ? 1 : 0)) await noteCardChange(p.cardId);
+        var stepTextChanged = nextText !== theStep.text;
+        var stepDoneChanged = nextDone !== (theStep.done ? 1 : 0);
+        if (stepTextChanged || stepDoneChanged) await noteCardChange(p.cardId);
         var updatedStep = await ownerChecklistItem(db, owner.id, p.cardId, p.stepId);
+        var stepMoved = false;
         if (wantsStepPosition) {
-          if (await placeStepAtIndex(db, p.cardId, updatedStep, stepPatch.position)) await noteCardChange(p.cardId);
+          stepMoved = await placeStepAtIndex(db, p.cardId, updatedStep, stepPatch.position);
+          if (stepMoved) await noteCardChange(p.cardId);
           updatedStep = await ownerChecklistItem(db, owner.id, p.cardId, p.stepId);
         }
-        if (await noteCardPickup(db, itemCard, callerKey)) await noteCardChange(p.cardId);
+        if (stepTextChanged) {
+          await recordActivity({
+            boardId: itemCard.board_id, act: "step-edited",
+            cardId: p.cardId, objectType: "step", objectId: p.stepId,
+            objectName: nextText,
+            detail: { fields: { text: { from: theStep.text, to: nextText } } }
+          });
+        }
+        if (stepDoneChanged) {
+          await recordActivity({
+            boardId: itemCard.board_id, act: nextDone ? "step-ticked" : "step-unticked",
+            cardId: p.cardId, objectType: "step", objectId: p.stepId,
+            objectName: nextText,
+            detail: { done: { from: !!theStep.done, to: !!nextDone } }
+          });
+        }
+        if (stepMoved) {
+          await recordActivity({
+            boardId: itemCard.board_id, act: "step-moved",
+            cardId: p.cardId, objectType: "step", objectId: p.stepId,
+            objectName: nextText,
+            detail: { position: { from: Number(theStep.position), to: Number(updatedStep.position) } }
+          });
+        }
+        await noteCardPickupActivity(itemCard);
         return json({ step: stepOut(updatedStep) });
       }
       if (method === "DELETE") {
         await db.prepare("DELETE FROM checklist_items WHERE id = ? AND card_id = ?")
           .bind(p.stepId, p.cardId).run();
         await noteCardChange(p.cardId);
-        await noteCardPickup(db, itemCard, callerKey);
+        await recordActivity({
+          boardId: itemCard.board_id, act: "step-deleted",
+          cardId: p.cardId, objectType: "step", objectId: p.stepId,
+          objectName: theStep.text, detail: {}
+        });
+        await noteCardPickupActivity(itemCard);
         return json({ ok: true });
       }
     }
@@ -4681,7 +5287,13 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         await db.prepare("INSERT INTO card_links (id, card_id, url, name, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
           .bind(linkRow.id, linkRow.card_id, linkRow.url, linkRow.name, linkRow.position, linkRow.created_at, linkRow.updated_at).run();
         await noteCardChange(linkCard.id);
-        await noteCardPickup(db, linkCard, callerKey);
+        await recordActivity({
+          boardId: linkCard.board_id, act: "link-added",
+          cardId: linkCard.id, objectType: "link", objectId: linkRow.id,
+          objectName: linkRow.name || linkRow.url, at: linkRow.created_at,
+          detail: { url: linkRow.url, name: linkRow.name }
+        });
+        await noteCardPickupActivity(linkCard);
         return json({ link: linkOut(linkRow) }, 201);
       }
     }
@@ -4707,17 +5319,41 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         if (overLimit(nextLinkName, LIMITS.linkNameChars)) return error("name is too long.");
         await db.prepare("UPDATE card_links SET url = ?, name = ?, updated_at = ? WHERE id = ?")
           .bind(nextLinkUrl, nextLinkName, nowIso(), p.linkId).run();
-        if (nextLinkUrl !== theLink.url ||
-            nextLinkName !== (theLink.name == null ? "" : String(theLink.name))) await noteCardChange(p.cardId);
+        var linkChanged = nextLinkUrl !== theLink.url ||
+          nextLinkName !== (theLink.name == null ? "" : String(theLink.name));
+        if (linkChanged) {
+          await noteCardChange(p.cardId);
+          var linkEditFields = {};
+          if (nextLinkUrl !== theLink.url) {
+            linkEditFields.url = { from: theLink.url, to: nextLinkUrl };
+          }
+          if (nextLinkName !== (theLink.name == null ? "" : String(theLink.name))) {
+            linkEditFields.name = {
+              from: theLink.name == null ? "" : String(theLink.name), to: nextLinkName
+            };
+          }
+          await recordActivity({
+            boardId: linkItemCard.board_id, act: "link-edited",
+            cardId: p.cardId, objectType: "link", objectId: p.linkId,
+            objectName: nextLinkName || nextLinkUrl,
+            detail: { fields: linkEditFields }
+          });
+        }
         var updatedLink = await ownerCardLink(db, owner.id, p.cardId, p.linkId);
-        if (await noteCardPickup(db, linkItemCard, callerKey)) await noteCardChange(p.cardId);
+        await noteCardPickupActivity(linkItemCard);
         return json({ link: linkOut(updatedLink) });
       }
       if (method === "DELETE") {
         await db.prepare("DELETE FROM card_links WHERE id = ? AND card_id = ?")
           .bind(p.linkId, p.cardId).run();
         await noteCardChange(p.cardId);
-        await noteCardPickup(db, linkItemCard, callerKey);
+        await recordActivity({
+          boardId: linkItemCard.board_id, act: "link-deleted",
+          cardId: p.cardId, objectType: "link", objectId: p.linkId,
+          objectName: theLink.name || theLink.url,
+          detail: { url: theLink.url, name: theLink.name == null ? "" : String(theLink.name) }
+        });
+        await noteCardPickupActivity(linkItemCard);
         return json({ ok: true });
       }
     }
@@ -4762,7 +5398,13 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         await db.prepare("INSERT INTO card_comments (id, card_id, body, author_key_id, author_key_name, author_owner_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
           .bind(commentRow.id, commentRow.card_id, commentRow.body, commentRow.author_key_id, commentRow.author_key_name, commentRow.author_owner_id, commentRow.created_at).run();
         await noteCardChange(commentCard.id);
-        await noteCardPickup(db, commentCard, callerKey);
+        await recordActivity({
+          boardId: commentCard.board_id, act: "comment-added",
+          cardId: commentCard.id, objectType: "comment", objectId: commentRow.id,
+          objectName: commentCard.title, at: commentRow.created_at,
+          detail: { body: commentRow.body }
+        });
+        await noteCardPickupActivity(commentCard);
         var commentKeyNames = {};
         if (callerKey) commentKeyNames[callerKey.id] = callerKey.name;
         return json({ comment: commentOut(commentRow, effectiveName(owner), commentKeyNames) }, 201);
@@ -4778,7 +5420,13 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         await db.prepare("DELETE FROM card_comments WHERE id = ? AND card_id = ?")
           .bind(p.commentId, p.cardId).run();
         await noteCardChange(p.cardId);
-        await noteCardPickup(db, commentItemCard, callerKey);
+        await recordActivity({
+          boardId: commentItemCard.board_id, act: "comment-deleted",
+          cardId: p.cardId, objectType: "comment", objectId: p.commentId,
+          objectName: commentItemCard.title,
+          detail: { body: theComment.body }
+        });
+        await noteCardPickupActivity(commentItemCard);
         return json({ ok: true });
       }
     }
