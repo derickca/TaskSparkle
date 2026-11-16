@@ -75,6 +75,14 @@ On the person's own door, the state and the version answer also carry a stamp of
 
 A key's answers carry no stamp: its version answer is the number and the build stamp, and its state carries the version and the build only. A key can learn that something changed, never when the person was last active.
 
+### Board activity
+
+Every board keeps its own activity: one entry per act that lands on it, written as the act lands, under the one version the change raises. `GET /api/v1/boards/:id/activity` reads it, for the signed-in person or for a key, for that board alone; another owner's board reads as not found. The answer is `{boardId, activity, nextAfter}`, entries oldest first.
+
+Each entry carries `id`, `boardId`, `version` (the owner's version the act landed under), `at`, `act` (what happened: creates, moves, edits, ticks, hand-overs, pickups, archives, deletes, comment adds and deletes, and `round-landed` for a round a column's schedule landed), who did it (`actorKind`: `owner`, `agent` or `schedule`, with `actorKeyId`, `actorKeyName` and `actorName` resolved as the entry is read, standing null for the schedule), the object it touched (`objectType`, `objectId`, and `objectName` as it stood at that moment, so deleted work still reads by its last name), `cardId` for an act on a card or one of its parts, and `detail`: where a card moved from and to, a hand-over's holder before and after, a comment's body, an edit's changed fields, and the cards a column delete or a round moved or landed.
+
+The read takes filters: `card_id`, `act` and `since_version`, and pages with `after` (an entry id) and `limit` (1 to 500, default 100); `nextAfter` names the last entry of a page when more stand after it, and stands null at the end. A write that changes nothing and a refused write write no entry. The history starts with the build that added it: acts from before it were never recorded, and no entry can say when an older card was moved, edited or ticked, or who did it. Deleting a board deletes its activity with it.
+
 ### Writing with baseVersion
 
 A write can name the version it was based on, as `baseVersion` in its body. Think of it as saying: this is the state I read.
@@ -143,6 +151,7 @@ These routes answer a signed-in person only. A call carrying a key gets a 403 on
 
 ### Boards and parts
 
+- `GET /api/v1/boards/:id/activity` returns the board's activity: `{boardId, activity, nextAfter}`, the acts that landed on it, oldest first. See "Board activity" above for the entry shape and the filters.
 - `POST /api/v1/boards` creates a board with the five starter columns. It takes a name, and an `icon` if you send one.
 - `PATCH /api/v1/boards/:id` renames a board. It can also move the board among your boards (`position`), and set the board's label colour mode (`label_colour_mode`).
 - `DELETE /api/v1/boards/:id` deletes a board. It refuses with a 400 only when it is the owner's last board. Every card on the board — active and archived — goes with it, and so do its columns, labels and projects.

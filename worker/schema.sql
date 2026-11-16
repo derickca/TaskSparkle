@@ -233,6 +233,49 @@ CREATE TABLE IF NOT EXISTS card_follows (
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
+-- A board's activity (issue #141): one row per act that lands
+-- on the board, in the order the acts landed — the seq is that
+-- order, and the read pages by it. A row names the board, the
+-- owner's version the act landed under (every row from one
+-- accepted write carries that write's one version), the act,
+-- and who did it as an identity only: actor_key_id for a key,
+-- actor_owner_id for the person, both empty for a round a
+-- column's own schedule landed. Names resolve from those
+-- records as the activity is read, the rule a comment's author
+-- already follows. object_name holds the object's name or
+-- title as it stood at that moment, and card_id names the card
+-- an act belongs to when the object is a card or one of its
+-- parts, so a deleted card, step, link or comment still reads
+-- in its board's history by the name it had. detail holds the
+-- act's own facts as one JSON value: where a card moved from
+-- and to, a hand-over's holder before and after, a comment's
+-- body, an edit's changed fields. Deleting the board takes
+-- its activity with it through the cascade; deleting a card
+-- does not — the row names the board, never the card, as its
+-- parent. The history starts with this build: no row is ever
+-- written for an act that landed before the table stood.
+CREATE TABLE IF NOT EXISTS board_activity (
+  seq INTEGER PRIMARY KEY AUTOINCREMENT,
+  id TEXT NOT NULL UNIQUE,
+  board_id TEXT NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+  version INTEGER NOT NULL,
+  act TEXT NOT NULL,
+  actor_key_id TEXT,
+  actor_owner_id TEXT,
+  card_id TEXT,
+  object_type TEXT NOT NULL,
+  object_id TEXT,
+  object_name TEXT,
+  detail TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS board_activity_board_seq
+  ON board_activity (board_id, seq);
+
+CREATE INDEX IF NOT EXISTS board_activity_board_card_seq
+  ON board_activity (board_id, card_id, seq);
+
 -- Templates (issue #139): a saved shape an owner starts new
 -- work from — a whole board's shape, or one card's. kind is
 -- "board" or "card". The shape itself stands in data as one

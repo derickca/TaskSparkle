@@ -12,7 +12,9 @@
 // or a card saved as a shape and started again, on both doors,
 // with its caps), following a card (issue #140: a person and
 // each of their keys in its own name follow a card and are
-// told through one small read when it changes), keys (mint,
+// told through one small read when it changes), board activity
+// (issue #141: a board's acts read back in order, with their
+// stamps, to the person and to a key alike), keys (mint,
 // list, rename, revoke, the key-door rules), the
 // write gate (unknown fields refused by name, stale writes), the
 // version stamps, the directions, the push route's refusals and
@@ -2095,6 +2097,289 @@ check("following: the family leaves the person's list empty",
 res = await a.call("DELETE", "/api/v1/boards/" + fSrc.id);
 res = await a.call("DELETE", "/api/v1/me/token/" + fKeyId);
 
+// --- Board activity (issue #141) ------------------------------------------------
+// A board's acts stand in their own history from this build:
+// each accepted write writes its rows under the one version the
+// write lands, with the actor as an identity whose name resolves
+// as the history is read. The family builds one board and walks
+// it through structure, a card, a move, a comment, a step, a
+// tick, edits, a hand-over and a pickup, links and deletes, then
+// reads the whole story back in order — once through the
+// person's own session and once through a key — and proves the
+// filters, the paging, the other owner's not-found, a copy's
+// summary row, a round's summary row and a deleted key's
+// hand-back row.
+const activityPath141 = (boardId, query) =>
+  "/api/v1/boards/" + boardId + "/activity" + (query ? "?" + query : "");
+const activityActs141 = (answer) =>
+  (answer && Array.isArray(answer.activity) ? answer.activity : []).map((entry) => entry.act);
+const activityFind141 = (answer, act) =>
+  (answer && Array.isArray(answer.activity) ? answer.activity : []).find((entry) => entry.act === act);
+
+res = await a.call("POST", "/api/v1/boards", { name: "Activity Board" });
+const actBoard = res.json && res.json.board;
+const actBoardVersion = res.json && res.json.version;
+res = await a.call("GET", activityPath141(actBoard.id));
+check("activity: a new board's history starts with its creation",
+  res.status === 200 && !!res.json && res.json.boardId === actBoard.id &&
+    Array.isArray(res.json.activity) && res.json.activity.length === 1 &&
+    res.json.activity[0].act === "board-created" &&
+    res.json.activity[0].actorKind === "owner" &&
+    res.json.activity[0].actorName === "Drill A" &&
+    res.json.activity[0].actorKeyName === null &&
+    res.json.activity[0].version === actBoardVersion &&
+    res.json.nextAfter === null,
+  "status " + res.status + " body " + (res.text || "").slice(0, 160));
+
+res = await a.call("POST", "/api/v1/columns", { board_id: actBoard.id, name: "Activity Column" });
+const actColumn = res.json.column;
+res = await a.call("POST", "/api/v1/labels", { board_id: actBoard.id, name: "Activity Label", colour: "green" });
+const actLabel = res.json.label;
+res = await a.call("POST", "/api/v1/projects", { board_id: actBoard.id, name: "Activity Project" });
+const actProject = res.json.project;
+res = await a.call("POST", "/api/v1/me/token", { name: "Activity Key" });
+const actKey = res.json.key; const actKeyId = res.json.id;
+res = await keyCall("POST", "/api/v1/cards", actKey, {
+  board_id: actBoard.id, column_id: "inbox", title: "Activity Card",
+  labels: [actLabel.id], project_id: actProject.id,
+});
+check("activity: the family's card is made by its key",
+  res.status === 201 && !!res.json && !!res.json.card, "status " + res.status);
+const actCard = res.json.card;
+
+res = await a.call("PATCH", "/api/v1/columns/" + actColumn.id, { name: "Activity Column Renamed" });
+res = await a.call("PATCH", "/api/v1/labels/" + actLabel.id, { name: "Activity Label Renamed" });
+res = await a.call("PATCH", "/api/v1/projects/" + actProject.id, { name: "Activity Project Renamed" });
+res = await a.call("PATCH", "/api/v1/cards/" + actCard.id, { column_id: "doing" });
+res = await keyCall("POST", "/api/v1/cards/" + actCard.id + "/comments", actKey,
+  { body: "Activity comment" });
+const actComment = res.json.comment;
+res = await a.call("POST", "/api/v1/cards/" + actCard.id + "/steps", { text: "Activity step" });
+const actStep = res.json.step;
+res = await keyCall("PATCH", "/api/v1/cards/" + actCard.id + "/steps/" + actStep.id, actKey, { done: true });
+res = await a.call("PATCH", "/api/v1/cards/" + actCard.id, { title: "Activity Card Renamed" });
+res = await keyCall("PATCH", "/api/v1/cards/" + actCard.id, actKey, { next_step: "owner" });
+const actHandoverVersion = res.json && res.json.version;
+res = await a.call("PATCH", "/api/v1/cards/" + actCard.id, { notes: "Picked up by the person" });
+const actPickupVersion = res.json && res.json.version;
+
+res = await a.call("GET", activityPath141(actBoard.id, "limit=500"));
+const actStory = res.json;
+check("activity: a board's acts read back in the order they landed",
+  res.status === 200 && activityActs141(actStory).slice(0, 16).join("|") ===
+    "board-created|column-created|label-created|project-created|card-created|" +
+    "column-edited|label-edited|project-edited|card-moved|comment-added|" +
+    "step-added|step-ticked|card-edited|card-handed-over|card-edited|card-picked-up",
+  activityActs141(actStory).slice(0, 16).join("|"));
+const actMove = activityFind141(actStory, "card-moved");
+check("activity: a move names the columns it left and joined, with the person as its actor",
+  !!actMove && actMove.actorKind === "owner" && actMove.actorName === "Drill A" &&
+    actMove.cardId === actCard.id && actMove.detail &&
+    actMove.detail.fromColumnName === "Inbox" && actMove.detail.toColumnName === "Doing" &&
+    actMove.detail.fromBoardId === actBoard.id && actMove.detail.toBoardId === actBoard.id,
+  JSON.stringify(actMove));
+const actCommentEntry = activityFind141(actStory, "comment-added");
+check("activity: a comment names its key author and carries the comment body",
+  !!actCommentEntry && actCommentEntry.actorKind === "agent" &&
+    actCommentEntry.actorKeyId === actKeyId &&
+    actCommentEntry.actorKeyName === "Activity Key" &&
+    actCommentEntry.actorName === "Activity Key" &&
+    actCommentEntry.objectType === "comment" && actCommentEntry.objectId === actComment.id &&
+    actCommentEntry.detail && actCommentEntry.detail.body === "Activity comment",
+  JSON.stringify(actCommentEntry));
+const actTick = activityFind141(actStory, "step-ticked");
+check("activity: a tick names the step and its before and after",
+  !!actTick && actTick.actorKind === "agent" && actTick.actorKeyId === actKeyId &&
+    actTick.objectType === "step" && actTick.objectId === actStep.id &&
+    actTick.objectName === "Activity step" && actTick.detail &&
+    actTick.detail.done && actTick.detail.done.from === false && actTick.detail.done.to === true,
+  JSON.stringify(actTick));
+const actHandover = activityFind141(actStory, "card-handed-over");
+check("activity: a hand-over names the holder before and after",
+  !!actHandover && actHandover.actorKind === "agent" && actHandover.actorKeyId === actKeyId &&
+    actHandover.version === actHandoverVersion && actHandover.detail &&
+    actHandover.detail.from && actHandover.detail.from.holder === "agent" &&
+    actHandover.detail.from.keyId === actKeyId &&
+    actHandover.detail.to && actHandover.detail.to.holder === "owner" &&
+    actHandover.detail.to.keyId === null,
+  JSON.stringify(actHandover));
+const actPickupRows = (actStory.activity || []).filter((entry) => entry.version === actPickupVersion);
+check("activity: one write carries one version across its rows",
+  actPickupRows.map((entry) => entry.act).join("|") === "card-edited|card-picked-up" &&
+    actPickupVersion === actHandoverVersion + 1,
+  actPickupRows.map((entry) => entry.act + "@" + entry.version).join("|"));
+
+const actCountBeforeQuiet = (actStory.activity || []).length;
+const actVersionBeforeQuiet = (await state(a)).version;
+res = await a.call("PATCH", "/api/v1/cards/" + actCard.id, { title: "Activity Card Renamed" });
+const actNoChangeVersion = res.json && res.json.version;
+res = await keyCall("PATCH", "/api/v1/cards/" + actCard.id, actKey,
+  { title: "A refused title", not_a_field: 1 });
+const actRefusedStatus = res.status;
+res = await a.call("GET", activityPath141(actBoard.id, "limit=500"));
+check("activity: a no-change write and a refused write add no rows",
+  actNoChangeVersion === actVersionBeforeQuiet && actRefusedStatus === 400 &&
+    !!res.json && Array.isArray(res.json.activity) &&
+    res.json.activity.length === actCountBeforeQuiet,
+  "no-change version " + actNoChangeVersion + " vs " + actVersionBeforeQuiet +
+    " refused " + actRefusedStatus + " rows " + (res.json && res.json.activity && res.json.activity.length) +
+    " vs " + actCountBeforeQuiet);
+
+res = await a.call("POST", "/api/v1/cards/" + actCard.id + "/links",
+  { url: "example.com/activity", name: "Activity link" });
+const actLink = res.json.link;
+res = await keyCall("PATCH", "/api/v1/cards/" + actCard.id + "/links/" + actLink.id, actKey,
+  { name: "Activity Link Renamed" });
+res = await a.call("DELETE", "/api/v1/cards/" + actCard.id + "/links/" + actLink.id);
+res = await a.call("DELETE", "/api/v1/cards/" + actCard.id + "/comments/" + actComment.id);
+res = await a.call("DELETE", "/api/v1/projects/" + actProject.id);
+res = await a.call("DELETE", "/api/v1/labels/" + actLabel.id);
+res = await a.call("DELETE", "/api/v1/columns/" + actColumn.id);
+res = await a.call("DELETE", "/api/v1/cards/" + actCard.id);
+res = await a.call("GET", activityPath141(actBoard.id, "limit=500"));
+const actFull = res.json;
+check("activity: the whole story stands in order, through the deletes",
+  res.status === 200 && activityActs141(actFull).join("|") ===
+    "board-created|column-created|label-created|project-created|card-created|" +
+    "column-edited|label-edited|project-edited|card-moved|comment-added|" +
+    "step-added|step-ticked|card-edited|card-handed-over|card-edited|card-picked-up|" +
+    "link-added|link-edited|link-deleted|comment-deleted|project-deleted|" +
+    "label-deleted|column-deleted|card-deleted",
+  activityActs141(actFull).join("|"));
+const actDeleted = activityFind141(actFull, "card-deleted");
+check("activity: a deleted card still reads by its last title",
+  !!actDeleted && actDeleted.cardId === actCard.id &&
+    actDeleted.objectType === "card" && actDeleted.objectId === actCard.id &&
+    actDeleted.objectName === "Activity Card Renamed",
+  JSON.stringify(actDeleted));
+
+res = await a.call("GET", activityPath141(actBoard.id, "limit=3"));
+const actPageOne = res.json;
+res = await a.call("GET", activityPath141(actBoard.id,
+  "limit=3&after=" + encodeURIComponent(actPageOne.nextAfter || "")));
+const actPageTwo = res.json;
+res = await a.call("GET", activityPath141(actBoard.id, "card_id=" + actCard.id + "&limit=500"));
+const actCardStory = res.json;
+res = await a.call("GET", activityPath141(actBoard.id, "act=comment-added"));
+const actCommentsOnly = res.json;
+res = await a.call("GET", activityPath141(actBoard.id, "since_version=" + actBoardVersion + "&limit=500"));
+const actSince = res.json;
+check("activity: filters and paging read the matching slice",
+  !!actPageOne && (actPageOne.activity || []).length === 3 &&
+    actPageOne.nextAfter === actPageOne.activity[2].id &&
+    !!actPageTwo && actPageTwo.activity.length === 3 &&
+    actPageTwo.activity[0].id !== actPageOne.activity[0].id &&
+    activityActs141(actPageTwo).join("|") === "project-created|card-created|column-edited" &&
+    activityActs141(actCardStory).join("|") ===
+      "card-created|card-moved|comment-added|step-added|step-ticked|card-edited|" +
+      "card-handed-over|card-edited|card-picked-up|link-added|link-edited|link-deleted|" +
+      "comment-deleted|card-deleted" &&
+    !!actCommentsOnly && actCommentsOnly.activity.length === 1 &&
+    actCommentsOnly.activity[0].act === "comment-added" &&
+    !!actSince && (actSince.activity || []).length > 0 &&
+    (actSince.activity || []).every((entry) => entry.version > actBoardVersion),
+  "page1 " + (actPageOne && actPageOne.activity && actPageOne.activity.length) +
+    " page2 " + activityActs141(actPageTwo).join("|") +
+    " card " + activityActs141(actCardStory).join("|"));
+
+res = await keyCall("GET", activityPath141(actBoard.id, "limit=500"), actKey);
+check("activity: a key reads the same board activity as the person",
+  res.status === 200 && !!res.json && Array.isArray(res.json.activity) &&
+    res.json.activity.map((entry) => entry.id).join("|") ===
+      (actFull.activity || []).map((entry) => entry.id).join("|"),
+  "status " + res.status + " rows " + (res.json && res.json.activity && res.json.activity.length));
+res = await b.call("GET", activityPath141(actBoard.id));
+const actForeignPersonStatus = res.status;
+res = await b.call("POST", "/api/v1/me/token", { name: "Activity Foreign Key" });
+const actForeignKey = res.json.key; const actForeignKeyId = res.json.id;
+res = await keyCall("GET", activityPath141(actBoard.id), actForeignKey);
+check("activity: another owner and another owner's key read the board as not found",
+  actForeignPersonStatus === 404 && res.status === 404,
+  "person " + actForeignPersonStatus + " key " + res.status);
+res = await b.call("DELETE", "/api/v1/me/token/" + actForeignKeyId);
+res = await keyCall("GET", "/api/v1/directions", actKey);
+check("activity: the served directions name the activity read",
+  res.status === 200 && res.text.includes("GET /boards/{board id}/activity") &&
+    res.text.includes("Board activity"),
+  "status " + res.status);
+res = await a.call("DELETE", "/api/v1/boards/" + actBoard.id);
+res = await a.call("DELETE", "/api/v1/me/token/" + actKeyId);
+
+// A copy stands on its new board as one summary row.
+res = await a.call("POST", "/api/v1/boards", { name: "Activity Copy Source" });
+const actCopySource = res.json.board;
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: actCopySource.id, column_id: "inbox", title: "Activity Copy Card",
+});
+res = await a.call("POST", "/api/v1/boards/" + actCopySource.id + "/copy", {
+  name: "Activity Copy", columns: true, labels: true, projects: true, cards: true,
+});
+const actCopy = res.json.board;
+res = await a.call("GET", activityPath141(actCopy.id));
+check("activity: a copied board's history opens with the copy as one summary row",
+  res.status === 200 && !!res.json && Array.isArray(res.json.activity) &&
+    res.json.activity.length === 1 && res.json.activity[0].act === "board-created" &&
+    res.json.activity[0].detail && res.json.activity[0].detail.source &&
+    res.json.activity[0].detail.source.type === "copy" &&
+    res.json.activity[0].detail.source.boardId === actCopySource.id &&
+    res.json.activity[0].detail.counts && res.json.activity[0].detail.counts.cards === 1,
+  "status " + res.status + " body " + (res.text || "").slice(0, 200));
+res = await a.call("DELETE", "/api/v1/boards/" + actCopy.id);
+res = await a.call("DELETE", "/api/v1/boards/" + actCopySource.id);
+
+// A round landed by a column's schedule stands as one summary
+// row, acted by the schedule itself.
+res = await a.call("POST", "/api/v1/boards", { name: "Activity Round Board" });
+const actRoundBoard = res.json.board;
+const actRoundInbox = actRoundBoard.columns.find((column) => column.kind === "inbox");
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: actRoundBoard.id, column_id: "inbox", title: "Activity Round Card",
+});
+const actRoundCard = res.json.card;
+res = await a.call("PATCH", "/api/v1/columns/" + actRoundInbox.id, { recur: { every: "day" } });
+const actRoundDb = boardsDbFile138(actRoundBoard.id);
+check("activity: the drill found the boards data file for the round check",
+  !!actRoundDb, actRoundDb || "no database found");
+if (actRoundDb) {
+  const actRoundVersion = (await state(a)).version;
+  setNextDue138(actRoundDb, actRoundInbox.id, isoDay138(todayUtc138()));
+  res = await a.call("GET", activityPath141(actRoundBoard.id, "act=round-landed"));
+  const actRound = res.json && res.json.activity && res.json.activity[0];
+  check("activity: a recurring round leaves its summary row, acted by the schedule",
+    res.status === 200 && !!actRound && actRound.actorKind === "schedule" &&
+      actRound.actorName === null && actRound.actorKeyId === null &&
+      actRound.version === actRoundVersion + 1 && actRound.detail &&
+      actRound.detail.columnName === "Inbox" &&
+      Array.isArray(actRound.detail.archivedCards) && actRound.detail.archivedCards.length === 1 &&
+      actRound.detail.archivedCards[0].id === actRoundCard.id &&
+      Array.isArray(actRound.detail.freshCards) && actRound.detail.freshCards.length === 1 &&
+      actRound.detail.freshCards[0].title === "Activity Round Card",
+    "status " + res.status + " body " + (res.text || "").slice(0, 240));
+}
+res = await a.call("DELETE", "/api/v1/boards/" + actRoundBoard.id);
+
+// Deleting a key hands its cards back, and each hand-back
+// stands in that card's board history.
+res = await a.call("POST", "/api/v1/boards", { name: "Activity Handback Board" });
+const actHandBoard = res.json.board;
+res = await a.call("POST", "/api/v1/me/token", { name: "Activity Handback Key" });
+const actHandKeyId = res.json.id;
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: actHandBoard.id, column_id: "inbox", title: "Handback Card",
+  next_step: actHandKeyId,
+});
+const actHandCard = res.json.card;
+res = await a.call("DELETE", "/api/v1/me/token/" + actHandKeyId);
+res = await a.call("GET", activityPath141(actHandBoard.id, "card_id=" + actHandCard.id));
+const actHandback = activityFind141(res.json, "card-handed-over");
+check("activity: a deleted key's hand-back leaves its own row",
+  res.status === 200 && !!actHandback && actHandback.actorKind === "owner" &&
+    actHandback.detail && actHandback.detail.reason === "key-deleted" &&
+    actHandback.detail.from && actHandback.detail.from.keyId === actHandKeyId &&
+    actHandback.detail.to && actHandback.detail.to.holder === "owner",
+  "status " + res.status + " body " + (res.text || "").slice(0, 240));
+res = await a.call("DELETE", "/api/v1/boards/" + actHandBoard.id);
+
 // --- Moving a card to another board (issue #163) ------------------------------
 // One card edit names the new board, the column on it and the
 // project on it, and the move lands as one act with one version
@@ -4117,9 +4402,9 @@ function doorCallerFor(cookie) {
       !res.text.includes("by reads \"owner\"") && !res.text.includes("the stamp's by"),
     "stale stamp wording searched");
   const watching = res.text.slice(res.text.indexOf("Watching for changes"));
-  check("#92: the watching passage teaches stamp attribution off the work itself",
+  check("#92: the watching passage teaches attribution off the work itself and the board's activity",
     watching.includes("creatorKeyName") && watching.includes("authorKeyName") &&
-      watching.includes("carry no stamp"),
+      watching.includes("Board activity") && !watching.includes("carry no stamp"),
     "watching passage checked");
 
   // A's version, read only now: the key mint above is A's own
