@@ -64,9 +64,10 @@ jobs:
           test -n "$WORKER_STAMP" && test "$WORKER_STAMP" = "$APP_STAMP"
 
       # The smoke tier (issue #140): the harness's own syntax and
-      # stamp checks, its route check and one live boot of a
-      # throwaway instance, walked at the API level — the whole
-      # job lands in about a minute. No secrets, like every step
-      # here.
+      # build-stamp checks, its two scans, its route check and
+      # standing static checks, and one live boot of a throwaway
+      # instance, walked at the API level — the whole job lands
+      # in about a minute. No secrets, like every step here.
+      # tests/README.md states the tier's full composition.
       - name: Smoke checks
         run: npm run test:smoke
