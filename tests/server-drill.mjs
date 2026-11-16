@@ -746,6 +746,28 @@ try {
     adm.status === 200 && !!adm.json &&
       adm.json.people.every((p) => p.admin === true) && adm.json.people.length === 2,
     "status " + adm.status);
+
+  // Nobody removes or demotes themselves through the Admin
+  // surface (issue #125; EV-ADMIN-58 and EV-ADMIN-79): with
+  // two administrators standing, the refusals below are the
+  // self rule, never the only-administrator guard. The
+  // person's own erasure road further down is a different
+  // act and keeps its own shape.
+  adm = await apiCall(portSetup, cookieRoot, "DELETE",
+    "/api/auth/people/" + encodeURIComponent("root admin"));
+  check("#125: an administrator removing themselves through the surface is refused",
+    adm.status === 403 && /yourself/.test((adm.json || {}).error || ""),
+    "status " + adm.status + " body " + JSON.stringify(adm.json).slice(0, 140));
+  adm = await apiCall(portSetup, cookieRoot, "POST", "/api/auth/admin",
+    { account_key: "root admin", admin: false });
+  check("#125: an administrator stripping their own flag is refused",
+    adm.status === 403 && /own administrator/.test((adm.json || {}).error || ""),
+    "status " + adm.status + " body " + JSON.stringify(adm.json).slice(0, 140));
+  adm = await apiCall(portSetup, cookieJo3, "DELETE",
+    "/api/auth/people/" + encodeURIComponent("jo adjusted"));
+  check("#125: the second administrator meets the same self refusal",
+    adm.status === 403 && /yourself/.test((adm.json || {}).error || ""),
+    "status " + adm.status + " body " + JSON.stringify(adm.json).slice(0, 140));
   res = await fetch("http://127.0.0.1:" + portSetup + "/api/v1/me", {
     method: "DELETE",
     headers: { Cookie: cookieRoot.split(";")[0] },

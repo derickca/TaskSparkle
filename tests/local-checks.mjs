@@ -1196,6 +1196,28 @@ function cssVarOf(block, name, tokenMap) {
     failures.push("public/app.js does not hold the Admin deep link " +
       "behind the people probe");
   }
+  const core = readFileSync(join(ROOT, "worker", "core.js"), "utf8");
+  if (!core.includes("You cannot remove yourself") ||
+      !core.includes("own administrator standing")) {
+    failures.push("worker/core.js does not refuse the administrator " +
+      "self-acts (issue #125)");
+  }
+  if (!app.includes("openPersonDemoteDialog") ||
+      !app.includes("Remove administrator")) {
+    failures.push("public/app.js does not carry the Remove " +
+      "administrator act (issue #125)");
+  }
+  if (!app.includes("No one can change or delete a row.") ||
+      !app.includes('(row.actor || "System")')) {
+    failures.push("public/app.js does not state the audit log's " +
+      "standing or name System on an actor-less row (issue #125)");
+  }
+  const styles = readFileSync(join(ROOT, "public", "styles.css"), "utf8");
+  if (!styles.includes("#person-demote-backdrop { z-index: 45; }")) {
+    failures.push("public/styles.css does not ride the remove-" +
+      "administrator dialog's backdrop over the Settings panel " +
+      "(issue #125)");
+  }
   const opsDoc = readFileSync(join(ROOT, "docs", "operations.md"), "utf8");
   if (!opsDoc.includes("## Administration and control")) {
     failures.push("docs/operations.md does not state the copy's " +

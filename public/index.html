@@ -608,6 +608,19 @@
      (issue #107). It names what goes — the account, its boards
      and everything on them, its keys — and the act waits for
      the press inside the dialog. -->
+<div class="editor-backdrop" id="person-demote-backdrop" hidden>
+  <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="person-demote-heading">
+    <div class="editor-head">
+      <h2 id="person-demote-heading">Remove administrator</h2>
+      <button type="button" class="btn btn-quiet" id="person-demote-cancel">Cancel</button>
+    </div>
+    <p class="settings-note" id="person-demote-text"></p>
+    <div class="copy-row">
+      <button type="button" class="btn btn-danger" id="person-demote-confirm">Remove administrator</button>
+    </div>
+  </div>
+</div>
+
 <div class="editor-backdrop" id="person-delete-backdrop" hidden>
   <div class="editor copy-dialog" role="dialog" aria-modal="true" aria-labelledby="person-delete-heading">
     <div class="editor-head">

@@ -593,6 +593,9 @@ var peopleDeepLink = false;
 // The person the Remove-person dialog is armed for
 // ({key, name}), or null.
 var personToRemove = null;
+// The person the Remove-administrator dialog is armed for
+// ({key, name}), or null.
+var personToDemote = null;
 // The passkey the Remove-passkey dialog is armed for
 // ({personKey, personName, credId, nickname}), or null.
 var passkeyToRemove = null;
@@ -6617,6 +6620,21 @@ function renderPeople() {
       row.appendChild(adminBtn);
     }
 
+    // Taking the flag back stands on this page too
+    // (issue #125): operations.md has always said the page
+    // grants or removes the flag, and the route has always
+    // carried the removal — the page simply never offered
+    // it. The caller's own row never offers it: nobody
+    // strips their own flag, and the server refuses it too.
+    if (person.admin && !person.you) {
+      var demoteBtn = document.createElement("button");
+      demoteBtn.type = "button";
+      demoteBtn.className = "btn btn-quiet";
+      demoteBtn.textContent = "Remove administrator";
+      demoteBtn.addEventListener("click", function () { openPersonDemoteDialog(person); });
+      row.appendChild(demoteBtn);
+    }
+
     var pwBtn = document.createElement("button");
     pwBtn.type = "button";
     pwBtn.className = "btn btn-quiet";
@@ -6631,12 +6649,18 @@ function renderPeople() {
     outBtn.addEventListener("click", function () { signPersonOut(person); });
     row.appendChild(outBtn);
 
-    var removeBtn = document.createElement("button");
-    removeBtn.type = "button";
-    removeBtn.className = "btn btn-danger";
-    removeBtn.textContent = "Remove";
-    removeBtn.addEventListener("click", function () { openPersonDeleteDialog(person); });
-    row.appendChild(removeBtn);
+    // The caller's own row carries no Remove (issue #125):
+    // the surface never offers an act the server refuses.
+    // Removing your own account stands on the Account
+    // page's erasure road, not here.
+    if (!person.you) {
+      var removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "btn btn-danger";
+      removeBtn.textContent = "Remove";
+      removeBtn.addEventListener("click", function () { openPersonDeleteDialog(person); });
+      row.appendChild(removeBtn);
+    }
 
     wrap.appendChild(row);
 
@@ -6767,12 +6791,19 @@ function renderPeopleAudit() {
   rows.forEach(function (row) {
     var item = document.createElement("li");
     item.textContent = new Date(row.at).toLocaleString() + " — " +
-      (row.actor || "Someone") + " · " + auditActWords(row.act) +
+      (row.actor || "System") + " · " + auditActWords(row.act) +
       (row.target ? " · " + row.target : "") +
       (row.detail ? " · " + row.detail : "");
     list.appendChild(item);
   });
   wrap.appendChild(list);
+  // The log's standing, stated on the surface (issue
+  // #125): the trail is append-only — no road in the app
+  // changes or deletes a row — and the page says so.
+  var standing = document.createElement("p");
+  standing.className = "settings-note";
+  standing.textContent = "No one can change or delete a row.";
+  wrap.appendChild(standing);
 }
 
 function mintPersonInvite(name, person) {
@@ -6869,6 +6900,35 @@ function confirmPersonDelete() {
     probePeople();
   }).catch(function (err) {
     peopleNote(err.message || "Removing them did not work. Try again.");
+  });
+}
+
+function openPersonDemoteDialog(person) {
+  personToDemote = person;
+  document.getElementById("person-demote-text").textContent =
+    "Remove " + person.name + "'s administrator standing? They keep their " +
+    "account, their boards and their passkeys. Their standing sessions end, " +
+    "and they sign in again without the flag. You can make them an " +
+    "administrator again here.";
+  document.getElementById("person-demote-backdrop").hidden = false;
+  document.getElementById("person-demote-confirm").focus();
+}
+
+function closePersonDemoteDialog() {
+  personToDemote = null;
+  var backdrop = document.getElementById("person-demote-backdrop");
+  if (backdrop) backdrop.hidden = true;
+}
+
+function confirmPersonDemote() {
+  if (!personToDemote) return;
+  var person = personToDemote;
+  closePersonDemoteDialog();
+  peopleNote("");
+  api("POST", "/api/auth/admin", { account_key: person.key, admin: false }).then(function () {
+    probePeople();
+  }).catch(function (err) {
+    peopleNote(err.message || "That did not work. Try again.");
   });
 }
 
@@ -7910,6 +7970,8 @@ function init() {
     var field = document.getElementById("invite-link");
     copyFieldText(field ? field.value : "", document.getElementById("copy-invite"));
   });
+  wire("person-demote-confirm", "click", confirmPersonDemote);
+  wire("person-demote-cancel", "click", closePersonDemoteDialog);
   wire("person-delete-confirm", "click", confirmPersonDelete);
   wire("person-delete-cancel", "click", closePersonDeleteDialog);
   wire("passkey-remove-confirm", "click", confirmPasskeyRemove);
