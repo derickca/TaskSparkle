@@ -1549,18 +1549,21 @@ check("templates: a card start takes a title of its own",
   res.status === 201 && !!res.json.card && res.json.card.title === "A Start Of Its Own",
   "status " + res.status + " title " + (res.json.card && res.json.card.title));
 
-res = await agentPost("/api/v1/boards/" + tSrc.id + "/templates", key2, { name: "Key Shape" });
+res = await a.call("POST", "/api/v1/me/token", { name: "Template Key" });
+const tKey = res.json.key; const tKeyId = res.json.id;
+res = await agentPost("/api/v1/boards/" + tSrc.id + "/templates", tKey, { name: "Key Shape" });
 check("templates: a key saves a board template",
   res.status === 201 && !!res.json.template && res.json.template.kind === "board",
   "status " + res.status);
 const tKeyTemplate = res.json.template;
-res = await agentPost("/api/v1/templates/" + tKeyTemplate.id + "/start", key2, { name: "Key Started" });
+res = await agentPost("/api/v1/templates/" + tKeyTemplate.id + "/start", tKey, { name: "Key Started" });
 check("templates: a key starts a board from a template",
   res.status === 201 && !!res.json.board && res.json.board.name === "Key Started",
   "status " + res.status);
 const tKeyStarted = res.json.board;
 res = await a.call("DELETE", "/api/v1/boards/" + tKeyStarted.id);
 res = await a.call("DELETE", "/api/v1/templates/" + tKeyTemplate.id);
+res = await a.call("DELETE", "/api/v1/me/token/" + tKeyId);
 
 res = await a.call("PATCH", "/api/v1/templates/" + tBoardTemplate.id, { name: "Weekly Shape Renamed" });
 check("templates: a rename answers the template under its new name",
