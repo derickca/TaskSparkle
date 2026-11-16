@@ -129,7 +129,15 @@ CREATE TABLE IF NOT EXISTS cards (
   step_handed_by_key_name TEXT,
   step_waiting INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  -- The stamp of the card's last change a reader can see
+  -- (issue #140): the write paths set it at the moments a
+  -- card changes — a move, an edit, a hand-over, a step, a
+  -- link, a comment — and at no others, so a write that
+  -- changes nothing never tells the card's followers. A card
+  -- is born with no stamp; a follow's baseline reads the
+  -- card's creation stamp until the first change lands.
+  change_stamp TEXT
 );
 
 CREATE TABLE IF NOT EXISTS checklist_items (
@@ -201,6 +209,29 @@ INSERT OR IGNORE INTO card_labels (card_id, label_id)
 SELECT cards.id, cards.label_id FROM cards
 JOIN labels ON labels.id = cards.label_id
 WHERE cards.label_id IS NOT NULL;
+
+-- Who follows a card (issue #140): a person, or one of
+-- their keys, follows a card and is told when it changes.
+-- The follower stands as an identity, in the split a
+-- comment's author already stands in: follower_key_id names
+-- the key when a key follows, follower_owner_id names the
+-- person's own owner row when the person does, and the
+-- other stands null. The key id is a plain value, the way a
+-- card's creator_key_id is: a revoked key's row stands as
+-- its record, and its follows simply never answer again.
+-- seen_stamp holds the card's change stamp as it stood when
+-- this follower last read their follows list, or when they
+-- followed the card; the read compares the two to say
+-- whether the card changed since. Deleting the card takes
+-- its follows with it through the cascade, and deleting the
+-- owner takes them the same way, through the card.
+CREATE TABLE IF NOT EXISTS card_follows (
+  card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  follower_key_id TEXT,
+  follower_owner_id TEXT,
+  seen_stamp TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
 
 -- Templates (issue #139): a saved shape an owner starts new
 -- work from — a whole board's shape, or one card's. kind is

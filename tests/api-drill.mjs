@@ -10,8 +10,10 @@
 // and the rounds landing as fresh copies), boards (including
 // copy and the keep-one rule), templates (issue #139: a board
 // or a card saved as a shape and started again, on both doors,
-// with its caps), keys (mint, list, rename, revoke, the
-// key-door rules), the
+// with its caps), following a card (issue #140: a person and
+// each of their keys in its own name follow a card and are
+// told through one small read when it changes), keys (mint,
+// list, rename, revoke, the key-door rules), the
 // write gate (unknown fields refused by name, stale writes), the
 // version stamps, the directions, the push route's refusals and
 // the stale-session cookie expiry (issue #49). The doors section
@@ -1912,6 +1914,186 @@ check("templates: the family leaves no templates standing",
   res.status === 200 && (res.json.templates || []).length === 0,
   "left " + ((res.json.templates || []).length));
 
+
+// --- Following a card (issue #140) ------------------------------------------------
+// A person, and each of their keys in its own name, can follow
+// a card and be told when it changes: GET /following names only
+// the followed cards, each carrying changed — true when the
+// card changed since that follower last read the list, or since
+// they followed it. The read is the telling: it marks what it
+// showed as seen, so a second read shows nothing new until the
+// card changes again. This family builds its own board on
+// person A, walks the person's list and a key's list through a
+// move, a comment, a tick and a hand-over, proves unfollowing
+// stops the telling, proves person B is never told about A's
+// cards, and leaves both people as it found them.
+res = await a.call("GET", "/api/v1/following");
+check("following: the person's list starts empty",
+  res.status === 200 && Array.isArray(res.json.cards) && res.json.cards.length === 0,
+  "status " + res.status);
+res = await a.call("POST", "/api/v1/boards", { name: "Follow Source" });
+const fSrc = res.json.board;
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: fSrc.id, column_id: "inbox", title: "Followed Card",
+});
+const fCard = res.json.card;
+res = await a.call("POST", "/api/v1/cards/" + fCard.id + "/steps", { text: "Followed step" });
+const fStep = res.json.step;
+res = await a.call("POST", "/api/v1/me/token", { name: "Follow Key" });
+const fKey = res.json.key; const fKeyId = res.json.id;
+res = await keyCall("GET", "/api/v1/following", fKey);
+check("following: a key's list starts empty, separate from the person's",
+  res.status === 200 && Array.isArray(res.json.cards) && res.json.cards.length === 0,
+  "status " + res.status);
+
+// Following stands outside the state the version counts: it
+// raises no version, the standing the terms agreement has.
+let stF = await state(a);
+const vBeforeFollow = stF.version;
+res = await a.call("POST", "/api/v1/cards/" + fCard.id + "/follow", {});
+check("following: the person follows a card, 201, and the version does not rise",
+  res.status === 201 && !!res.json && res.json.following === true &&
+    res.json.version === vBeforeFollow,
+  "status " + res.status + " version " + (res.json && res.json.version) + " vs " + vBeforeFollow);
+res = await a.call("POST", "/api/v1/cards/" + fCard.id + "/follow", {});
+check("following: following again answers 200 and changes nothing",
+  res.status === 200 && !!res.json && res.json.following === true,
+  "status " + res.status);
+res = await keyCall("POST", "/api/v1/cards/" + fCard.id + "/follow", fKey, {});
+check("following: a key follows the same card in its own name",
+  res.status === 201 && !!res.json && res.json.following === true,
+  "status " + res.status);
+res = await a.call("GET", "/api/v1/following");
+check("following: the followed card reads in the person's list, not yet changed",
+  res.status === 200 && res.json.cards.length === 1 && res.json.cards[0].id === fCard.id &&
+    res.json.cards[0].changed === false,
+  "status " + res.status + " cards " + (res.json.cards || []).length +
+    " changed " + (res.json.cards && res.json.cards[0] && res.json.cards[0].changed));
+res = await keyCall("GET", "/api/v1/following", fKey);
+check("following: the card reads in the key's list too, not yet changed",
+  res.status === 200 && res.json.cards.length === 1 && res.json.cards[0].changed === false,
+  "status " + res.status + " changed " + (res.json.cards && res.json.cards[0] && res.json.cards[0].changed));
+
+// A move surfaces to the person, and the read that tells it
+// marks the card seen.
+res = await a.call("PATCH", "/api/v1/cards/" + fCard.id, { column_id: "doing" });
+res = await a.call("GET", "/api/v1/following");
+check("following: a move surfaces to the person, with the card in its new column",
+  res.status === 200 && res.json.cards.length === 1 && res.json.cards[0].changed === true &&
+    res.json.cards[0].columnId === "doing",
+  "changed " + (res.json.cards && res.json.cards[0] && res.json.cards[0].changed) +
+    " column " + (res.json.cards && res.json.cards[0] && res.json.cards[0].columnId));
+res = await a.call("GET", "/api/v1/following");
+check("following: the telling read marks the card seen — a second read shows nothing new",
+  res.status === 200 && res.json.cards.length === 1 && res.json.cards[0].changed === false,
+  "changed " + (res.json.cards && res.json.cards[0] && res.json.cards[0].changed));
+// The person's reads never mark the key's list: the key has
+// not read since the move, so its card still stands changed.
+res = await keyCall("GET", "/api/v1/following", fKey);
+check("following: each follower is told in its own name — the key's card still stands changed",
+  res.status === 200 && res.json.cards.length === 1 && res.json.cards[0].changed === true,
+  "changed " + (res.json.cards && res.json.cards[0] && res.json.cards[0].changed));
+
+// A comment by the key surfaces to the person, with the
+// comment itself riding on the card.
+res = await keyCall("POST", "/api/v1/cards/" + fCard.id + "/comments", fKey,
+  { body: "Agent progress on the followed card" });
+res = await a.call("GET", "/api/v1/following");
+check("following: a comment surfaces to the person, with the comment on the card",
+  res.status === 200 && res.json.cards.length === 1 && res.json.cards[0].changed === true &&
+    res.json.cards[0].comments.some((c) => c.body === "Agent progress on the followed card"),
+  "changed " + (res.json.cards && res.json.cards[0] && res.json.cards[0].changed) +
+    " comments " + (res.json.cards && res.json.cards[0] && res.json.cards[0].comments.length));
+
+// A tick by the person surfaces to the key, with the step
+// standing ticked.
+res = await a.call("PATCH", "/api/v1/cards/" + fCard.id + "/steps/" + fStep.id, { done: true });
+res = await keyCall("GET", "/api/v1/following", fKey);
+check("following: a tick surfaces to the key, with the step ticked",
+  res.status === 200 && res.json.cards.length === 1 && res.json.cards[0].changed === true &&
+    res.json.cards[0].steps.length === 1 && res.json.cards[0].steps[0].done === true,
+  "changed " + (res.json.cards && res.json.cards[0] && res.json.cards[0].changed) +
+    " steps " + (res.json.cards && res.json.cards[0] && JSON.stringify(res.json.cards[0].steps)));
+
+// A hand-over by the person surfaces to the person, with the
+// step naming its new holder.
+res = await a.call("PATCH", "/api/v1/cards/" + fCard.id, { next_step: fKeyId });
+res = await a.call("GET", "/api/v1/following");
+check("following: a hand-over surfaces, with the step naming its new holder",
+  res.status === 200 && res.json.cards.length === 1 && res.json.cards[0].changed === true &&
+    res.json.cards[0].step.holder === "agent" && res.json.cards[0].step.keyId === fKeyId,
+  "changed " + (res.json.cards && res.json.cards[0] && res.json.cards[0].changed) +
+    " step " + (res.json.cards && res.json.cards[0] && JSON.stringify(res.json.cards[0].step)));
+
+// A write that changes nothing tells the follower nothing.
+res = await a.call("PATCH", "/api/v1/cards/" + fCard.id, { title: "Followed Card" });
+res = await a.call("GET", "/api/v1/following");
+check("following: a write that changes nothing tells the follower nothing",
+  res.status === 200 && res.json.cards.length === 1 && res.json.cards[0].changed === false,
+  "changed " + (res.json.cards && res.json.cards[0] && res.json.cards[0].changed));
+
+// Unfollowing stops the telling for the key; the person still
+// follows, and the later change stands changed for them alone.
+res = await keyCall("DELETE", "/api/v1/cards/" + fCard.id + "/follow", fKey);
+check("following: a key unfollows, 200 ok",
+  res.status === 200 && !!res.json && res.json.ok === true, "status " + res.status);
+res = await a.call("POST", "/api/v1/cards/" + fCard.id + "/comments",
+  { body: "After the key stopped following" });
+res = await keyCall("GET", "/api/v1/following", fKey);
+check("following: unfollowing stops the telling — later changes never reach the key's list",
+  res.status === 200 && Array.isArray(res.json.cards) && res.json.cards.length === 0,
+  "status " + res.status + " cards " + (res.json.cards || []).length);
+res = await a.call("GET", "/api/v1/following");
+check("following: the person still follows, and the later change stands changed for them",
+  res.status === 200 && res.json.cards.length === 1 && res.json.cards[0].changed === true,
+  "changed " + (res.json.cards && res.json.cards[0] && res.json.cards[0].changed));
+res = await keyCall("DELETE", "/api/v1/cards/" + fCard.id + "/follow", fKey);
+check("following: unfollowing a card the caller does not follow answers 404",
+  res.status === 404, "status " + res.status);
+
+// Another owner's cards are never followed and never told
+// about: the id reads as not found at both doors, for a person
+// and for a key alike.
+res = await a.call("POST", "/api/v1/cards/card-that-does-not-stand/follow", {});
+check("following: a card that does not exist reads as not found",
+  res.status === 404, "status " + res.status);
+res = await b.call("POST", "/api/v1/cards/" + fCard.id + "/follow", {});
+check("following: another person's card reads as not found to follow",
+  res.status === 404, "status " + res.status);
+res = await b.call("GET", "/api/v1/following");
+check("following: person B's list stands empty",
+  res.status === 200 && Array.isArray(res.json.cards) && res.json.cards.length === 0,
+  "status " + res.status);
+res = await b.call("POST", "/api/v1/me/token", { name: "Follow Foreign Key" });
+const fBKey = res.json.key; const fBKeyId = res.json.id;
+res = await keyCall("POST", "/api/v1/cards/" + fCard.id + "/follow", fBKey, {});
+check("following: another owner's key gets the same not found",
+  res.status === 404, "status " + res.status);
+res = await keyCall("GET", "/api/v1/following", fBKey);
+check("following: the foreign key's list stands empty",
+  res.status === 200 && Array.isArray(res.json.cards) && res.json.cards.length === 0,
+  "status " + res.status);
+res = await b.call("DELETE", "/api/v1/me/token/" + fBKeyId);
+
+// A deleted card leaves its followers' lists with it.
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: fSrc.id, column_id: "inbox", title: "Short Lived Card",
+});
+const fGone = res.json.card;
+res = await a.call("POST", "/api/v1/cards/" + fGone.id + "/follow", {});
+res = await a.call("DELETE", "/api/v1/cards/" + fGone.id);
+res = await a.call("GET", "/api/v1/following");
+check("following: a deleted card leaves the list with it",
+  res.status === 200 && res.json.cards.length === 1 && res.json.cards[0].id === fCard.id,
+  "status " + res.status + " cards " + (res.json.cards || []).length);
+
+res = await a.call("DELETE", "/api/v1/cards/" + fCard.id + "/follow");
+res = await a.call("GET", "/api/v1/following");
+check("following: the family leaves the person's list empty",
+  res.status === 200 && Array.isArray(res.json.cards) && res.json.cards.length === 0,
+  "status " + res.status);
+res = await a.call("DELETE", "/api/v1/boards/" + fSrc.id);
+res = await a.call("DELETE", "/api/v1/me/token/" + fKeyId);
 
 // --- Moving a card to another board (issue #163) ------------------------------
 // One card edit names the new board, the column on it and the

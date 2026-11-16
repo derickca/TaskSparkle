@@ -304,6 +304,7 @@ function agentDirections(env) {
     "DELETE /me - delete the person's whole account: their boards, cards, comments and keys, gone in one act. The person's own call only — a key gets a 403, because a key can never erase its owner. See Keys and access.",
     "GET /state - the whole state (see Reading the boards).",
     "GET /queue - the cards whose next step is yours, across every board, each in the full card shape state carries (see Handing over). For the person it answers the cards whose step is theirs.",
+    "GET /following - the cards you follow, each in the full card shape state carries, with changed saying whether the card changed since you last read the list (see Following a card).",
     "GET /version - just the version number and the build stamp.",
     "GET /directions - these directions, as plain text.",
     "GET /push - a WebSocket for live updates (see Live updates).",
@@ -337,6 +338,7 @@ function agentDirections(env) {
     "DELETE /cards/{card id}/links/{link id} - remove a link.",
     "POST /cards/{card id}/comments - add a comment: body. See Comments.",
     "DELETE /cards/{card id}/comments/{comment id} - remove a comment.",
+    "POST /cards/{card id}/follow - follow a card. DELETE /cards/{card id}/follow - stop following it. See Following a card.",
     "There is no key route for you, on purpose: see Keys and access.",
     "",
     "Cards",
@@ -375,6 +377,10 @@ function agentDirections(env) {
     "Start from a template with POST /templates/{template id}/start, as one act with one version rise. From a board template the call may carry a name for the new board and defaults to the template's name; it makes a whole new board the way a copy does, with the template's columns, labels, projects and active cards. From a card template the call names board_id, and may name column_id (the card lands in the board's first column otherwise) and a title of its own; the card lands at the end of its column, and its labels and project cross onto that board by name — a name the board does not carry is left behind, the rule a card moving boards follows. Starting changes nothing in the template, so a second start makes a second, separate board or card.",
     "A template holds the shape of work to do, not a record of one run. A started card's steps all start unticked, whatever their ticks stood at when the shape was saved, and no due date rides: a fixed date belongs to the run that set it. Comments never ride, and archived cards never ride into a board start. A started card's creator and next step belong to whoever starts it, the way a copy's do. Rename a template with PATCH /templates/{template id} and remove one with DELETE /templates/{template id}; removing one touches nothing it started.",
     "",
+    "Following a card",
+    "A card can be followed: by the person, and by each of their keys in its own name. The person's follows are the person's; a key's follows are that key's, and neither list names the other as a follower. Follow with POST /cards/{card id}/follow (it takes no body) and stop with DELETE /cards/{card id}/follow. Following a card already followed answers the same standing and changes nothing; stopping a follow that does not stand answers 404. Following and stopping are not board changes: they raise no version and send no update.",
+    "GET /following answers the cards you follow, each in the full card shape the state carries, in the order the state reads cards, with one field of its own: changed. changed stands true when the card changed since you last read the list, or since you followed it. Reading the list marks every card it shows as seen, so the next read shows changed only for cards that changed after it. What counts is any change a reader of the card can see: a move, an edit, a hand-over or a pickup, a step added, ticked, renamed, moved or removed, a link added, changed or removed, and a comment added or removed. A write that changes nothing tells a follower nothing. A deleted card leaves the list with it. Follow the cards you are working on, and read /following when the version moves: it names the changes among the cards you care about, without a read of the whole state.",
+    "",
     "Recurring lists",
     "A column can recur: the person sets a schedule on it, and when the day comes, the cards standing in the column are archived and fresh copies land in their place, so a weekly or monthly round of work stands ready without anyone rebuilding it by hand. Set or clear the schedule on the column's PATCH as recur: {every: \"day\"}, {every: \"week\", weekday: N} with N counting from 0 (Sunday) to 6, {every: \"month\", month_day: N} with N from 1 to 31, or null for no schedule. A month day past the end of a short month lands on that month's last day. A column reads its schedule back as recur — the same fields in camelCase (monthDay), plus next, the date the next round lands — or null when it has none.",
     "A round lands at the start of its day (UTC), settled as the owner's next call is answered: the person's app opening, or your own poll, can be the call that lands it. The landing is one change with one version rise, however many cards land, and a write you send against the version from before it is refused as stale, like any other change landing first. A fresh copy carries its card's title, notes, labels, project and importance, its steps unticked and its links; it starts with no comments and its next step with the person, and a due date moves forward by one round. The set that recurs is the set standing in the column when the round lands: a card added during a round joins the next one, and a card moved out or deleted does not come back. Missed rounds do not stack: one round lands, however long the gap. A round whose copies would pass the board's card cap waits until there is room.",
@@ -383,7 +389,7 @@ function agentDirections(env) {
     "GET /push opens a WebSocket, authorized exactly like every other route. Each time a change lands, the socket receives the new version number as plain text: the number and nothing else, never state or card data. A socket that misses an update catches up by reading /version or /state.",
     "",
     "Watching for changes",
-    "Polling GET /version is one small request, and a key's answer carries the version number alone (with the build stamp): the change stamp the server keeps — who made the latest change, and when — rides on the person's own answers only, never on a key's (see Version and baseVersion). When the number has moved past the last one you saw, something changed; read GET /state and compare it with the snapshot you keep to work out what.",
+    "Polling GET /version is one small request, and a key's answer carries the version number alone (with the build stamp): the change stamp the server keeps — who made the latest change, and when — rides on the person's own answers only, never on a key's (see Version and baseVersion). When the number has moved past the last one you saw, something changed; read GET /state and compare it with the snapshot you keep to work out what. For a card you follow, GET /following does that work for that card: it names only your followed cards, and says which of them changed since your last read of it.",
     "Who did the work is read off the work itself, from the stamps the work carries. A card's creatorKeyName names the key that created the card, as that key is named as the card is read, standing null when the person made the card in the app. A comment names its author outright: authorName is the writing key's current name for a key's comment and the person's current name for theirs, resolved as the comment is read, and authorKeyName names the writing key the same way or stands null when the person wrote it. Moves, edits and ticks carry no stamp: a card that changed columns, a step ticked, a title rewritten — the state shows the new shape and names nobody, so a watcher cannot attribute those, and must not guess.",
     "A hand-over is the one change of shape that does carry its author. When a card's step names a different holder than the last state you read, that change is a handed-over entry: it carries the name the step left and the name it went to — each the person, a key's name, or no one — and step.handedByKeyName names the key that handed it over, or stands null when the person did. A card that stops waiting between two states was picked up by its holder.",
     "Offer the person a recurring check (a cron) that watches their boards: on each run it reads /version, and when the number has moved it reads /state, works out what changed against the snapshot it keeps, and sends a short note about those changes to the chat each change belongs to. A few minutes between polls is plenty: the poll is one small request. Keep the snapshot and the version you last reported, so each change is reported once. Tell the person's work from an agent's by the stamps above: a new card or comment carrying a key's name is that key's work; one carrying none is the person's. The rest — moves, edits and ticks — arrive unattributed; report them as changes, never as the person's own acts. Offer the check; never set it up unasked. When you work out what changed, comments are part of it: a new comment on a card is a change worth routing, and the note about it carries the comment's text, not just the fact of it.",
@@ -1334,6 +1340,7 @@ function writeFieldsFor(method, parts) {
     if (rest.length === 3 && rest[2] === "links" && method === "POST") return ["url", "name"];
     if (rest.length === 3 && rest[2] === "comments" && method === "POST") return ["body"];
     if (rest.length === 3 && rest[2] === "templates" && method === "POST") return ["name"];
+    if (rest.length === 3 && rest[2] === "follow") return [];
     if (rest.length === 4 && rest[2] === "steps") return method === "PATCH" ? ["text", "done", "position"] : [];
     if (rest.length === 4 && rest[2] === "links") return method === "PATCH" ? ["url", "name"] : [];
     if (rest.length === 4 && rest[2] === "comments") return [];
@@ -1501,8 +1508,11 @@ async function settleDueRounds(db, owner, stamp) {
     if (boardCounts[column.board_id] + standing.length > LIMITS.cardsPerBoard) continue;
     boardCounts[column.board_id] += standing.length;
     for (var ai = 0; ai < standing.length; ai++) {
-      statements.push(db.prepare("UPDATE cards SET archived = 1, updated_at = ? WHERE id = ?")
-        .bind(stamp, standing[ai].id));
+      // The archived card's change stamp is set in the same
+      // statement (issue #140): the round changed the card —
+      // it stands archived now — and its followers are told.
+      statements.push(db.prepare("UPDATE cards SET archived = 1, updated_at = ?, change_stamp = ? WHERE id = ?")
+        .bind(stamp, stamp, standing[ai].id));
     }
     for (var ci = 0; ci < standing.length; ci++) {
       var source = standing[ci];
@@ -1830,6 +1840,45 @@ async function noteCardPickup(db, cardRow, callerKey) {
   await db.prepare("UPDATE cards SET step_waiting = 0 WHERE id = ?")
     .bind(cardRow.id).run();
   return true;
+}
+
+// --- Following a card (issue #140) ---
+//
+// A follow stands in card_follows: the card, and its follower
+// as an identity — the key's id when a key follows, the
+// person's owner id when the person does, the split a
+// comment's author already stands in. seen_stamp holds the
+// card's change stamp as it stood when this follower last
+// read their follows list, or when they followed the card:
+// the follows read compares the two to say whether the card
+// changed since, and marks what it showed as seen.
+
+// The follower a caller follows as: a key caller under its
+// key's id, a person under their own owner id — exactly one
+// of the two, the other null, as the follows table stores it.
+function followerIds(callerKey, owner) {
+  return callerKey
+    ? { keyId: callerKey.id, ownerId: null }
+    : { keyId: null, ownerId: owner.id };
+}
+
+// The stamp a card's change stands at, for a follow
+// comparison: its change stamp, or — for a card no change
+// has landed on yet — its creation stamp. A card is born
+// stamped one way or the other, so a follow taken at any
+// moment has a baseline, and only a later change reads as
+// changed.
+function cardChangeStamp(cardRow) {
+  if (!cardRow) return "";
+  return cardRow.change_stamp || cardRow.created_at || "";
+}
+
+// Sets a card's change stamp to now: the write paths call
+// this at the moments a card changes in a way a reader of
+// the card can see, and at no others.
+async function touchCardChange(db, cardId) {
+  await db.prepare("UPDATE cards SET change_stamp = ? WHERE id = ?")
+    .bind(nowIso(), cardId).run();
 }
 
 // A card in its read shape. The names it wears — its maker's
@@ -2678,6 +2727,17 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
     // nothing, and the version stays where it stood, the
     // guarantee the retired before/after digests kept.
     var noteChange = function () { if (report) report.changed = true; };
+    // A change to one card, reported beside noteChange (issue
+    // #140): the version rises through noteChange, and the
+    // card's own change stamp is set in the same act, so the
+    // card's followers are told. The routes that write a
+    // card's parts call this where the card's change is
+    // reported; the card route itself reads the report at its
+    // end instead, its changes being judged in pieces.
+    var noteCardChange = async function (cardId) {
+      noteChange();
+      await touchCardChange(db, cardId);
+    };
     var env = deps.env;
     var takePasswords = deps.passwordsAllowed !== false;
     var method = request.method;
@@ -2838,6 +2898,57 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
       }
     }
 
+    // The caller's follows (issue #140): the cards this caller
+    // follows — the person, or the key they arrived with, each
+    // in its own name — each in the full card shape the state
+    // carries, in the order the state reads cards, with one
+    // field of this read's own: changed, true when the card
+    // changed since this follower last read this list (or
+    // since they followed it). The read is the telling: every
+    // card it shows is marked seen at the stamp it stands at,
+    // so the next read shows changed only for cards that
+    // changed after this one. Follows never ride in the
+    // state; this list is their read, the way the templates
+    // list is theirs. An archived card stands in the list
+    // while it stands anywhere: following is about the card,
+    // not its column, and archiving is one of the changes a
+    // follower is told about.
+    if ((p = match(parts, ["api", "following"]))) {
+      if (method === "GET") {
+        var fIds = followerIds(callerKey, owner);
+        var fWho = fIds.keyId ? "follower_key_id = ?" : "follower_owner_id = ?";
+        var fWhoValue = fIds.keyId || fIds.ownerId;
+        var followRows = (await db.prepare(
+          "SELECT card_id, seen_stamp FROM card_follows WHERE " + fWho
+        ).bind(fWhoValue).all()).results;
+        if (!followRows.length) return json({ cards: [] });
+        var seenByCard = {};
+        followRows.forEach(function (row) { seenByCard[row.card_id] = row.seen_stamp || ""; });
+        var followState = await buildState(db, owner, env, via);
+        var stampRows = (await db.prepare(
+          "SELECT id, change_stamp, created_at FROM cards " +
+          "WHERE board_id IN (SELECT id FROM boards WHERE owner_id = ?)"
+        ).bind(owner.id).all()).results;
+        var stampByCard = {};
+        stampRows.forEach(function (row) { stampByCard[row.id] = cardChangeStamp(row); });
+        var followCards = [];
+        var seenStatements = [];
+        followState.cards.forEach(function (card) {
+          if (!(card.id in seenByCard)) return;
+          var stampNow = stampByCard[card.id] || "";
+          card.changed = stampNow > seenByCard[card.id];
+          followCards.push(card);
+          if (stampNow !== seenByCard[card.id]) {
+            seenStatements.push(db.prepare(
+              "UPDATE card_follows SET seen_stamp = ? WHERE card_id = ? AND " + fWho
+            ).bind(stampNow, card.id, fWhoValue));
+          }
+        });
+        await batchRun(db, seenStatements);
+        return json({ cards: followCards });
+      }
+    }
+
     // The change marker on its own: the owner's version number,
     // for a reader that only wants to know whether anything
     // changed since the state it holds — plus the build stamp.
@@ -2982,11 +3093,13 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         // the owner (issue #119): a deleted key holds nothing,
         // and a card it was handed waits for nobody — it stands
         // as the owner's step, not waiting. The hand-over record
-        // on each card stays as it was written.
+        // on each card stays as it was written. Each card's
+        // change stamp is set with the hand-back (issue #140):
+        // the card changed holder, and its followers are told.
         await db.prepare(
-          "UPDATE cards SET step_holder = 'owner', step_key_id = NULL, step_key_name = NULL, step_waiting = 0 " +
+          "UPDATE cards SET step_holder = 'owner', step_key_id = NULL, step_key_name = NULL, step_waiting = 0, change_stamp = ? " +
           "WHERE step_key_id = ? AND board_id IN (SELECT id FROM boards WHERE owner_id = ?)"
-        ).bind(theToken.id, owner.id).run();
+        ).bind(nowIso(), theToken.id, owner.id).run();
         return json({ ok: true });
       }
     }
@@ -3758,13 +3871,17 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
           var destActiveCount = (await columnCards(db, destColumn.id)).length;
           var incomingActive = cardsInColumn.filter(function (row) { return !row.archived; });
           var incomingArchived = cardsInColumn.filter(function (row) { return !!row.archived; });
+          // Each moved card's change stamp is set in the same
+          // statement (issue #140): a move worked by a column
+          // delete is a change the card's followers are told
+          // about, like any other move.
           incomingActive.forEach(function (row, i) {
-            deleteStatements.push(db.prepare("UPDATE cards SET column_id = ?, position = ?, updated_at = ? WHERE id = ? AND column_id = ?")
-              .bind(destColumn.id, destActiveCount + i, moveStamp, row.id, p.columnId));
+            deleteStatements.push(db.prepare("UPDATE cards SET column_id = ?, position = ?, updated_at = ?, change_stamp = ? WHERE id = ? AND column_id = ?")
+              .bind(destColumn.id, destActiveCount + i, moveStamp, moveStamp, row.id, p.columnId));
           });
           incomingArchived.forEach(function (row, i) {
-            deleteStatements.push(db.prepare("UPDATE cards SET column_id = ?, position = ?, updated_at = ? WHERE id = ? AND column_id = ?")
-              .bind(destColumn.id, destActiveCount + incomingActive.length + i, moveStamp, row.id, p.columnId));
+            deleteStatements.push(db.prepare("UPDATE cards SET column_id = ?, position = ?, updated_at = ?, change_stamp = ? WHERE id = ? AND column_id = ?")
+              .bind(destColumn.id, destActiveCount + incomingActive.length + i, moveStamp, moveStamp, row.id, p.columnId));
           });
           // A move is a write to each card it moves (issue
           // #119): a waiting card this caller holds is picked
@@ -4110,6 +4227,45 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
       }
     }
 
+    // Following a card (issue #140): the caller — the person,
+    // or the key they arrived with — follows this card in
+    // their own name, or stops. The follow writes only the
+    // follows table, which no state read carries, so it
+    // raises no version and sends no push: the standing the
+    // terms agreement has. Following a card already followed
+    // answers the same standing and changes nothing — the
+    // follow, and the seen stamp it carries, stand as they
+    // were. Stopping a follow that does not stand answers
+    // 404, the way removing a comment that is not there does.
+    if ((p = match(parts, ["api", "cards", ":cardId", "follow"]))) {
+      var followCard = await ownerCardRow(db, owner.id, p.cardId);
+      if (!followCard) return error("Card not found.", 404);
+      var followIds = followerIds(callerKey, owner);
+      var followWho = followIds.keyId ? "follower_key_id = ?" : "follower_owner_id = ?";
+      var followWhoValue = followIds.keyId || followIds.ownerId;
+      if (method === "POST") {
+        var standingFollow = await db.prepare(
+          "SELECT card_id FROM card_follows WHERE card_id = ? AND " + followWho
+        ).bind(followCard.id, followWhoValue).first();
+        if (standingFollow) return json({ cardId: followCard.id, following: true });
+        await db.prepare(
+          "INSERT INTO card_follows (card_id, follower_key_id, follower_owner_id, seen_stamp, created_at) " +
+          "VALUES (?, ?, ?, ?, ?)"
+        ).bind(followCard.id, followIds.keyId, followIds.ownerId,
+          cardChangeStamp(followCard), nowIso()).run();
+        return json({ cardId: followCard.id, following: true }, 201);
+      }
+      if (method === "DELETE") {
+        var removedFollow = await db.prepare(
+          "DELETE FROM card_follows WHERE card_id = ? AND " + followWho
+        ).bind(followCard.id, followWhoValue).run();
+        var removedCount = removedFollow && removedFollow.meta
+          ? Number(removedFollow.meta.changes || 0) : 0;
+        if (!removedCount) return error("You are not following this card.", 404);
+        return json({ ok: true });
+      }
+    }
+
     if ((p = match(parts, ["api", "cards", ":cardId"]))) {
       var cardBefore = await ownerCardRow(db, owner.id, p.cardId);
       if (!cardBefore) return error("Card not found.", 404);
@@ -4382,6 +4538,13 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         ).bind(cardAfter.board_id).all()).results;
         var afterKinds = {};
         afterColumns.forEach(function (row) { afterKinds[row.id] = columnKind(row); });
+        // The card's followers are told of this write (issue
+        // #140): the report this route filled in as it worked
+        // says whether anything a reader of the card can see
+        // changed — the card's fields, its step, its labels,
+        // its place — and the card's change stamp is set when
+        // it did, and only then.
+        if (report && report.changed) await touchCardChange(db, p.cardId);
         var answerKeyNames = await keyNameMap(db, owner.id);
         return json({ card: cardOut(cardAfter, afterKinds, await stepsForCard(db, cardAfter.id), await linksForCard(db, cardAfter.id), await labelsForCard(db, cardAfter.id), await commentsForCard(db, cardAfter.id, effectiveName(owner), answerKeyNames), effectiveName(owner), answerKeyNames, keyIdsByName(answerKeyNames)) });
       }
@@ -4429,7 +4592,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         };
         await db.prepare("INSERT INTO checklist_items (id, card_id, text, done, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
           .bind(stepRow.id, stepRow.card_id, stepRow.text, stepRow.done, stepRow.position, stepRow.created_at, stepRow.updated_at).run();
-        noteChange();
+        await noteCardChange(stepCard.id);
         await noteCardPickup(db, stepCard, callerKey);
         return json({ step: stepOut(stepRow) }, 201);
       }
@@ -4460,19 +4623,19 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         var wantsStepPosition = stepHas("position") && stepPatch.position != null;
         await db.prepare("UPDATE checklist_items SET text = ?, done = ?, updated_at = ? WHERE id = ?")
           .bind(nextText, nextDone, nowIso(), p.stepId).run();
-        if (nextText !== theStep.text || nextDone !== (theStep.done ? 1 : 0)) noteChange();
+        if (nextText !== theStep.text || nextDone !== (theStep.done ? 1 : 0)) await noteCardChange(p.cardId);
         var updatedStep = await ownerChecklistItem(db, owner.id, p.cardId, p.stepId);
         if (wantsStepPosition) {
-          if (await placeStepAtIndex(db, p.cardId, updatedStep, stepPatch.position)) noteChange();
+          if (await placeStepAtIndex(db, p.cardId, updatedStep, stepPatch.position)) await noteCardChange(p.cardId);
           updatedStep = await ownerChecklistItem(db, owner.id, p.cardId, p.stepId);
         }
-        if (await noteCardPickup(db, itemCard, callerKey)) noteChange();
+        if (await noteCardPickup(db, itemCard, callerKey)) await noteCardChange(p.cardId);
         return json({ step: stepOut(updatedStep) });
       }
       if (method === "DELETE") {
         await db.prepare("DELETE FROM checklist_items WHERE id = ? AND card_id = ?")
           .bind(p.stepId, p.cardId).run();
-        noteChange();
+        await noteCardChange(p.cardId);
         await noteCardPickup(db, itemCard, callerKey);
         return json({ ok: true });
       }
@@ -4517,7 +4680,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         };
         await db.prepare("INSERT INTO card_links (id, card_id, url, name, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
           .bind(linkRow.id, linkRow.card_id, linkRow.url, linkRow.name, linkRow.position, linkRow.created_at, linkRow.updated_at).run();
-        noteChange();
+        await noteCardChange(linkCard.id);
         await noteCardPickup(db, linkCard, callerKey);
         return json({ link: linkOut(linkRow) }, 201);
       }
@@ -4545,15 +4708,15 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         await db.prepare("UPDATE card_links SET url = ?, name = ?, updated_at = ? WHERE id = ?")
           .bind(nextLinkUrl, nextLinkName, nowIso(), p.linkId).run();
         if (nextLinkUrl !== theLink.url ||
-            nextLinkName !== (theLink.name == null ? "" : String(theLink.name))) noteChange();
+            nextLinkName !== (theLink.name == null ? "" : String(theLink.name))) await noteCardChange(p.cardId);
         var updatedLink = await ownerCardLink(db, owner.id, p.cardId, p.linkId);
-        if (await noteCardPickup(db, linkItemCard, callerKey)) noteChange();
+        if (await noteCardPickup(db, linkItemCard, callerKey)) await noteCardChange(p.cardId);
         return json({ link: linkOut(updatedLink) });
       }
       if (method === "DELETE") {
         await db.prepare("DELETE FROM card_links WHERE id = ? AND card_id = ?")
           .bind(p.linkId, p.cardId).run();
-        noteChange();
+        await noteCardChange(p.cardId);
         await noteCardPickup(db, linkItemCard, callerKey);
         return json({ ok: true });
       }
@@ -4598,7 +4761,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         };
         await db.prepare("INSERT INTO card_comments (id, card_id, body, author_key_id, author_key_name, author_owner_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
           .bind(commentRow.id, commentRow.card_id, commentRow.body, commentRow.author_key_id, commentRow.author_key_name, commentRow.author_owner_id, commentRow.created_at).run();
-        noteChange();
+        await noteCardChange(commentCard.id);
         await noteCardPickup(db, commentCard, callerKey);
         var commentKeyNames = {};
         if (callerKey) commentKeyNames[callerKey.id] = callerKey.name;
@@ -4614,7 +4777,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
       if (method === "DELETE") {
         await db.prepare("DELETE FROM card_comments WHERE id = ? AND card_id = ?")
           .bind(p.commentId, p.cardId).run();
-        noteChange();
+        await noteCardChange(p.cardId);
         await noteCardPickup(db, commentItemCard, callerKey);
         return json({ ok: true });
       }
