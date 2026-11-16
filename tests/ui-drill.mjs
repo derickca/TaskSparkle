@@ -771,6 +771,22 @@ await page.setViewportSize({ width: 1280, height: 900 });
 await page.click("#settings-people-btn");
 await page.waitForSelector("#people-list", { timeout: 10000 });
 await page.fill("#people-invite-name", "Drill C");
+await page.waitForFunction(() =>
+  Array.from(document.querySelectorAll("#people-list .board-manage-row"))
+    .some((r) => (r.textContent || "").includes("(you)")),
+  undefined, { timeout: 10000 }).catch(() => {});
+// Issue #125: the caller's own row offers no Remove — the
+// surface never offers an act the server refuses. A person
+// removing their own account stands on the Account page's
+// erasure road, not on this surface.
+const ownRowActs = await page.evaluate(() => {
+  const rows = Array.from(document.querySelectorAll("#people-list .board-manage-row"));
+  const own = rows.find((r) => (r.textContent || "").includes("(you)"));
+  return own ? Array.from(own.querySelectorAll("button")).map((b) => b.textContent) : null;
+});
+check("#125: the Admin page offers no Remove on the caller's own row",
+  Array.isArray(ownRowActs) && !ownRowActs.includes("Remove"),
+  JSON.stringify(ownRowActs));
 await page.click("#people-invite-btn");
 let inviteDialogOpened = true;
 await page.waitForSelector("#invite-created-backdrop:not([hidden])", { timeout: 10000 })
@@ -985,6 +1001,9 @@ check("#148: the Admin activity list speaks in plain words, not act codes",
     !auditTextW3.includes("passkey-added") &&
     !auditTextW3.includes("passkey-removed") &&
     !auditTextW3.includes("account-created"),
+  auditTextW3.slice(0, 180));
+check("#125: the activity list states that no one can change or delete a row",
+  auditTextW3.includes("No one can change or delete a row."),
   auditTextW3.slice(0, 180));
 await page.screenshot({ path: join(OUT, "wave3-admin-activity-1280.png") });
 await page.click("#settings-close").catch(() => {});

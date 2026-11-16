@@ -4389,6 +4389,14 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
             nameKey(adminBody && adminBody.account_key));
           if (!adminTarget) return error("No account stands under that name.", 404);
           var flag = !!(adminBody && adminBody.admin);
+          // Nobody strips their own flag (the Admin and
+          // Ops standard, issue #125): a role change on
+          // oneself is refused here, whatever the caller —
+          // the Admin page offers the act only on others.
+          if (!flag && adminTarget.key === account.key) {
+            return error("You cannot take away your own administrator standing. " +
+              "Another administrator does it.", 403);
+          }
           if (!flag && (await onlyAdminBlocked(authDb2, adminTarget))) {
             return error(ONLY_ADMIN_MESSAGE, 403);
           }
@@ -4499,6 +4507,14 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
           var removeTarget = await getAccount(authDb2,
             nameKey(decodeURIComponent(p.personKey)));
           if (!removeTarget) return error("No account stands under that name.", 404);
+          // Nobody removes themselves through this surface
+          // (issue #125): removing your own account stands
+          // on the Account page's erasure road, under its
+          // own guard — never here.
+          if (removeTarget.key === account.key) {
+            return error("You cannot remove yourself. " +
+              "Another administrator removes you.", 403);
+          }
           if (await onlyAdminBlocked(authDb2, removeTarget)) {
             return error(ONLY_ADMIN_MESSAGE, 403);
           }

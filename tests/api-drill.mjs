@@ -2583,6 +2583,57 @@ if (MODE === "worker") {
   check("#109: removing a passkey that no longer stands answers 404",
     removedByAdmin.status === 404, "status " + removedByAdmin.status);
 
+  // -- Nobody removes or demotes themselves through the
+  //    Admin surface (issue #125; the Admin and Ops
+  //    standard, EV-ADMIN-58 and EV-ADMIN-79) --
+  // A grants B the flag first, so two administrators stand:
+  // the refusals below are the self rule, never the
+  // only-administrator guard.
+  const grantB = await a.call("POST", "/api/auth/admin", { account_key: B, admin: true });
+  check("#125: the administrator grants B the flag, so two administrators stand",
+    grantB.status === 200, "status " + grantB.status);
+  // The grant ended B's standing sessions; B signs in again.
+  const bAdminDoor = doorCaller(await loginCookie(NAME_B, PASSWORD_B));
+  const bSelfRemove = await bAdminDoor.call("DELETE",
+    "/api/auth/people/" + encodeURIComponent(B));
+  check("#125: an administrator removing themselves through the surface is refused",
+    bSelfRemove.status === 403 && /yourself/.test((bSelfRemove.json || {}).error || ""),
+    "status " + bSelfRemove.status + " body " + (bSelfRemove.text || "").slice(0, 100));
+  const bSelfDemote = await bAdminDoor.call("POST", "/api/auth/admin",
+    { account_key: B, admin: false });
+  check("#125: an administrator stripping their own flag is refused",
+    bSelfDemote.status === 403 && /own administrator/.test((bSelfDemote.json || {}).error || ""),
+    "status " + bSelfDemote.status + " body " + (bSelfDemote.text || "").slice(0, 100));
+  const aSelfRemove = await a.call("DELETE", "/api/auth/people/" + encodeURIComponent(A));
+  check("#125: the first administrator meets the same self refusal",
+    aSelfRemove.status === 403 && /yourself/.test((aSelfRemove.json || {}).error || ""),
+    "status " + aSelfRemove.status + " body " + (aSelfRemove.text || "").slice(0, 100));
+  const peopleAfterSelf = await a.call("GET", "/api/auth/people");
+  check("#125: both administrators still stand after the refused self-acts",
+    peopleAfterSelf.status === 200 &&
+      (peopleAfterSelf.json.people || []).filter((p) => p.admin).length === 2,
+    JSON.stringify((peopleAfterSelf.json.people || []).map((p) => [p.name, p.admin])));
+  // The act the Admin page's Remove administrator button
+  // calls (issue #125): one administrator takes the flag
+  // from another, and it lands — and it returns B to the
+  // standing the families after this one expect.
+  const demoteB = await a.call("POST", "/api/auth/admin", { account_key: B, admin: false });
+  check("#125: one administrator takes the flag from another, and it lands",
+    demoteB.status === 200, "status " + demoteB.status);
+  const peopleAfterDemote = await a.call("GET", "/api/auth/people");
+  check("#125: B stands unflagged after the demote",
+    peopleAfterDemote.status === 200 &&
+      ((peopleAfterDemote.json.people || []).find((p) => p.key === B) || {}).admin === false,
+    "");
+  const regrantB = await a.call("POST", "/api/auth/admin", { account_key: B, admin: true });
+  check("#125: the section hands B back flagged, as it found them",
+    regrantB.status === 200, "status " + regrantB.status);
+  const peopleAfterRegrant = await a.call("GET", "/api/auth/people");
+  check("#125: B stands flagged again for the families that follow",
+    peopleAfterRegrant.status === 200 &&
+      ((peopleAfterRegrant.json.people || []).find((p) => p.key === B) || {}).admin === true,
+    "");
+
   // -- Keys on the sign-in routes: 403 everywhere (design section 10) --
   const keyMint = await a.call("POST", "/api/v1/me/token", { name: "Auth Routes Key" });
   const authKey = keyMint.json && keyMint.json.key;

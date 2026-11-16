@@ -882,9 +882,11 @@ a.settings-btn {
 
 /* The People page's dialogs (issue #107) — the minted invite's
    link and the remove-person confirm — open over Settings the
-   same way, so their backdrops ride at the same height. */
+   same way, so their backdrops ride at the same height. The
+   remove-administrator confirm (issue #125) rides with them. */
 #invite-created-backdrop { z-index: 45; }
 #person-delete-backdrop { z-index: 45; }
+#person-demote-backdrop { z-index: 45; }
 
 /* The password drop's confirm (issue #122) opens over the
    Account page inside Settings, so its backdrop rides at the
