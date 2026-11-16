@@ -12,20 +12,21 @@
 //                                          in tests/README.md)
 //     node tests/local-checks.mjs --smoke  the smoke tier (issue
 //                                          #140): syntax, the build-
-//                                          stamp agreement, the route
-//                                          check below and one live
-//                                          boot walked at the API
-//                                          level. No drills, no
-//                                          browser. This is what
+//                                          stamp agreement with its
+//                                          cache-pin walk, the slop
+//                                          gate scan below (deploy
+//                                          issue #202), the public-
+//                                          readiness scan below
+//                                          (issue #108), the route
+//                                          check and the standing
+//                                          static checks below, and
+//                                          one live boot walked at
+//                                          the API level. No drills,
+//                                          no browser. This is what
 //                                          `npm run test:smoke` runs —
 //                                          a small change's quick
 //                                          verdict, under a minute on
-//                                          a warm machine. The
-//                                          smoke tier also carries
-//                                          the slop gate scan below
-//                                          (deploy issue #202) and the
-//                                          public-readiness scan below
-//                                          (issue #108).
+//                                          a warm machine.
 //
 // The harness writes a throwaway nameless config (issue #107:
 // the config holds no people) into a scratch folder, starts the

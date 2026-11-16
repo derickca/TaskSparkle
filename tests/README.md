@@ -51,16 +51,16 @@ The standard's flake budget — quarantine, classification, the 14 days — is t
 
 `npm run test:smoke` runs the smoke tier: a small change's quick verdict, before the full drills.
 
-It runs four things, in this order:
+It runs, in this order:
 
 - A syntax check: `node --check` over every `.js` and `.mjs` file in the tree.
-- The build-stamp agreement: the stamp in `worker/core.js` against the stamp in `public/app.js`.
+- The build-stamp agreement: the stamp in `worker/core.js` against the stamp in `public/app.js`, and every cache pin in the served tree with it — the walk covers `public/`, `worker/` and `server/`, and fails on any `?v=` pin differing from the stamp, naming the file and the line.
+- Two scans over the tree: the slop gate scan over the public pages and the app's string files, and the public-readiness scan in its own section below.
 - The route check the full harness runs: every address the standalone sign-in pages call is covered by a route pattern in `wrangler.toml.example`.
+- The standing static checks the full harness runs too: the terms record's wiring; the sign-out wording and the stylesheet's version pin; the version check's pins, `public/build.json` carrying the stamp among them; and the design checks — the pinned design tokens and accent pairs, the header glyphs and icon sizes, the display face, and the cache lives the pages and icons carry in `public/_headers` and the server's lists.
 - One live boot: the harness stands up a throwaway self-host instance, mints an invite with the server's command, redeems it, signs in, reads the seeded state, makes one card, reads it back, and reads the version and directions stamps.
 
 It runs no browser, no Worker mode and none of the drill families. It proves the copy boots and its smallest honest walk works — nothing more. The drills below are the proof of behaviour.
-
-Two scans ride the tier as well: the slop gate scan over the public pages and the app's string files, and the public-readiness scan in its own section below.
 
 The budget is under a minute end to end. The run prints its own elapsed time as its last line, and never fails on time alone — a slow machine is not a broken build. Measured on the desktop rig (Node 24, warm) on 2026-11-03: 1.3 to 1.5 seconds across three runs.
 
@@ -73,6 +73,7 @@ The smoke tier also carries the public-readiness scan (issue #108): a guard that
 `npm test` runs the harness.
 
 - The harness writes a throwaway self-host config into a scratch folder.
+- It runs the standing static checks named in the Smoke checks section above — the route check, the terms wiring, the wording and version pins and the design checks. A failure there ends the run before any drill starts.
 - It starts the server on port 8793 against that config.
 - It runs the API drill in self-host mode.
 - It then runs the server drill.
