@@ -2432,6 +2432,33 @@ body.dragging-card { cursor: grabbing; }
   margin: 0;
 }
 
+.column-recur {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.column-recur-label {
+  font-weight: 600;
+}
+
+.column-recur select {
+  font-size: 16px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 44px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+.column-recur-next {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .column-add-row {
   display: flex;
   gap: 8px;
