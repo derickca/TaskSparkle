@@ -24,6 +24,32 @@ name: Checks
 # a stranger's code must not run on the project's own runner. A
 # maintainer runs these checks by hand before merging a stranger's
 # change.
+#
+# A documentation-only pull request runs none of the set. That is
+# §4 of the fleet's Test, Build and Release standard: a docs-only
+# push runs nothing, and docs-only means a push that changes only
+# documentation files — nothing the service serves. Documentation
+# here means Markdown files outside the served and code trees
+# (public/, worker/, server/) and anything under docs/. Any doubt
+# runs the whole set: a rename or copy, a file the naming step
+# cannot place, an empty changed list, a base or head it cannot
+# read.
+#
+# The job still reports the `checks` context branch protection
+# requires, and it does not report it silently. The naming step
+# prints the changed files in the run's log. A step then names
+# the set as not run. And the one check that can read a
+# documentation file still runs: the public-readiness scan, which
+# reads tracked files wherever they stand, documentation
+# included, for personal information and email addresses. The
+# rest of the set cannot catch a documentation change — syntax
+# reads only .js and .mjs files, the stamp check reads only the
+# two stamp copies and the served tree's pins, the slop scan
+# reads only the home page and the app's strings, and the route
+# check, the static checks and the boot read code and served
+# files — so the job passes a documentation-only change only
+# when the scan that reads it passes. tests/README.md records
+# this shape in the repo's testing record (issue #185).
 
 on:
   pull_request:
@@ -38,8 +64,11 @@ jobs:
     timeout-minutes: 10
     steps:
       # Pinned to commits, as in deploy.yml.example: a moving tag must not
-      # reach a job unreviewed.
+      # reach a job unreviewed. Full history, so the naming step
+      # below can diff the pull request's base against its head.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
 
       # Node 24: the project floor is 22.5 (the self-host server
       # uses node:sqlite), and the checks run on a current release.
@@ -47,7 +76,68 @@ jobs:
         with:
           node-version: 24
 
+      # Name the changed files and settle whether this pull
+      # request is documentation-only, by the definition in the
+      # header above. The list stands in the log either way, so a
+      # run that skips the set shows the files it judged.
+      - name: Name the changed files
+        id: changed
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          docs_only=false
+          if git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null && git cat-file -e "$HEAD_SHA^{commit}" 2>/dev/null; then
+            docs_only=true
+            count=0
+            while IFS=$'\t' read -r status first second; do
+              count=$((count + 1))
+              echo "changed: $status $first $second"
+              case "$status" in
+                R*|C*) docs_only=false ;;
+              esac
+              case "$first" in
+                docs/*) ;;
+                *.md)
+                  case "$first" in
+                    public/*|worker/*|server/*) docs_only=false ;;
+                  esac
+                  ;;
+                *) docs_only=false ;;
+              esac
+            done < <(git diff --name-status "$BASE_SHA" "$HEAD_SHA")
+            if [ "$count" -eq 0 ]; then docs_only=false; fi
+          else
+            echo "changed: the base or head commit cannot be read; the whole set runs."
+          fi
+          echo "documentation-only: $docs_only"
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+
+      # The set does not run on a documentation-only pull request,
+      # and this step says so in the run's own record — the
+      # context never passes in silence.
+      - name: Documentation-only — the checks set does not run
+        if: steps.changed.outputs.docs_only == 'true'
+        run: |
+          echo "This pull request changes documentation only — nothing the service serves."
+          echo "The checks set did not run: no syntax check, no build-stamp check, no smoke tier."
+          echo "None of them reads a documentation file. The one check that does — the public-readiness scan — runs in the next step, and this job passes only if it passes."
+          {
+            echo "### Documentation-only pull request"
+            echo "The checks set (syntax, build-stamp agreement, smoke tier) did not run: this pull request changes documentation only, and none of the set reads a documentation file. The public-readiness scan — the one check that reads documentation files — ran in its place."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # The one part of the smoke tier that reads documentation
+      # files: the public-readiness scan reads every tracked file
+      # for personal information and email addresses, so a
+      # documentation change can fail it, and it keeps its bite
+      # on this road.
+      - name: Public-readiness scan — the one check that reads documentation files
+        if: steps.changed.outputs.docs_only == 'true'
+        run: npm run test:readiness
+
       - name: Syntax-check the JavaScript
+        if: steps.changed.outputs.docs_only != 'true'
         run: |
           git ls-files '*.js' '*.mjs' | while IFS= read -r f; do
             node --check "$f" || exit 1
@@ -58,6 +148,7 @@ jobs:
       # once when they disagree, so a pull request that moves one
       # stamp without the other fails here, not after landing.
       - name: Check the build stamps agree
+        if: steps.changed.outputs.docs_only != 'true'
         run: |
           WORKER_STAMP=$(grep -o 'var BUILD_ID = "[^"]*"' worker/core.js | head -1)
           APP_STAMP=$(grep -o 'var BUILD_ID = "[^"]*"' public/app.js | head -1)
@@ -70,4 +161,5 @@ jobs:
       # in about a minute. No secrets, like every step here.
       # tests/README.md states the tier's full composition.
       - name: Smoke checks
+        if: steps.changed.outputs.docs_only != 'true'
         run: npm run test:smoke

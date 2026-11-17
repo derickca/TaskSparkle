@@ -25,8 +25,11 @@ This file is the repo's testing record — the document named in place of docs/E
   ```
 
   The same check runs inside the smoke tier.
+- **The public-readiness scan alone.** `npm run test:readiness` runs that one scan on its own — the road a documentation-only pull request takes, below.
 - **Lint.** There is no lint command and no linter configuration. Two scans ride the smoke tier — the slop gate scan and the public-readiness scan, both described under Smoke checks below. They are scans over the tree, not a lint.
 - **Before new work.** Run the smoke tier once on the untouched tree before changing anything. A failure there is the baseline's, not the change's.
+
+**Documentation-only pull requests (issue #185).** The fleet's Test, Build and Release standard (§4) says a docs-only push runs nothing — docs-only meaning a change to documentation files only, nothing the service serves. This repo's pull request checks settle it this way. The checks workflow names the pull request's changed files in its log. Documentation means Markdown files outside the served and code trees (`public/`, `worker/`, `server/`) and anything under `docs/`; any doubt — a rename or copy, a file the naming step cannot place, an empty list, an unreadable base or head — runs the whole set. On a documentation-only pull request the set (syntax, build-stamp agreement, the smoke tier) does not run, a step in the run says so in those words, and the job still reports the `checks` context branch protection requires. The one check that can read a documentation file still runs: the public-readiness scan, which reads tracked files wherever they stand for personal information and email addresses — a documentation file is a tracked file, and a documentation change can fail it. Nothing else in the set can catch a documentation change: syntax reads only scripts, the stamp check reads only the two stamp copies and the served tree's pins, the slop scan reads only the home page and the app's strings, and the route check, the static checks and the boot read code and served files. So the context passes a documentation-only change on the one check that reads it, never in silence.
 
 ## Where these checks stand
 
