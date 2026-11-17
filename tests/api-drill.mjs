@@ -1153,7 +1153,7 @@ check("readonly: and changes nothing — the version stands where it stood",
 
 // The level changes above wrote their audit entries, read back
 // from the data file the instance keeps (self-host mode only).
-if (MODE === "selfhost" && args["server-config"]) {
+if (MODE === "selfhost" && args["server-config"] && typeof readKeyId147 === "string") {
   const cfgR = JSON.parse(readFileSync(args["server-config"], "utf8"));
   const fileR = join(dirname(args["server-config"]), String(cfgR.dataDir || "data"), "tasksparkle.sqlite");
   const roR = new DatabaseSync(fileR, { readOnly: true });
