@@ -19,6 +19,7 @@ The self-host entry passes no MemberSpark seam. A MemberSpark key never branches
 - `GET /state` returns the owner's whole state in one answer. Boards ride with their columns. Cards ride with steps, links and comments. Labels, projects, the theme and the live key list ride too.
 - `GET /queue` returns the cards whose next step is the calling key's, across every board. Each card comes in the full card shape.
 - `GET /version` returns the version number and the build stamp.
+- `GET /changes?since_version=<version>` returns the acts that landed on any of the owner's boards after the version named, oldest first, each as the board's activity carries it. The answer names where its record starts, and stands `complete` false when the named version predates the record as it stands.
 - `GET /me` returns the owner's id and the name they go by. A key never gets the owner's email.
 - `GET /directions` returns the agent directions as plain text.
 - `GET /push` opens a WebSocket. Each change sends the new version number and nothing else.
@@ -130,10 +131,6 @@ The Set Up Agent page gives the person a short bootstrap (`agentInstructions` in
 
 ## Recommended capabilities
 
-### Changes since a version
-
-Add a read that returns the changes since a version the caller names. Jobs it unblocks: a watcher that now reads the whole state on every poll and diffs it by hand. Boards grow, and the whole-state read grows with them.
-
 ### Filtered reads
 
 Let `/state` or a card read take a board, label, project or due range. Jobs it unblocks: "cards due this week" and "everything under the Money label" on a board near the 2,000 card cap, without moving the whole board each time.
@@ -197,10 +194,10 @@ The API carries this today. Archiving works one card at a time, and the changed 
 Jo's AI watches her boards from a cron. Every five minutes it checks for changes and routes a short note to the right chat.
 
 1. The cron reads `GET /version`. The number has not moved. It stops.
-2. On the next run the number has moved. The AI reads `GET /state` and diffs it against its snapshot.
-3. A new comment carries its author's name, so the note names who wrote it. A moved card carries no stamp, so the note reports a move and names nobody.
+2. On the next run the number has moved. The AI reads `GET /changes` with the last version it saw, and gets the acts themselves.
+3. Each act names its actor, so the note names who wrote the comment and who moved the card alike.
 
-The API carries this today. The served directions describe this very pattern. The whole-state read on every change is the cost, and it grows with the board.
+The API carries this today. The served directions describe this very pattern, and the changes read grows with the changes, not with the boards.
 
 ### Scenario six
 

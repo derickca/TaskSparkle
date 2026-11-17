@@ -8,6 +8,8 @@ Inside a release, the app stamps every deploy with a build stamp. The stamp is `
 
 ### Added
 
+- A watcher can now read what changed without reading everything. `GET /api/v1/changes?since_version=` answers the acts that landed on any of the caller's boards after the version named — the board activity entries, across every board in landing order — for the signed-in person and for an agent key alike. The answer names where its record starts and stands `complete` false when the named version predates the record as it stands, so a partial story never reads as the whole one. The read changes nothing and raises no version.
+
 - A card can now hold files. From the card editor, Add file files a file on the card — its name and size stand in a Files block, the name downloads the file, and Remove takes it off. Through the API, `POST /api/v1/cards/:id/attachments` files a file from its name, its kind and its bytes as base64, `GET` on the file's own address reads it back whole as a download, and `DELETE` removes it; every card read carries each file's record. A card's files travel with it — through moves, archiving and a board copy — and deleting the card deletes them. One file can be at most 512 KB, a card holds at most 20, and one person's files at most 100 MB in all; the bytes stand in the same database as everything else, so a self-host copy holds files the same way.
 
 

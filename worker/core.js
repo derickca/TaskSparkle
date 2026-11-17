@@ -315,6 +315,7 @@ function agentDirections(env) {
     "GET /queue - the cards whose next step is yours, across every board, each in the full card shape state carries (see Handing over). For the person it answers the cards whose step is theirs.",
     "GET /following - the cards you follow, each in the full card shape state carries, with changed saying whether the card changed since you last read the list (see Following a card).",
     "GET /boards/{board id}/activity - the board's activity: the acts that landed on it, oldest first (see Board activity).",
+    "GET /changes?since_version={version} - the changes since a version you name, across every board, oldest first (see Changes since a version).",
     "GET /search?q={words} - the cards whose words match, across every board, each match naming its board and column (see Searching).",
     "GET /version - just the version number and the build stamp.",
     "GET /directions - these directions, as plain text.",
@@ -407,14 +408,17 @@ function agentDirections(env) {
     "GET /push opens a WebSocket, authorized exactly like every other route. Each time a change lands, the socket receives the new version number as plain text: the number and nothing else, never state or card data. A socket that misses an update catches up by reading /version or /state.",
     "",
     "Watching for changes",
-    "Polling GET /version is one small request, and a key's answer carries the version number alone (with the build stamp): the change stamp the server keeps — who made the latest change, and when — rides on the person's own answers only, never on a key's (see Version and baseVersion). When the number has moved past the last one you saw, something changed; read the board's activity with since_version set to the last version you saw to name the acts themselves (see Board activity), or read GET /state and compare it with the snapshot you keep. For a card you follow, GET /following does that work for that card: it names only your followed cards, and says which of them changed since your last read of it.",
+    "Polling GET /version is one small request, and a key's answer carries the version number alone (with the build stamp): the change stamp the server keeps — who made the latest change, and when — rides on the person's own answers only, never on a key's (see Version and baseVersion). When the number has moved past the last one you saw, something changed; read GET /changes with since_version set to the last version you saw to name the acts themselves, across every board in one call (see Changes since a version), or read GET /state and compare it with the snapshot you keep. For a card you follow, GET /following does that work for that card: it names only your followed cards, and says which of them changed since your last read of it.",
     "Who did the work is read from the board's activity (see Board activity): every act there names its actor, so a move, an edit or a tick is attributed by its entry, never guessed from the state. The stamps on the work itself still stand for what they cover. A card's creatorKeyName names the key that created the card, as that key is named as the card is read, standing null when the person made the card in the app. A comment names its author outright: authorName is the writing key's current name for a key's comment and the person's current name for theirs, resolved as the comment is read, and authorKeyName names the writing key the same way or stands null when the person wrote it. A card's step names its holder, who handed it over and when.",
     "A hand-over stands in the board's activity as a card-handed-over entry: it names the holder the step left and the holder it went to — each the person, a key, or no one — and on the card itself, step.handedByKeyName names the key that handed it over, or stands null when the person did. A card that stops waiting was picked up by its holder, and the activity carries that too, as a card-picked-up entry.",
-    "Offer the person a recurring check (a cron) that watches their boards: on each run it reads /version, and when the number has moved it reads each board's activity with since_version set to the last version it reported, and sends a short note about those acts to the chat each act belongs to. A few minutes between polls is plenty: the poll is one small request. Keep the version you last reported, so each act is reported once. Tell the person's work from an agent's by each entry's actor: actorKind agent is that key's work, named by actorKeyName; actorKind owner is the person's; actorKind schedule is a round landing. Offer the check; never set it up unasked. Comments are part of it: a comment entry's detail carries the comment's text, not just the fact of it, and a note about a comment carries that text.",
+    "Offer the person a recurring check (a cron) that watches their boards: on each run it reads /version, and when the number has moved it reads GET /changes with since_version set to the last version it reported, and sends a short note about those acts to the chat each act belongs to. A few minutes between polls is plenty: the poll is one small request. Keep the version you last reported, so each act is reported once. Tell the person's work from an agent's by each entry's actor: actorKind agent is that key's work, named by actorKeyName; actorKind owner is the person's; actorKind schedule is a round landing. Offer the check; never set it up unasked. Comments are part of it: a comment entry's detail carries the comment's text, not just the fact of it, and a note about a comment carries that text.",
     "",
     "Board activity",
     "Every accepted change to a board writes its acts to the board's activity as it lands, one entry per act, all under the one version the change raises. Read a board's activity with GET /boards/{board id}/activity. Entries read oldest first. Each entry carries: id; boardId; version, the owner's version the act landed under; at, when it landed; act, what happened — board-created, board-edited, column-created, column-edited, column-deleted, label-created, label-edited, label-deleted, project-created, project-edited, project-deleted, card-created, card-moved, card-edited, card-archived, card-restored, card-handed-over, card-picked-up, card-deleted, step-added, step-edited, step-ticked, step-unticked, step-moved, step-deleted, link-added, link-edited, link-deleted, comment-added, comment-deleted, attachment-filed, attachment-removed, and round-landed for a round a column's schedule landed; who did it — actorKind, owner for the person, agent for a key, schedule for a round, with actorKeyId naming the acting key, actorKeyName its name as the entry is read, and actorName naming the actor either way, standing null for the schedule; the object the act touched — objectType (board, column, label, project, card, step, link, comment or attachment), objectId, and objectName, its name or title as it stood at that moment, so deleted work still reads by its last name; cardId for an act on a card or one of its parts; and detail, the act's own facts: where a card moved from and to, by board and column name; a hand-over's holder before and after; a tick's before and after; a comment's body; an edit's changed fields with their before and after values; the cards a column delete moved; and the cards a round archived and landed.",
     "Filter the read with card_id (one card's acts), act (one kind of act) or since_version (the acts that landed after a version you already hold), and page it with limit (1 to 500, default 100) and after (the id of the last entry you read): nextAfter names the last entry of a page when more stand after it, and stands null at the end of the history. A card that moves boards writes its move on both boards. A board copy and a template start open the new board's history with one board-created entry naming where it came from and what it holds; a column delete and a recurring round each stand as one entry naming the cards they moved or landed. A write that changes nothing, a refused write, following or unfollowing a card, saving a template, and making, renaming or deleting a key write no entry — except that deleting a key writes a card-handed-over entry for each card it hands back. The history starts with the build that added it: acts from before it were never recorded, and no entry can say when an older card was moved, edited or ticked, or who did it. Deleting a board deletes its activity with it.",
+    "",
+    "Changes since a version",
+    "GET /changes?since_version={version} answers the acts that landed on any of your boards after the version you name, oldest first, in one call: the same entries the board activity read carries, each naming its board and the version it landed under. since_version is required, a whole number, 0 or more. Page it as the board activity read pages, with limit (1 to 500, default 100) and after (the id of the last entry you read): nextAfter names the last entry of a page when more stand after it, and stands null at the end. The answer carries version, your version as it stands, and sinceVersion, the version you named. It also carries the record's honest edge: recordStartsAtVersion names the version the earliest entry still standing on your boards landed under, standing null when no entry stands, and complete stands true when every act after your version stands in the record. When your version predates the record as it stands, complete stands false: the answer still carries every entry the record holds after your version, and the part before the record is yours to settle by reading the state. The read changes nothing and raises no version.",
     "",
     "Searching",
     "Read the cards whose words match with GET /search?q={words}: it answers across every board at once, so finding a card never means reading every board whole. A card's words are its title, its notes, its steps' text, its links' names and its comments' bodies. A link's address is not searched, and neither is a board's or a column's name: those name where a card stands, and each match names them instead, as boardName and columnName beside the card. Send board_id with the call to search one board alone; a board that is not the owner's reads as not found.",
@@ -3275,6 +3279,82 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
           searchMatches.push(card);
         });
         return json({ cards: searchMatches });
+      }
+    }
+
+    // Changes since a version (issue #145): the board activity
+    // read, owner-wide. One call answers the acts that landed
+    // on any of the caller's boards after a version the caller
+    // names — the watcher's poll, without a read of the whole
+    // state or one activity read per board. The entries are the
+    // activity read's own entries, in landing order across the
+    // boards (the record's own sequence), each naming its
+    // board. The record the read speaks for starts with the
+    // earliest entry still standing on the caller's boards —
+    // acts from before the record began were never written,
+    // and a deleted board takes its entries with it — so the
+    // answer names that start as recordStartsAtVersion and
+    // stands complete false when the named version predates
+    // it: the entries the record holds still stand in the
+    // answer, and the caller falls back to the state for the
+    // rest, rather than the read dressing a partial story as
+    // the whole one.
+    if ((p = match(parts, ["api", "changes"]))) {
+      if (method === "GET") {
+        var changesQuery = new URL(request.url).searchParams;
+        if (changesQuery.get("since_version") == null) {
+          return error("since_version is required: name the version you already hold.");
+        }
+        var changesSince = Number(changesQuery.get("since_version"));
+        if (!Number.isInteger(changesSince) || changesSince < 0) {
+          return error("since_version must be a whole number, 0 or more.");
+        }
+        var changesLimit = changesQuery.get("limit") == null
+          ? 100 : Number(changesQuery.get("limit"));
+        if (!Number.isInteger(changesLimit) || changesLimit < 1 || changesLimit > 500) {
+          return error("limit must be a whole number from 1 to 500.");
+        }
+        var changesFloorRow = await db.prepare(
+          "SELECT MIN(board_activity.version) AS floor_version FROM board_activity " +
+          "JOIN boards ON boards.id = board_activity.board_id WHERE boards.owner_id = ?"
+        ).bind(owner.id).first();
+        var changesRecordStart = changesFloorRow && changesFloorRow.floor_version != null
+          ? Number(changesFloorRow.floor_version) : null;
+        var changesClauses = ["boards.owner_id = ?", "board_activity.version > ?"];
+        var changesBinds = [owner.id, changesSince];
+        if (changesQuery.get("after")) {
+          var changesAfter = await db.prepare(
+            "SELECT board_activity.seq AS seq FROM board_activity " +
+            "JOIN boards ON boards.id = board_activity.board_id " +
+            "WHERE board_activity.id = ? AND boards.owner_id = ?"
+          ).bind(changesQuery.get("after"), owner.id).first();
+          if (!changesAfter) return error("Activity entry not found.", 404);
+          changesClauses.push("board_activity.seq > ?");
+          changesBinds.push(changesAfter.seq);
+        }
+        changesBinds.push(changesLimit + 1);
+        var changesRows = (await db.prepare(
+          "SELECT board_activity.* FROM board_activity " +
+          "JOIN boards ON boards.id = board_activity.board_id WHERE " +
+          changesClauses.join(" AND ") + " ORDER BY board_activity.seq ASC LIMIT ?"
+        ).bind(...changesBinds).all()).results;
+        var changesMore = changesRows.length > changesLimit;
+        if (changesMore) changesRows = changesRows.slice(0, changesLimit);
+        var changesVersion = currentVersion(owner);
+        var changesComplete = changesSince >= changesVersion ||
+          (changesRecordStart != null && changesSince >= changesRecordStart - 1);
+        var changesKeyNames = await keyNameMap(db, owner.id);
+        return json({
+          version: changesVersion,
+          sinceVersion: changesSince,
+          complete: changesComplete,
+          recordStartsAtVersion: changesRecordStart,
+          changes: changesRows.map(function (row) {
+            return boardActivityOut(row, effectiveName(owner), changesKeyNames);
+          }),
+          nextAfter: changesMore && changesRows.length
+            ? changesRows[changesRows.length - 1].id : null
+        });
       }
     }
 
