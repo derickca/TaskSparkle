@@ -317,6 +317,7 @@ function agentDirections(env) {
     "GET /boards/{board id}/activity - the board's activity: the acts that landed on it, oldest first (see Board activity).",
     "GET /changes?since_version={version} - the changes since a version you name, across every board, oldest first (see Changes since a version).",
     "GET /search?q={words} - the cards whose words match, across every board, each match naming its board and column (see Searching).",
+    "GET /cards - the cards matching the filters the call names, across every board, each naming its board and column (see Filtered reads).",
     "GET /version - just the version number and the build stamp.",
     "GET /directions - these directions, as plain text.",
     "GET /push - a WebSocket for live updates (see Live updates).",
@@ -423,6 +424,10 @@ function agentDirections(env) {
     "Searching",
     "Read the cards whose words match with GET /search?q={words}: it answers across every board at once, so finding a card never means reading every board whole. A card's words are its title, its notes, its steps' text, its links' names and its comments' bodies. A link's address is not searched, and neither is a board's or a column's name: those name where a card stands, and each match names them instead, as boardName and columnName beside the card. Send board_id with the call to search one board alone; a board that is not the owner's reads as not found.",
     "q splits into words, and a card matches when every word stands somewhere in its words, letter case ignored; a word standing inside a longer word counts, so report finds reports. A q holding no word is refused. A search that matches nothing answers an empty list, never an error. Archived cards are searched too and come back flagged archived, as they do in the state. Each match stands in the full card shape the state carries — steps, links and comments riding — in the order the state reads cards. A search changes nothing and raises no version.",
+    "",
+    "Filtered reads",
+    "Read the cards that match the filters you name with GET /cards: it answers across every board at once, so a small question never means reading every board whole. Send only the filters you mean; every filter named must hold at once. board_id narrows to one board. column_id takes a column's id or its kind. label_id names one label, and a card matches when it wears it. project_id names the one project a card must carry. holder names whose step is next: owner for the person, agent for any key, none for no one, or one key's id for that key alone. archived takes true or false and narrows to the archived cards or the standing ones; unnamed, both stand, flagged as they do in the state. due_from and due_to bound a due range, each a real date written YYYY-MM-DD with both ends counted in, and either end may ride alone; a card with no due date never matches a due filter.",
+    "An id naming a board, a column, a label, a project or a key that is not the owner's reads as not found. A combination that matches nothing answers an empty list, never an error. Each match stands in the full card shape the state carries — steps, links and comments riding — in the order the state reads cards, with boardName and columnName beside it naming where it stands. Page the answer as the board activity read pages: limit (1 to 500, default 100) and after (the id of the last card you read); nextAfter names the last card of a page when more stand after it and stands null at the end, and an after naming no card in the filtered answer reads as not found. The read changes nothing and raises no version.",
     "",
     "Limits",
     "Sizes are capped well past ordinary use, and a write past a cap is refused whole. Lengths count characters as sent.",
@@ -4767,6 +4772,158 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
 
     // Cards.
     if ((p = match(parts, ["api", "cards"]))) {
+      // The filtered read (issue #146): the cards matching
+      // the filters the call names — board, column, label,
+      // project, holder, archived and a due range — across
+      // every board the caller owns, without a read of the
+      // whole state. Every named filter must hold at once.
+      // Each card stands in the full card shape the state
+      // carries, in the order the state reads cards, naming
+      // its board and column beside it, as a search match
+      // does, and the answer pages the way the activity and
+      // changes reads page. The filters are judged against
+      // the caller's own things first: an id naming a board,
+      // label, project, column or key that is not the
+      // caller's reads as not found, and the combination
+      // then matches what it matches — a label of one board
+      // named beside another board's id answers an empty
+      // list, never an error. The read changes nothing and
+      // raises no version.
+      if (method === "GET") {
+        var filterQuery = new URL(request.url).searchParams;
+        var filterLimit = filterQuery.get("limit") == null
+          ? 100 : Number(filterQuery.get("limit"));
+        if (!Number.isInteger(filterLimit) || filterLimit < 1 || filterLimit > 500) {
+          return error("limit must be a whole number from 1 to 500.");
+        }
+        var filterBoardId = null;
+        if (filterQuery.get("board_id")) {
+          var filterBoard = await ownerBoard(db, owner.id, filterQuery.get("board_id"));
+          if (!filterBoard) return error("Board not found.", 404);
+          filterBoardId = filterBoard.id;
+        }
+        var filterLabelId = null;
+        if (filterQuery.get("label_id")) {
+          var filterLabel = await db.prepare(
+            "SELECT labels.id AS id FROM labels JOIN boards ON boards.id = labels.board_id " +
+            "WHERE labels.id = ? AND boards.owner_id = ?"
+          ).bind(filterQuery.get("label_id"), owner.id).first();
+          if (!filterLabel) return error("Label not found.", 404);
+          filterLabelId = filterLabel.id;
+        }
+        var filterProjectId = null;
+        if (filterQuery.get("project_id")) {
+          var filterProject = await db.prepare(
+            "SELECT projects.id AS id FROM projects JOIN boards ON boards.id = projects.board_id " +
+            "WHERE projects.id = ? AND boards.owner_id = ?"
+          ).bind(filterQuery.get("project_id"), owner.id).first();
+          if (!filterProject) return error("Project not found.", 404);
+          filterProjectId = filterProject.id;
+        }
+        var filterHolder = filterQuery.get("holder") || null;
+        if (filterHolder != null && filterHolder !== "owner" &&
+            filterHolder !== "agent" && filterHolder !== "none") {
+          var filterKey = await db.prepare(
+            "SELECT id FROM api_tokens WHERE id = ? AND owner_id = ? AND revoked_at IS NULL"
+          ).bind(filterHolder, owner.id).first();
+          if (!filterKey) return error("Key not found.", 404);
+        }
+        var filterArchived = null;
+        if (filterQuery.get("archived") != null) {
+          if (filterQuery.get("archived") === "true") filterArchived = true;
+          else if (filterQuery.get("archived") === "false") filterArchived = false;
+          else return error("archived must be true or false.");
+        }
+        var filterDueFrom = filterQuery.get("due_from");
+        var filterDueTo = filterQuery.get("due_to");
+        if (filterDueFrom != null && !isRealDateString(filterDueFrom)) {
+          return error("due_from must be a real date written as YYYY-MM-DD.");
+        }
+        if (filterDueTo != null && !isRealDateString(filterDueTo)) {
+          return error("due_to must be a real date written as YYYY-MM-DD.");
+        }
+        if (filterDueFrom != null && filterDueTo != null && filterDueFrom > filterDueTo) {
+          return error("due_from must not stand after due_to.");
+        }
+        var filterState = await buildState(db, owner, env, via);
+        // The column, judged over the state's own boards: a
+        // value naming one of the caller's columns by its id
+        // stands for that column — its board and its kind —
+        // and a value naming a kind stands for every column
+        // carrying it. A card's read names its column by
+        // kind, so the two spellings meet there.
+        var filterColumnId = filterQuery.get("column_id");
+        var filterColumn = null;
+        if (filterColumnId) {
+          filterState.boards.forEach(function (board) {
+            board.columns.forEach(function (column) {
+              if (column.id === filterColumnId) {
+                filterColumn = { boardId: board.id, kind: column.kind };
+              }
+            });
+          });
+          if (!filterColumn) {
+            var filterKindStands = false;
+            filterState.boards.forEach(function (board) {
+              board.columns.forEach(function (column) {
+                if (column.kind === filterColumnId) filterKindStands = true;
+              });
+            });
+            if (!filterKindStands) return error("Column not found.", 404);
+            filterColumn = { boardId: null, kind: filterColumnId };
+          }
+        }
+        var filterBoardsById = {};
+        filterState.boards.forEach(function (board) {
+          var columnNames = {};
+          board.columns.forEach(function (column) {
+            columnNames[column.kind] = column.name;
+          });
+          filterBoardsById[board.id] = { name: board.name, columnNames: columnNames };
+        });
+        var filterMatches = [];
+        filterState.cards.forEach(function (card) {
+          if (filterBoardId && card.boardId !== filterBoardId) return;
+          if (filterColumn) {
+            if (card.columnId !== filterColumn.kind) return;
+            if (filterColumn.boardId && card.boardId !== filterColumn.boardId) return;
+          }
+          if (filterLabelId && (card.labels || []).indexOf(filterLabelId) === -1) return;
+          if (filterProjectId && card.projectId !== filterProjectId) return;
+          if (filterHolder === "owner" || filterHolder === "agent" || filterHolder === "none") {
+            if (card.step.holder !== filterHolder) return;
+          } else if (filterHolder != null) {
+            if (card.step.holder !== "agent" || card.step.keyId !== filterHolder) return;
+          }
+          if (filterArchived != null && card.archived !== filterArchived) return;
+          if (filterDueFrom != null || filterDueTo != null) {
+            if (!card.due) return;
+            if (filterDueFrom != null && card.due < filterDueFrom) return;
+            if (filterDueTo != null && card.due > filterDueTo) return;
+          }
+          var filterStanding = filterBoardsById[card.boardId];
+          card.boardName = filterStanding ? filterStanding.name : null;
+          card.columnName = filterStanding && filterStanding.columnNames[card.columnId] != null
+            ? filterStanding.columnNames[card.columnId] : null;
+          filterMatches.push(card);
+        });
+        var filterStart = 0;
+        if (filterQuery.get("after")) {
+          var filterAfterAt = -1;
+          filterMatches.forEach(function (card, index) {
+            if (card.id === filterQuery.get("after")) filterAfterAt = index;
+          });
+          if (filterAfterAt === -1) return error("Card not found.", 404);
+          filterStart = filterAfterAt + 1;
+        }
+        var filterPage = filterMatches.slice(filterStart, filterStart + filterLimit);
+        var filterMore = filterStart + filterPage.length < filterMatches.length;
+        return json({
+          cards: filterPage,
+          nextAfter: filterMore && filterPage.length
+            ? filterPage[filterPage.length - 1].id : null
+        });
+      }
       if (method === "POST") {
         var cardBody = await readBody(request);
         if (!cardBody || !cardBody.board_id || !cardBody.column_id || !cardBody.title || !String(cardBody.title).trim()) {

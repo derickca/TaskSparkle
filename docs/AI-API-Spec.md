@@ -20,6 +20,7 @@ The self-host entry passes no MemberSpark seam. A MemberSpark key never branches
 - `GET /queue` returns the cards whose next step is the calling key's, across every board. Each card comes in the full card shape.
 - `GET /version` returns the version number and the build stamp.
 - `GET /changes?since_version=<version>` returns the acts that landed on any of the owner's boards after the version named, oldest first, each as the board's activity carries it. The answer names where its record starts, and stands `complete` false when the named version predates the record as it stands.
+- `GET /cards` returns the cards matching the filters the call names — board, column, label, project, holder, archived and a due range — across every board, each in the full card shape, paged like the activity read.
 - `GET /me` returns the owner's id and the name they go by. A key never gets the owner's email.
 - `GET /directions` returns the agent directions as plain text.
 - `GET /push` opens a WebSocket. Each change sends the new version number and nothing else.
@@ -123,17 +124,12 @@ The Set Up Agent page gives the person a short bootstrap (`agentInstructions` in
 ### What no key can do
 
 - Read one card alone. `/state` and `/queue` are the only card reads.
-- Search or filter. No route takes a query.
 - Work in bulk. There are no bulk calls. Clearing a column means one call per card.
 - Edit a comment. A comment is removed whole or stands.
 - Read history. The version is one counter. The latest-change stamp rides on the person's answers only, and it names the latest change alone.
 - Hold a read-only local key. Every local key can write.
 
 ## Recommended capabilities
-
-### Filtered reads
-
-Let `/state` or a card read take a board, label, project or due range. Jobs it unblocks: "cards due this week" and "everything under the Money label" on a board near the 2,000 card cap, without moving the whole board each time.
 
 ### Read-only local keys
 
@@ -149,12 +145,11 @@ Let one call create many cards from a list. Jobs it unblocks: a spreadsheet of t
 
 Mara opens her morning chat. She asks her AI: what waits on me, and what is due this week?
 
-1. The AI reads `GET /state` with her key.
-2. It picks out the cards with a due date in the week ahead. It reads the dates off the cards itself.
-3. It reads `GET /queue` for the cards whose step is its own, and says which of those she is waiting on it for.
-4. It answers in the chat. It changes nothing.
+1. The AI reads `GET /cards` with her key, `due_from` and `due_to` naming the week ahead, and gets the cards due this week.
+2. It reads `GET /queue` for the cards whose step is its own, and says which of those she is waiting on it for.
+3. It answers in the chat. It changes nothing.
 
-The API carries this today. The due filtering happens on the AI's side, because no route takes a due range.
+The API carries this today. The due question is one filtered read, because the read takes the due range itself.
 
 ### Scenario two
 
