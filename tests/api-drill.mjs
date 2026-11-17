@@ -2842,6 +2842,163 @@ res = await a.call("DELETE", "/api/v1/boards/" + filesBoard.id);
 res = await a.call("DELETE", "/api/v1/me/token/" + filesKeyId);
 res = await b.call("DELETE", "/api/v1/me/token/" + filesForeignKeyId144);
 
+// --- Changes since a version (issue #145) -------------------------------------
+// The board activity read, owner-wide: one call names the acts
+// that landed on any of the caller's boards after a version the
+// caller holds, in landing order, in the activity read's own
+// entry shape. The family lands six acts across two boards —
+// by the person and by a key — and reads them back exactly,
+// then proves the current version's empty answer, the key's
+// parity, the paging, the other owner's exclusion, the
+// refusals, the record's honest floor, and a deleted board's
+// acts leaving the answer.
+const changesPath145 = (query) => "/api/v1/changes" + (query ? "?" + query : "");
+const changesList145 = (answer) =>
+  (answer && Array.isArray(answer.changes) ? answer.changes : []);
+const changesActs145 = (answer) => changesList145(answer).map((entry) => entry.act);
+const changesIds145 = (answer) => changesList145(answer).map((entry) => entry.id);
+
+const chVersionBefore = (await state(a)).version;
+res = await a.call("POST", "/api/v1/boards", { name: "Changes Board One" });
+const chBoardX = res.json && res.json.board;
+res = await a.call("POST", "/api/v1/boards", { name: "Changes Board Two" });
+const chBoardY = res.json && res.json.board;
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: chBoardX.id, column_id: "inbox", title: "Changes Card One",
+});
+const chCardX = res.json && res.json.card;
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: chBoardY.id, column_id: "inbox", title: "Changes Card Two",
+});
+const chCardY = res.json && res.json.card;
+res = await a.call("PATCH", "/api/v1/cards/" + chCardX.id, { title: "Changes Card One, Edited" });
+res = await a.call("POST", "/api/v1/me/token", { name: "Changes Key" });
+const chKey = res.json && res.json.key; const chKeyId = res.json && res.json.id;
+res = await keyCall("POST", "/api/v1/cards/" + chCardY.id + "/comments", chKey,
+  { body: "A comment from the changes key" });
+check("changes: the family's boards, cards and key stand",
+  !!chBoardX && !!chBoardY && !!chCardX && !!chCardY && !!chKey,
+  "boards " + !!chBoardX + "/" + !!chBoardY + " cards " + !!chCardX + "/" + !!chCardY);
+
+res = await a.call("GET", changesPath145("since_version=" + chVersionBefore));
+const chFull = res.json;
+check("changes: a caller at an old version learns exactly what changed since, across every board, in landing order",
+  res.status === 200 && !!chFull &&
+    changesActs145(chFull).join("|") ===
+      "board-created|board-created|card-created|card-created|card-edited|comment-added" &&
+    changesList145(chFull).map((e) => e.boardId).join("|") ===
+      [chBoardX.id, chBoardY.id, chBoardX.id, chBoardY.id, chBoardX.id, chBoardY.id].join("|") &&
+    changesList145(chFull).every((e) => e.version > chVersionBefore) &&
+    changesList145(chFull)[0].actorKind === "owner" &&
+    changesList145(chFull)[5].actorKind === "agent" &&
+    chFull.sinceVersion === chVersionBefore &&
+    chFull.complete === true && chFull.nextAfter === null,
+  "status " + res.status + " acts " + changesActs145(chFull).join(","));
+const chCurrentVersion = (await state(a)).version;
+check("changes: the answer carries the owner's version as it stands",
+  !!chFull && chFull.version === chCurrentVersion,
+  "answer " + (chFull && chFull.version) + " state " + chCurrentVersion);
+
+res = await a.call("GET", "/api/changes?since_version=" + chVersionBefore);
+check("changes: the spelling without v1 answers the same",
+  res.status === 200 && changesIds145(res.json).join("|") === changesIds145(chFull).join("|"),
+  "status " + res.status + " ids " + changesIds145(res.json).join(","));
+
+res = await a.call("GET", changesPath145("since_version=" + chCurrentVersion));
+check("changes: a caller at the current version learns nothing changed",
+  res.status === 200 && !!res.json && Array.isArray(res.json.changes) && res.json.changes.length === 0 &&
+    res.json.version === chCurrentVersion && res.json.complete === true && res.json.nextAfter === null,
+  "status " + res.status + " body " + (res.text || "").slice(0, 140));
+
+res = await keyCall("GET", changesPath145("since_version=" + chVersionBefore), chKey);
+check("changes: a key reads the same changes as the person",
+  res.status === 200 && !!res.json &&
+    changesIds145(res.json).join("|") === changesIds145(chFull).join("|") &&
+    res.json.version === chFull.version && res.json.complete === chFull.complete,
+  "status " + res.status + " ids " + changesIds145(res.json).join(","));
+
+res = await a.call("GET", changesPath145("since_version=" + chVersionBefore + "&limit=2"));
+const chPage1 = res.json;
+res = await a.call("GET", changesPath145("since_version=" + chVersionBefore + "&limit=2&after=" + (chPage1 && chPage1.nextAfter)));
+const chPage2 = res.json;
+res = await a.call("GET", changesPath145("since_version=" + chVersionBefore + "&limit=2&after=" + (chPage2 && chPage2.nextAfter)));
+const chPage3 = res.json;
+check("changes: paging walks the same list in slices, and nextAfter stands null at the end",
+  !!chPage1 && !!chPage2 && !!chPage3 &&
+    changesList145(chPage1).length === 2 && chPage1.nextAfter === changesList145(chPage1)[1].id &&
+    changesList145(chPage2).length === 2 && changesList145(chPage3).length === 2 &&
+    chPage3.nextAfter === null &&
+    [...changesIds145(chPage1), ...changesIds145(chPage2), ...changesIds145(chPage3)].join("|") ===
+      changesIds145(chFull).join("|"),
+  "pages " + [chPage1, chPage2, chPage3].map((p) => changesList145(p).length).join(","));
+
+res = await b.call("GET", changesPath145("since_version=0"));
+check("changes: another owner's acts never stand in the answer",
+  res.status === 200 && !!res.json &&
+    !changesIds145(res.json).some((id) => changesIds145(chFull).includes(id)),
+  "status " + res.status + " ids " + changesIds145(res.json).join(","));
+res = await b.call("GET", changesPath145("since_version=0&after=" + changesIds145(chFull)[0]));
+check("changes: an entry id from another owner reads as not found",
+  res.status === 404, "status " + res.status);
+
+res = await a.call("GET", changesPath145(""));
+const chMissingStatus = res.status;
+res = await a.call("GET", changesPath145("since_version=abc"));
+const chWordStatus = res.status;
+res = await a.call("GET", changesPath145("since_version=-1"));
+const chNegativeStatus = res.status;
+res = await a.call("GET", changesPath145("since_version=" + chVersionBefore + "&limit=0"));
+check("changes: a missing or malformed version is refused, and a bad limit with it",
+  chMissingStatus === 400 && chWordStatus === 400 && chNegativeStatus === 400 && res.status === 400,
+  "missing " + chMissingStatus + " word " + chWordStatus + " negative " + chNegativeStatus + " limit " + res.status);
+
+// The honest floor, read off the other owner's own record: the
+// read names where its record starts, a version before that
+// start answers complete standing false while still carrying
+// what the record holds, and one before the first entry the
+// answer stands complete.
+res = await b.call("GET", changesPath145("since_version=0"));
+const chFloorB = res.json && res.json.recordStartsAtVersion;
+check("changes: the record's start is named, a whole version or null",
+  chFloorB === null || (Number.isInteger(chFloorB) && chFloorB >= 1),
+  "floor " + chFloorB);
+if (Number.isInteger(chFloorB) && chFloorB >= 2) {
+  res = await b.call("GET", changesPath145("since_version=" + (chFloorB - 2)));
+  check("changes: a version from before the record began answers honestly — complete stands false, and what the record holds still stands in the answer",
+    res.status === 200 && !!res.json && res.json.complete === false &&
+      res.json.recordStartsAtVersion === chFloorB &&
+      changesList145(res.json).some((e) => e.version === chFloorB),
+    "status " + res.status + " complete " + (res.json && res.json.complete) +
+      " floor " + (res.json && res.json.recordStartsAtVersion));
+  res = await b.call("GET", changesPath145("since_version=" + (chFloorB - 1)));
+  check("changes: at one before the record's first entry the answer stands complete",
+    res.status === 200 && !!res.json && res.json.complete === true,
+    "status " + res.status + " complete " + (res.json && res.json.complete));
+}
+
+const chVerBeforeRead = (await state(a)).version;
+res = await a.call("GET", changesPath145("since_version=" + chVersionBefore));
+const chVerAfterRead = (await state(a)).version;
+check("changes: the read changes nothing and raises no version",
+  chVerBeforeRead === chVerAfterRead,
+  "version " + chVerBeforeRead + " -> " + chVerAfterRead);
+
+res = await a.call("DELETE", "/api/v1/boards/" + chBoardX.id);
+res = await a.call("GET", changesPath145("since_version=" + chVersionBefore));
+check("changes: a deleted board's acts leave the answer with it",
+  res.status === 200 && !!res.json &&
+    changesList145(res.json).every((e) => e.boardId !== chBoardX.id) &&
+    changesList145(res.json).some((e) => e.boardId === chBoardY.id),
+  "status " + res.status + " boards " + changesList145(res.json).map((e) => e.boardId).join(","));
+
+res = await keyCall("GET", "/api/v1/directions", chKey);
+check("changes: the served directions name the changes read",
+  res.status === 200 && res.text.includes("GET /changes") && res.text.includes("Changes since a version"),
+  "status " + res.status);
+
+res = await a.call("DELETE", "/api/v1/boards/" + chBoardY.id);
+res = await a.call("DELETE", "/api/v1/me/token/" + chKeyId);
+
 // --- Moving a card to another board (issue #163) ------------------------------
 // One card edit names the new board, the column on it and the
 // project on it, and the move lands as one act with one version
