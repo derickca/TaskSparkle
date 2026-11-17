@@ -49,6 +49,10 @@ The codebase has a particular style and a change should match the code around it
 
 The maintainer reviews pull requests, merges to `main`, and `main` is what deploys. Releases are numbered `vMAJOR.MINOR.PATCH`, tagged in git and published as GitHub releases; `CHANGELOG.md` records what each one carries. Inside a release the app stamps every deploy with a build stamp (`rYYYY-MM-DD-N`), so a bug report that names the release and the build stamp pins the code exactly.
 
+## Commit records
+
+Commits are authored with the first name only and the GitHub noreply address, never a personal email address. AI help is disclosed with an `Assisted-by:` trailer naming the agent and the model; an AI is a tool, never a co-author, so no `Co-Authored-By` line carries one. Messages refer to the owner as "the owner" and write decisions as "decided YYYY-MM-DD", without naming a person. These shapes come from the fleet's Privacy and Secrets policy in agents-policy (`standards/how-we-work/privacy-and-secrets.md`, sections 2 and 8).
+
 ## Conduct and security
 
 `CODE_OF_CONDUCT.md` states the behaviour expected here, in short plain words.
