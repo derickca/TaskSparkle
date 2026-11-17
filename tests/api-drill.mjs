@@ -32,7 +32,11 @@
 // alike), bulk create
 // (issue #148: one call creates many cards from a list —
 // whole or not at all, under one version rise), keys (mint,
-// list, rename, revoke, the key-door rules), the
+// list, rename, revoke, the key-door rules), read-only local
+// keys (issue #147: a key the person sets to read access reads
+// everything a key may read and is refused every write at the
+// gate, with its standing named, and GET /me names the level
+// the key itself holds), the
 // write gate (unknown fields refused by name, stale writes), the
 // version stamps, the directions, the push route's refusals and
 // the stale-session cookie expiry (issue #49). The doors section
@@ -1019,6 +1023,146 @@ if (MODE === "selfhost" && args["server-config"]) {
       keyRows.includes("api-key-renamed|last4 " + key1.slice(-4)) &&
       keyRows.includes("api-key-revoked|last4 " + key1.slice(-4)),
     keyRows.join(" | "));
+}
+
+// --- Read-only local keys (issue #147) -------------------------------------------
+// A local key holds one of two levels, the way a MemberSpark
+// key does: write, the full powers every local key has always
+// held, or read — it reads everything a key may read and is
+// refused every write at the one write gate, before the body
+// is judged and before any route runs, with the standing
+// named. The level is the person's to choose at the mint, to
+// see in the list and to flip on the key's own route; it is a
+// property of the key alone, so the person's own session is
+// untouched by it, and GET /me through a key names the level
+// the key itself holds.
+res = await a.call("POST", "/api/v1/me/token", { name: "Reporting Key", access: "read" });
+check("readonly: a mint carrying read answers 201 and names the standing",
+  res.status === 201 && res.json.access === "read" && typeof res.json.key === "string",
+  "status " + res.status);
+const readKey147 = res.json.key; const readKeyId147 = res.json.id;
+res = await a.call("POST", "/api/v1/me/token", { name: "Plain Key" });
+check("readonly: a mint naming no level stands at write",
+  res.status === 201 && res.json.access === "write", "status " + res.status);
+const plainKey147 = res.json.key; const plainKeyId147 = res.json.id;
+res = await a.call("GET", "/api/v1/me/token");
+check("readonly: the list names each key's level, and a key minted before levels keeps write",
+  res.status === 200 &&
+    (res.json.keys.find((k) => k.id === readKeyId147) || {}).access === "read" &&
+    (res.json.keys.find((k) => k.id === plainKeyId147) || {}).access === "write" &&
+    (res.json.keys.find((k) => k.id === key2Id) || {}).access === "write",
+  "status " + res.status);
+res = await a.call("POST", "/api/v1/me/token", { name: "Bad Level", access: "owner" });
+check("readonly: a mint with a level that is neither read nor write is refused, naming the field",
+  res.status === 400 && /access/.test(res.json.error || ""),
+  "status " + res.status + " " + (res.json && res.json.error));
+
+stA = await state(a);
+const roBoard147 = stA.boards[0];
+const roCard147 = (stA.cards || []).find((c) => /[A-Za-z]{3,}/.test(c.title || ""));
+const roWord147 = roCard147.title.match(/[A-Za-z]{3,}/)[0];
+res = await a.agentCall("GET", "/api/v1/state", readKey147);
+check("readonly: the read key reads the state",
+  res.status === 200 && Array.isArray(res.json.boards), "status " + res.status);
+res = await a.agentCall("GET", "/api/v1/search?q=" + encodeURIComponent(roWord147), readKey147);
+check("readonly: the read key searches",
+  res.status === 200 && Array.isArray(res.json.cards) &&
+    res.json.cards.some((c) => c.id === roCard147.id), "status " + res.status);
+res = await a.agentCall("GET", "/api/v1/changes?since_version=0", readKey147);
+check("readonly: the read key reads changes since a version",
+  res.status === 200 && Array.isArray(res.json.changes), "status " + res.status);
+res = await a.agentCall("GET", "/api/v1/queue", readKey147);
+check("readonly: the read key reads its queue",
+  res.status === 200 && Array.isArray(res.json.cards), "status " + res.status);
+res = await a.agentCall("GET", "/api/v1/boards/" + roBoard147.id + "/activity", readKey147);
+check("readonly: the read key reads a board's activity",
+  res.status === 200 && Array.isArray(res.json.activity), "status " + res.status);
+res = await a.agentCall("GET", "/api/v1/directions", readKey147);
+check("readonly: the read key reads the directions, and they name the levels and the refusal",
+  res.status === 200 && /read access only/.test(res.text || "") && /GET \/me/.test(res.text || ""),
+  "status " + res.status);
+res = await a.agentCall("GET", "/api/v1/me", readKey147);
+check("readonly: GET /me through the read key names its own standing",
+  res.status === 200 && res.json.access === "read", "status " + res.status + " " + res.text.slice(0, 120));
+res = await a.agentCall("GET", "/api/v1/me", plainKey147);
+check("readonly: GET /me through a full key names write",
+  res.status === 200 && res.json.access === "write", "status " + res.status);
+
+res = await a.call("GET", "/api/v1/version");
+const roVersion147 = res.json.version;
+res = await keyCall("POST", "/api/v1/cards", readKey147,
+  { board_id: roBoard147.id, column_id: "inbox", title: "Must not land" });
+check("readonly: a card create is refused 401 with the standing named",
+  res.status === 401 && /read access only/.test(res.json.error || "") &&
+    /refused/.test(res.json.error || ""), "status " + res.status + " " + (res.json && res.json.error));
+res = await keyCall("PATCH", "/api/v1/cards/" + cardId, readKey147, { notes: "must not land" });
+check("readonly: a card edit is refused the same way",
+  res.status === 401 && /read access only/.test(res.json.error || ""), "status " + res.status);
+res = await keyCall("PATCH", "/api/v1/cards/" + cardId, readKey147, { column_id: "inbox" });
+check("readonly: a card move is refused the same way",
+  res.status === 401 && /read access only/.test(res.json.error || ""), "status " + res.status);
+res = await keyCall("POST", "/api/v1/cards/" + cardId + "/comments", readKey147, { body: "must not land" });
+check("readonly: a comment is refused the same way",
+  res.status === 401 && /read access only/.test(res.json.error || ""), "status " + res.status);
+res = await keyCall("POST", "/api/v1/cards/" + cardId + "/attachments", readKey147,
+  { name: "nope.txt", kind: "text/plain", data: Buffer.from("nope").toString("base64") });
+check("readonly: filing a file is refused the same way",
+  res.status === 401 && /read access only/.test(res.json.error || ""), "status " + res.status);
+res = await a.call("GET", "/api/v1/version");
+check("readonly: the five refusals wrote nothing and moved no version",
+  res.json.version === roVersion147, "version " + res.json.version + " against " + roVersion147);
+
+res = await keyCall("POST", "/api/v1/cards", plainKey147,
+  { board_id: roBoard147.id, column_id: "inbox", title: "Written by the full key" });
+check("readonly: the full key beside it creates as before",
+  res.status === 201 && !!res.json.card, "status " + res.status);
+res = await a.call("PATCH", "/api/v1/cards/" + cardId, { notes: "the person still writes" });
+check("readonly: the person's own session is untouched and writes as before",
+  res.status === 200, "status " + res.status);
+
+res = await a.call("PATCH", "/api/v1/me/token/" + readKeyId147, { access: "owner" });
+check("readonly: a flip to a level that is neither is refused, naming the field",
+  res.status === 400 && /access/.test(res.json.error || ""),
+  "status " + res.status + " " + (res.json && res.json.error));
+res = await a.call("PATCH", "/api/v1/me/token/" + readKeyId147,
+  { name: "Reporting Key II", access: "write" });
+check("readonly: the person flips the level, beside a rename in the same call",
+  res.status === 200 && res.json.key.access === "write" && res.json.key.name === "Reporting Key II",
+  "status " + res.status);
+res = await keyCall("POST", "/api/v1/cards", readKey147,
+  { board_id: roBoard147.id, column_id: "inbox", title: "Written after the flip" });
+check("readonly: the flip takes effect on the key's next call",
+  res.status === 201 && !!res.json.card, "status " + res.status);
+res = await a.call("PATCH", "/api/v1/me/token/" + readKeyId147, { access: "read" });
+check("readonly: the flip back answers the read standing",
+  res.status === 200 && res.json.key.access === "read", "status " + res.status);
+res = await keyCall("PATCH", "/api/v1/cards/" + cardId, readKey147, { notes: "must not land either" });
+check("readonly: flipped back, the key's writes are refused again",
+  res.status === 401 && /read access only/.test(res.json.error || ""), "status " + res.status);
+res = await a.call("GET", "/api/v1/version");
+const roVersion2_147 = res.json.version;
+res = await a.call("PATCH", "/api/v1/me/token/" + readKeyId147, { access: "read" });
+check("readonly: setting the level the key already holds answers 200",
+  res.status === 200 && res.json.key.access === "read", "status " + res.status);
+res = await a.call("GET", "/api/v1/version");
+check("readonly: and changes nothing — the version stands where it stood",
+  res.json.version === roVersion2_147, "version " + res.json.version + " against " + roVersion2_147);
+
+// The level changes above wrote their audit entries, read back
+// from the data file the instance keeps (self-host mode only).
+if (MODE === "selfhost" && args["server-config"]) {
+  const cfgR = JSON.parse(readFileSync(args["server-config"], "utf8"));
+  const fileR = join(dirname(args["server-config"]), String(cfgR.dataDir || "data"), "tasksparkle.sqlite");
+  const roR = new DatabaseSync(fileR, { readOnly: true });
+  const levelRows = roR.prepare(
+    "SELECT act, detail FROM auth_audit WHERE target_id = ? AND act = 'api-key-access-changed'"
+  ).all(readKeyId147).map((r) => r.act + "|" + r.detail);
+  roR.close();
+  check("readonly: each change of level wrote its audit entry, naming the level and the key's last four",
+    levelRows.length === 2 &&
+      levelRows.includes("api-key-access-changed|access write, last4 " + readKey147.slice(-4)) &&
+      levelRows.includes("api-key-access-changed|access read, last4 " + readKey147.slice(-4)),
+    levelRows.join(" | "));
 }
 
 // --- Directions ------------------------------------------------------------------
