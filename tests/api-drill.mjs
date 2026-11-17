@@ -160,6 +160,15 @@ function check(name, cond, detail) {
   console.log((cond ? "PASS" : "FAIL") + "  " + name + (detail ? "  — " + detail : ""));
 }
 
+// The lockout waits (issue #184): a lock is waited out by
+// polling the condition itself under a named budget, never by
+// sleeping a fixed span — a sleep pays its full time on every
+// run and still races on a loaded host. The first lock stands
+// ten seconds; the budget carries headroom over it many times
+// over, and the step is the interval between polls.
+const LOCK_WAIT_BUDGET_MS = 120000;
+const LOCK_WAIT_STEP_MS = 500;
+
 function raw(base, method, path, headers, body) {
   return new Promise((resolve, reject) => {
     const url = new URL(path, base);
@@ -4007,8 +4016,16 @@ if (MODE === "selfhost") {
     locked.status === 302 && !setsCookie(locked) &&
       (locked.headers.location || "").includes("error=locked"),
     "status " + locked.status + " location " + locked.headers.location);
-  await new Promise((r) => setTimeout(r, 11000));
-  const after = await tryLogin(PASSWORD_A);
+  // Wait the lock out on the press itself (issue #184): a
+  // press under a standing lock is answered from the lock
+  // check alone and does not extend it, so poll until the
+  // right password signs in or the budget ends.
+  let after = await tryLogin(PASSWORD_A);
+  const lockDeadline = Date.now() + LOCK_WAIT_BUDGET_MS;
+  while (!setsCookie(after) && Date.now() < lockDeadline) {
+    await new Promise((r) => setTimeout(r, LOCK_WAIT_STEP_MS));
+    after = await tryLogin(PASSWORD_A);
+  }
   check("#62: the right password signs in once the window passes",
     after.status === 302 && setsCookie(after) &&
       (after.headers.location || "") === "/",
@@ -5438,8 +5455,22 @@ if (MODE === "worker") {
       !hashTry, "cookie " + !!hashTry);
     // The current form's own refused parameters. Three pair
     // failures above started the pair lock; wait it out so
-    // these refusals are the hash's own, not the lock's.
-    await new Promise((r) => setTimeout(r, 11000));
+    // these refusals are the hash's own, not the lock's. The
+    // wait polls the lock's own row (issue #184): a press
+    // cannot be the probe here — the press that finds the
+    // lock cleared spends a failure of its own and moves the
+    // very counts this family measures — so the condition is
+    // the throttle table itself, polled until no lock stands
+    // or the budget ends.
+    const lockDeadline = Date.now() + LOCK_WAIT_BUDGET_MS;
+    let lockStanding = true;
+    while (lockStanding && Date.now() < lockDeadline) {
+      const ro = new DatabaseSync(file, { readOnly: true });
+      const row = ro.prepare("SELECT MAX(locked_until) AS u FROM auth_throttle").get();
+      ro.close();
+      lockStanding = !!row && Number(row.u) > Date.now();
+      if (lockStanding) await new Promise((r) => setTimeout(r, LOCK_WAIT_STEP_MS));
+    }
     poison("$scrypt$ln=0,r=8,p=3$AAAA$AAAA");
     hashTry = await hashLogin();
     check("#109 hash: a PHC row with zero cost is refused, never run",

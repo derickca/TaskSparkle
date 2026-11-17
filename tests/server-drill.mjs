@@ -111,6 +111,13 @@ let nextPort = 8931;
 // startServer itself allows a start, named once for every
 // banner-line wait below.
 const LOG_LINE_WAIT_MS = 8000;
+// The lockout wait's budget (issue #184): a lock is waited out
+// by polling the press itself, never by sleeping a fixed span.
+// The first lock stands ten seconds; the budget carries
+// headroom over it many times over for a loaded host, and the
+// step is the interval between presses.
+const LOCK_WAIT_BUDGET_MS = 120000;
+const LOCK_WAIT_STEP_MS = 500;
 
 function writeConfig(name, fields) {
   const path = join(scratch, name);
@@ -418,10 +425,19 @@ try {
     res.status === 302 && !sessionOf(res) &&
       (res.headers.get("location") || "").includes("error=locked"),
     "status " + res.status + " location " + res.headers.get("location"));
-  await sleep(11000);
-
+  // Wait the pair lock out on the press itself (issue #184):
+  // a press under a standing lock is answered from the lock
+  // check alone — it does not extend the lock and the invite
+  // survives it — so poll the honest press until it lands or
+  // the budget ends.
+  const lockDeadline = Date.now() + LOCK_WAIT_BUDGET_MS;
   res = await postForm(portMain, "/invite/" + codeA,
     { name: NAME_A, password: PW_A, confirm: PW_A });
+  while (!sessionOf(res) && Date.now() < lockDeadline) {
+    await sleep(LOCK_WAIT_STEP_MS);
+    res = await postForm(portMain, "/invite/" + codeA,
+      { name: NAME_A, password: PW_A, confirm: PW_A });
+  }
   const cookieA = sessionOf(res);
   check("#107: the Set password press spends the invite and lands the person signed in",
     res.status === 302 && !!cookieA && (res.headers.get("location") || "") === "/",
