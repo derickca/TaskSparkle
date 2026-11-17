@@ -1036,6 +1036,9 @@ if (MODE === "selfhost" && args["server-config"]) {
 // property of the key alone, so the person's own session is
 // untouched by it, and GET /me through a key names the level
 // the key itself holds.
+const roCall147 = (method, path, key, body) => raw(AGENT_BASE, method, path,
+  { Authorization: "Bearer " + key, "Content-Type": "application/json" },
+  body != null ? JSON.stringify(body) : null);
 res = await a.call("POST", "/api/v1/me/token", { name: "Reporting Key", access: "read" });
 check("readonly: a mint carrying read answers 201 and names the standing",
   res.status === 201 && res.json.access === "read" && typeof res.json.key === "string",
@@ -1090,21 +1093,21 @@ check("readonly: GET /me through a full key names write",
 
 res = await a.call("GET", "/api/v1/version");
 const roVersion147 = res.json.version;
-res = await keyCall("POST", "/api/v1/cards", readKey147,
+res = await roCall147("POST", "/api/v1/cards", readKey147,
   { board_id: roBoard147.id, column_id: "inbox", title: "Must not land" });
 check("readonly: a card create is refused 401 with the standing named",
   res.status === 401 && /read access only/.test(res.json.error || "") &&
     /refused/.test(res.json.error || ""), "status " + res.status + " " + (res.json && res.json.error));
-res = await keyCall("PATCH", "/api/v1/cards/" + cardId, readKey147, { notes: "must not land" });
+res = await roCall147("PATCH", "/api/v1/cards/" + cardId, readKey147, { notes: "must not land" });
 check("readonly: a card edit is refused the same way",
   res.status === 401 && /read access only/.test(res.json.error || ""), "status " + res.status);
-res = await keyCall("PATCH", "/api/v1/cards/" + cardId, readKey147, { column_id: "inbox" });
+res = await roCall147("PATCH", "/api/v1/cards/" + cardId, readKey147, { column_id: "inbox" });
 check("readonly: a card move is refused the same way",
   res.status === 401 && /read access only/.test(res.json.error || ""), "status " + res.status);
-res = await keyCall("POST", "/api/v1/cards/" + cardId + "/comments", readKey147, { body: "must not land" });
+res = await roCall147("POST", "/api/v1/cards/" + cardId + "/comments", readKey147, { body: "must not land" });
 check("readonly: a comment is refused the same way",
   res.status === 401 && /read access only/.test(res.json.error || ""), "status " + res.status);
-res = await keyCall("POST", "/api/v1/cards/" + cardId + "/attachments", readKey147,
+res = await roCall147("POST", "/api/v1/cards/" + cardId + "/attachments", readKey147,
   { name: "nope.txt", kind: "text/plain", data: Buffer.from("nope").toString("base64") });
 check("readonly: filing a file is refused the same way",
   res.status === 401 && /read access only/.test(res.json.error || ""), "status " + res.status);
@@ -1112,7 +1115,7 @@ res = await a.call("GET", "/api/v1/version");
 check("readonly: the five refusals wrote nothing and moved no version",
   res.json.version === roVersion147, "version " + res.json.version + " against " + roVersion147);
 
-res = await keyCall("POST", "/api/v1/cards", plainKey147,
+res = await roCall147("POST", "/api/v1/cards", plainKey147,
   { board_id: roBoard147.id, column_id: "inbox", title: "Written by the full key" });
 check("readonly: the full key beside it creates as before",
   res.status === 201 && !!res.json.card, "status " + res.status);
@@ -1129,14 +1132,14 @@ res = await a.call("PATCH", "/api/v1/me/token/" + readKeyId147,
 check("readonly: the person flips the level, beside a rename in the same call",
   res.status === 200 && res.json.key.access === "write" && res.json.key.name === "Reporting Key II",
   "status " + res.status);
-res = await keyCall("POST", "/api/v1/cards", readKey147,
+res = await roCall147("POST", "/api/v1/cards", readKey147,
   { board_id: roBoard147.id, column_id: "inbox", title: "Written after the flip" });
 check("readonly: the flip takes effect on the key's next call",
   res.status === 201 && !!res.json.card, "status " + res.status);
 res = await a.call("PATCH", "/api/v1/me/token/" + readKeyId147, { access: "read" });
 check("readonly: the flip back answers the read standing",
   res.status === 200 && res.json.key.access === "read", "status " + res.status);
-res = await keyCall("PATCH", "/api/v1/cards/" + cardId, readKey147, { notes: "must not land either" });
+res = await roCall147("PATCH", "/api/v1/cards/" + cardId, readKey147, { notes: "must not land either" });
 check("readonly: flipped back, the key's writes are refused again",
   res.status === 401 && /read access only/.test(res.json.error || ""), "status " + res.status);
 res = await a.call("GET", "/api/v1/version");
@@ -1584,7 +1587,7 @@ check("#119: the holder's first write picks the card up",
 // The flip back, key to person, again with a riding comment.
 stA = await state(a);
 const vBack = stA.version;
-res = await keyCall("PATCH", "/api/v1/cards/" + hPersonCard, hKey1, { next_step: "owner", comment: "Back to you: needs a decision." });
+res = await roCall147("PATCH", "/api/v1/cards/" + hPersonCard, hKey1, { next_step: "owner", comment: "Back to you: needs a decision." });
 check("#119: a key hands back to the person, stamped with the key, waiting on the person",
   res.status === 200 && res.json.card.step.holder === "owner" &&
     res.json.card.step.waiting === true && res.json.card.step.handedByKeyName === "Handover One" &&
@@ -1622,7 +1625,7 @@ check("#119: a hand-over to no one lands, not waiting",
   res.status === 200 && res.json.card.step.holder === "none" && res.json.card.step.waiting === false,
   "step " + JSON.stringify(res.json && res.json.card && res.json.card.step));
 res = await a.call("PATCH", "/api/v1/cards/" + hPersonCard, { next_step: hKey2Id });
-res = await keyCall("GET", "/api/v1/queue", hKey1);
+res = await roCall147("GET", "/api/v1/queue", hKey1);
 check("#119: a key's queue holds only that key's cards",
   res.status === 200 && Array.isArray(res.json.cards) &&
     res.json.cards.some((c) => c.id === hKeyCard) &&
@@ -1630,7 +1633,7 @@ check("#119: a key's queue holds only that key's cards",
     !res.json.cards.some((c) => c.id === hCreatedHanded) &&
     res.json.cards.every((c) => c.step.holder === "agent" && c.step.keyId === hKey1Id),
   "queue " + JSON.stringify((res.json.cards || []).map((c) => c.title)));
-res = await keyCall("GET", "/api/v1/queue", hKey2);
+res = await roCall147("GET", "/api/v1/queue", hKey2);
 check("#119: the second key's queue holds its own cards",
   res.status === 200 &&
     res.json.cards.some((c) => c.id === hPersonCard) &&
@@ -1718,7 +1721,7 @@ check("#121: a step the person hands over names the person as its hander",
   res.status === 200 && res.json.card.step.handedByKeyName === null &&
     res.json.card.step.handedByName === "Drill Person A",
   "step " + JSON.stringify(res.json.card && res.json.card.step));
-res = await keyCall("PATCH", "/api/v1/cards/" + nPersonCard, nKey1, { next_step: nKey2Id });
+res = await roCall147("PATCH", "/api/v1/cards/" + nPersonCard, nKey1, { next_step: nKey2Id });
 check("#121: a step a key hands over names the key as its hander, both fields",
   res.status === 200 && res.json.card.step.holder === "agent" && res.json.card.step.keyId === nKey2Id &&
     res.json.card.step.keyName === "Names Two" &&
@@ -2104,7 +2107,7 @@ res = await a.call("POST", "/api/v1/cards/" + fCard.id + "/steps", { text: "Foll
 const fStep = res.json.step;
 res = await a.call("POST", "/api/v1/me/token", { name: "Follow Key" });
 const fKey = res.json.key; const fKeyId = res.json.id;
-res = await keyCall("GET", "/api/v1/following", fKey);
+res = await roCall147("GET", "/api/v1/following", fKey);
 check("following: a key's list starts empty, separate from the person's",
   res.status === 200 && Array.isArray(res.json.cards) && res.json.cards.length === 0,
   "status " + res.status);
@@ -2122,7 +2125,7 @@ res = await a.call("POST", "/api/v1/cards/" + fCard.id + "/follow", {});
 check("following: following again answers 200 and changes nothing",
   res.status === 200 && !!res.json && res.json.following === true,
   "status " + res.status);
-res = await keyCall("POST", "/api/v1/cards/" + fCard.id + "/follow", fKey, {});
+res = await roCall147("POST", "/api/v1/cards/" + fCard.id + "/follow", fKey, {});
 check("following: a key follows the same card in its own name",
   res.status === 201 && !!res.json && res.json.following === true,
   "status " + res.status);
@@ -2132,7 +2135,7 @@ check("following: the followed card reads in the person's list, not yet changed"
     res.json.cards[0].changed === false,
   "status " + res.status + " cards " + (res.json.cards || []).length +
     " changed " + (res.json.cards && res.json.cards[0] && res.json.cards[0].changed));
-res = await keyCall("GET", "/api/v1/following", fKey);
+res = await roCall147("GET", "/api/v1/following", fKey);
 check("following: the card reads in the key's list too, not yet changed",
   res.status === 200 && res.json.cards.length === 1 && res.json.cards[0].changed === false,
   "status " + res.status + " changed " + (res.json.cards && res.json.cards[0] && res.json.cards[0].changed));
@@ -2152,14 +2155,14 @@ check("following: the telling read marks the card seen — a second read shows n
   "changed " + (res.json.cards && res.json.cards[0] && res.json.cards[0].changed));
 // The person's reads never mark the key's list: the key has
 // not read since the move, so its card still stands changed.
-res = await keyCall("GET", "/api/v1/following", fKey);
+res = await roCall147("GET", "/api/v1/following", fKey);
 check("following: each follower is told in its own name — the key's card still stands changed",
   res.status === 200 && res.json.cards.length === 1 && res.json.cards[0].changed === true,
   "changed " + (res.json.cards && res.json.cards[0] && res.json.cards[0].changed));
 
 // A comment by the key surfaces to the person, with the
 // comment itself riding on the card.
-res = await keyCall("POST", "/api/v1/cards/" + fCard.id + "/comments", fKey,
+res = await roCall147("POST", "/api/v1/cards/" + fCard.id + "/comments", fKey,
   { body: "Agent progress on the followed card" });
 res = await a.call("GET", "/api/v1/following");
 check("following: a comment surfaces to the person, with the comment on the card",
@@ -2171,7 +2174,7 @@ check("following: a comment surfaces to the person, with the comment on the card
 // A tick by the person surfaces to the key, with the step
 // standing ticked.
 res = await a.call("PATCH", "/api/v1/cards/" + fCard.id + "/steps/" + fStep.id, { done: true });
-res = await keyCall("GET", "/api/v1/following", fKey);
+res = await roCall147("GET", "/api/v1/following", fKey);
 check("following: a tick surfaces to the key, with the step ticked",
   res.status === 200 && res.json.cards.length === 1 && res.json.cards[0].changed === true &&
     res.json.cards[0].steps.length === 1 && res.json.cards[0].steps[0].done === true,
@@ -2197,12 +2200,12 @@ check("following: a write that changes nothing tells the follower nothing",
 
 // Unfollowing stops the telling for the key; the person still
 // follows, and the later change stands changed for them alone.
-res = await keyCall("DELETE", "/api/v1/cards/" + fCard.id + "/follow", fKey);
+res = await roCall147("DELETE", "/api/v1/cards/" + fCard.id + "/follow", fKey);
 check("following: a key unfollows, 200 ok",
   res.status === 200 && !!res.json && res.json.ok === true, "status " + res.status);
 res = await a.call("POST", "/api/v1/cards/" + fCard.id + "/comments",
   { body: "After the key stopped following" });
-res = await keyCall("GET", "/api/v1/following", fKey);
+res = await roCall147("GET", "/api/v1/following", fKey);
 check("following: unfollowing stops the telling — later changes never reach the key's list",
   res.status === 200 && Array.isArray(res.json.cards) && res.json.cards.length === 0,
   "status " + res.status + " cards " + (res.json.cards || []).length);
@@ -2210,7 +2213,7 @@ res = await a.call("GET", "/api/v1/following");
 check("following: the person still follows, and the later change stands changed for them",
   res.status === 200 && res.json.cards.length === 1 && res.json.cards[0].changed === true,
   "changed " + (res.json.cards && res.json.cards[0] && res.json.cards[0].changed));
-res = await keyCall("DELETE", "/api/v1/cards/" + fCard.id + "/follow", fKey);
+res = await roCall147("DELETE", "/api/v1/cards/" + fCard.id + "/follow", fKey);
 check("following: unfollowing a card the caller does not follow answers 404",
   res.status === 404, "status " + res.status);
 
@@ -2229,10 +2232,10 @@ check("following: person B's list stands empty",
   "status " + res.status);
 res = await b.call("POST", "/api/v1/me/token", { name: "Follow Foreign Key" });
 const fBKey = res.json.key; const fBKeyId = res.json.id;
-res = await keyCall("POST", "/api/v1/cards/" + fCard.id + "/follow", fBKey, {});
+res = await roCall147("POST", "/api/v1/cards/" + fCard.id + "/follow", fBKey, {});
 check("following: another owner's key gets the same not found",
   res.status === 404, "status " + res.status);
-res = await keyCall("GET", "/api/v1/following", fBKey);
+res = await roCall147("GET", "/api/v1/following", fBKey);
 check("following: the foreign key's list stands empty",
   res.status === 200 && Array.isArray(res.json.cards) && res.json.cards.length === 0,
   "status " + res.status);
@@ -2300,7 +2303,7 @@ res = await a.call("POST", "/api/v1/projects", { board_id: actBoard.id, name: "A
 const actProject = res.json.project;
 res = await a.call("POST", "/api/v1/me/token", { name: "Activity Key" });
 const actKey = res.json.key; const actKeyId = res.json.id;
-res = await keyCall("POST", "/api/v1/cards", actKey, {
+res = await roCall147("POST", "/api/v1/cards", actKey, {
   board_id: actBoard.id, column_id: "inbox", title: "Activity Card",
   labels: [actLabel.id], project_id: actProject.id,
 });
@@ -2312,14 +2315,14 @@ res = await a.call("PATCH", "/api/v1/columns/" + actColumn.id, { name: "Activity
 res = await a.call("PATCH", "/api/v1/labels/" + actLabel.id, { name: "Activity Label Renamed" });
 res = await a.call("PATCH", "/api/v1/projects/" + actProject.id, { name: "Activity Project Renamed" });
 res = await a.call("PATCH", "/api/v1/cards/" + actCard.id, { column_id: "doing" });
-res = await keyCall("POST", "/api/v1/cards/" + actCard.id + "/comments", actKey,
+res = await roCall147("POST", "/api/v1/cards/" + actCard.id + "/comments", actKey,
   { body: "Activity comment" });
 const actComment = res.json.comment;
 res = await a.call("POST", "/api/v1/cards/" + actCard.id + "/steps", { text: "Activity step" });
 const actStep = res.json.step;
-res = await keyCall("PATCH", "/api/v1/cards/" + actCard.id + "/steps/" + actStep.id, actKey, { done: true });
+res = await roCall147("PATCH", "/api/v1/cards/" + actCard.id + "/steps/" + actStep.id, actKey, { done: true });
 res = await a.call("PATCH", "/api/v1/cards/" + actCard.id, { title: "Activity Card Renamed" });
-res = await keyCall("PATCH", "/api/v1/cards/" + actCard.id, actKey, { next_step: "owner" });
+res = await roCall147("PATCH", "/api/v1/cards/" + actCard.id, actKey, { next_step: "owner" });
 const actHandoverVersion = res.json && res.json.version;
 res = await a.call("PATCH", "/api/v1/cards/" + actCard.id, { notes: "Picked up by the person" });
 const actPickupVersion = res.json && res.json.version;
@@ -2374,7 +2377,7 @@ const actCountBeforeQuiet = (actStory.activity || []).length;
 const actVersionBeforeQuiet = (await state(a)).version;
 res = await a.call("PATCH", "/api/v1/cards/" + actCard.id, { title: "Activity Card Renamed" });
 const actNoChangeVersion = res.json && res.json.version;
-res = await keyCall("PATCH", "/api/v1/cards/" + actCard.id, actKey,
+res = await roCall147("PATCH", "/api/v1/cards/" + actCard.id, actKey,
   { title: "A refused title", not_a_field: 1 });
 const actRefusedStatus = res.status;
 res = await a.call("GET", activityPath141(actBoard.id, "limit=500"));
@@ -2389,7 +2392,7 @@ check("activity: a no-change write and a refused write add no rows",
 res = await a.call("POST", "/api/v1/cards/" + actCard.id + "/links",
   { url: "example.com/activity", name: "Activity link" });
 const actLink = res.json.link;
-res = await keyCall("PATCH", "/api/v1/cards/" + actCard.id + "/links/" + actLink.id, actKey,
+res = await roCall147("PATCH", "/api/v1/cards/" + actCard.id + "/links/" + actLink.id, actKey,
   { name: "Activity Link Renamed" });
 res = await a.call("DELETE", "/api/v1/cards/" + actCard.id + "/links/" + actLink.id);
 res = await a.call("DELETE", "/api/v1/cards/" + actCard.id + "/comments/" + actComment.id);
@@ -2443,7 +2446,7 @@ check("activity: filters and paging read the matching slice",
     " page2 " + activityActs141(actPageTwo).join("|") +
     " card " + activityActs141(actCardStory).join("|"));
 
-res = await keyCall("GET", activityPath141(actBoard.id, "limit=500"), actKey);
+res = await roCall147("GET", activityPath141(actBoard.id, "limit=500"), actKey);
 check("activity: a key reads the same board activity as the person",
   res.status === 200 && !!res.json && Array.isArray(res.json.activity) &&
     res.json.activity.map((entry) => entry.id).join("|") ===
@@ -2453,12 +2456,12 @@ res = await b.call("GET", activityPath141(actBoard.id));
 const actForeignPersonStatus = res.status;
 res = await b.call("POST", "/api/v1/me/token", { name: "Activity Foreign Key" });
 const actForeignKey = res.json.key; const actForeignKeyId = res.json.id;
-res = await keyCall("GET", activityPath141(actBoard.id), actForeignKey);
+res = await roCall147("GET", activityPath141(actBoard.id), actForeignKey);
 check("activity: another owner and another owner's key read the board as not found",
   actForeignPersonStatus === 404 && res.status === 404,
   "person " + actForeignPersonStatus + " key " + res.status);
 res = await b.call("DELETE", "/api/v1/me/token/" + actForeignKeyId);
-res = await keyCall("GET", "/api/v1/directions", actKey);
+res = await roCall147("GET", "/api/v1/directions", actKey);
 check("activity: the served directions name the activity read",
   res.status === 200 && res.text.includes("GET /boards/{board id}/activity") &&
     res.text.includes("Board activity"),
@@ -2564,7 +2567,7 @@ const srchBoard2 = res.json.board;
 res = await a.call("POST", "/api/v1/me/token", { name: "Search Key" });
 const srchKey = res.json.key; const srchKeyId = res.json.id;
 
-res = await keyCall("POST", "/api/v1/cards", srchKey, {
+res = await roCall147("POST", "/api/v1/cards", srchKey, {
   board_id: srchBoard.id, column_id: "inbox", title: "Quarterly zebra report",
   notes: "plain notes for the quarter",
 });
@@ -2577,7 +2580,7 @@ const srchCardWords = res.json.card;
 res = await a.call("POST", "/api/v1/cards/" + srchCardWords.id + "/steps", { text: "water the ferns" });
 res = await a.call("POST", "/api/v1/cards/" + srchCardWords.id + "/links",
   { url: "zelda.example.net/search", name: "Fern guide" });
-res = await keyCall("POST", "/api/v1/cards/" + srchCardWords.id + "/comments", srchKey,
+res = await roCall147("POST", "/api/v1/cards/" + srchCardWords.id + "/comments", srchKey,
   { body: "the melons were splendid indeed" });
 res = await a.call("POST", "/api/v1/cards", {
   board_id: srchBoard.id, column_id: "inbox", title: "Archived zebra",
@@ -2594,7 +2597,7 @@ res = await b.call("POST", "/api/v1/cards", {
 });
 const srchCardForeign = res.json.card;
 
-res = await keyCall("GET", searchPath142("q=zebra"), srchKey);
+res = await roCall147("GET", searchPath142("q=zebra"), srchKey);
 const srchZebra = res.json;
 check("search: a key finds cards by a word in their titles, across every board",
   res.status === 200 && searchIds142(srchZebra).includes(srchCardTitle.id) &&
@@ -2615,42 +2618,42 @@ check("search: another owner's card never stands in the answer",
   !searchIds142(srchZebra).includes(srchCardForeign.id),
   "ids " + searchIds142(srchZebra).join(","));
 
-res = await keyCall("GET", searchPath142("q=remember"), srchKey);
+res = await roCall147("GET", searchPath142("q=remember"), srchKey);
 check("search: a key finds a card by a word in its notes",
   res.status === 200 && searchIds142(res.json).join("|") === srchCardWords.id,
   "status " + res.status + " ids " + searchIds142(res.json).join(","));
-res = await keyCall("GET", searchPath142("q=indeed"), srchKey);
+res = await roCall147("GET", searchPath142("q=indeed"), srchKey);
 check("search: a word in a comment finds its card",
   res.status === 200 && searchIds142(res.json).includes(srchCardWords.id),
   "status " + res.status + " ids " + searchIds142(res.json).join(","));
-res = await keyCall("GET", searchPath142("q=ferns"), srchKey);
+res = await roCall147("GET", searchPath142("q=ferns"), srchKey);
 check("search: a word in a step's text finds its card",
   res.status === 200 && searchIds142(res.json).includes(srchCardWords.id),
   "status " + res.status + " ids " + searchIds142(res.json).join(","));
-res = await keyCall("GET", searchPath142("q=guide"), srchKey);
+res = await roCall147("GET", searchPath142("q=guide"), srchKey);
 check("search: a word in a link's name finds its card",
   res.status === 200 && searchIds142(res.json).includes(srchCardWords.id),
   "status " + res.status + " ids " + searchIds142(res.json).join(","));
-res = await keyCall("GET", searchPath142("q=zelda"), srchKey);
+res = await roCall147("GET", searchPath142("q=zelda"), srchKey);
 check("search: a link's address is not searched",
   res.status === 200 && !!res.json && Array.isArray(res.json.cards) && res.json.cards.length === 0,
   "status " + res.status + " ids " + searchIds142(res.json).join(","));
 
-res = await keyCall("GET", searchPath142("q=zebra%20report"), srchKey);
+res = await roCall147("GET", searchPath142("q=zebra%20report"), srchKey);
 check("search: every word must stand — two words narrow the matches",
   res.status === 200 && searchIds142(res.json).join("|") === srchCardTitle.id,
   "status " + res.status + " ids " + searchIds142(res.json).join(","));
-res = await keyCall("GET", searchPath142("q=ZEBRA"), srchKey);
+res = await roCall147("GET", searchPath142("q=ZEBRA"), srchKey);
 check("search: letter case is ignored",
   res.status === 200 && searchIds142(res.json).includes(srchCardTitle.id),
   "status " + res.status + " ids " + searchIds142(res.json).join(","));
-res = await keyCall("GET", searchPath142("q=zzqxwnothing"), srchKey);
+res = await roCall147("GET", searchPath142("q=zzqxwnothing"), srchKey);
 check("search: a search that matches nothing answers an empty list, not an error",
   res.status === 200 && !!res.json && Array.isArray(res.json.cards) && res.json.cards.length === 0,
   "status " + res.status + " body " + (res.text || "").slice(0, 120));
-res = await keyCall("GET", searchPath142(""), srchKey);
+res = await roCall147("GET", searchPath142(""), srchKey);
 const srchNoQStatus = res.status;
-res = await keyCall("GET", searchPath142("q=%20%20"), srchKey);
+res = await roCall147("GET", searchPath142("q=%20%20"), srchKey);
 check("search: a q with no word in it is refused",
   srchNoQStatus === 400 && res.status === 400,
   "missing " + srchNoQStatus + " blank " + res.status);
@@ -2664,23 +2667,23 @@ check("search: the other owner's search finds none of these cards",
   res.status === 200 && !!res.json && Array.isArray(res.json.cards) && res.json.cards.length === 0,
   "status " + res.status + " ids " + searchIds142(res.json).join(","));
 
-res = await keyCall("GET", searchPath142("q=zebra&board_id=" + srchBoard.id), srchKey);
+res = await roCall147("GET", searchPath142("q=zebra&board_id=" + srchBoard.id), srchKey);
 check("search: board_id narrows the search to that board",
   res.status === 200 && searchIds142(res.json).includes(srchCardTitle.id) &&
     searchIds142(res.json).includes(srchCardArchived.id) &&
     !searchIds142(res.json).includes(srchCardSecond.id),
   "status " + res.status + " ids " + searchIds142(res.json).join(","));
-res = await keyCall("GET", searchPath142("q=zebra&board_id=" + srchForeignBoard.id), srchKey);
+res = await roCall147("GET", searchPath142("q=zebra&board_id=" + srchForeignBoard.id), srchKey);
 check("search: another owner's board id reads as not found",
   res.status === 404, "status " + res.status);
 
 const srchVersionBefore = (await state(a)).version;
-res = await keyCall("GET", searchPath142("q=zebra"), srchKey);
+res = await roCall147("GET", searchPath142("q=zebra"), srchKey);
 const srchVersionAfter = (await state(a)).version;
 check("search: a search changes nothing and raises no version",
   srchVersionBefore === srchVersionAfter,
   "version " + srchVersionBefore + " -> " + srchVersionAfter);
-res = await keyCall("GET", "/api/v1/directions", srchKey);
+res = await roCall147("GET", "/api/v1/directions", srchKey);
 check("search: the served directions name the search read",
   res.status === 200 && res.text.includes("GET /search") && res.text.includes("Searching"),
   "status " + res.status);
@@ -2774,13 +2777,13 @@ check("times: an archived card reads its archive moment as its changed time",
   "status " + res.status + " changed " + (timesArchived && timesArchived.changedAt) +
     " vs " + timesAfterComment.changedAt);
 
-res = await keyCall("GET", "/api/v1/state", timesKey);
+res = await roCall147("GET", "/api/v1/state", timesKey);
 const timesKeyCard = timesCardIn(res.json, timesBorn.id);
 check("times: a key caller reads the same two times as the person",
   res.status === 200 && !!timesKeyCard && timesKeyCard.createdAt === timesBorn.createdAt &&
     timesKeyCard.changedAt === timesArchived.changedAt,
   "status " + res.status + " key " + JSON.stringify(timesKeyCard || null));
-res = await keyCall("GET", "/api/v1/search?q=Times%20birth", timesKey);
+res = await roCall147("GET", "/api/v1/search?q=Times%20birth", timesKey);
 const timesSearchCard = timesCardIn(res.json, timesBorn.id);
 check("times: a search match carries the same two times",
   res.status === 200 && !!timesSearchCard && timesSearchCard.createdAt === timesBorn.createdAt &&
@@ -2793,7 +2796,7 @@ check("times: reading a card moves neither time",
   !!timesReadOne && !!timesReadTwo && timesReadOne.createdAt === timesReadTwo.createdAt &&
     timesReadOne.changedAt === timesReadTwo.changedAt,
   "one " + JSON.stringify(timesReadOne || null) + " two " + JSON.stringify(timesReadTwo || null));
-res = await keyCall("GET", "/api/v1/directions", timesKey);
+res = await roCall147("GET", "/api/v1/directions", timesKey);
 check("times: the served directions name the two times and the tidy they serve",
   res.status === 200 && res.text.includes("createdAt") && res.text.includes("changedAt") &&
     res.text.includes("Card times"),
@@ -2844,7 +2847,7 @@ res = await a.call("POST", "/api/v1/cards", {
 });
 const filesCard = res.json.card;
 
-res = await keyCall("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesKey, {
+res = await roCall147("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesKey, {
   name: "contract.pdf", kind: "application/pdf", data: fileData144,
 });
 const filedFile = res.json && res.json.attachment;
@@ -2853,7 +2856,7 @@ check("files: a key files a file on a card, and the record names it",
     filedFile.kind === "application/pdf" && filedFile.size === fileBytes144.length,
   "status " + res.status + " body " + (res.text || "").slice(0, 200));
 
-res = await keyCall("GET", "/api/v1/state", filesKey);
+res = await roCall147("GET", "/api/v1/state", filesKey);
 const keyFiles = filesOf144(res.json, filesCard.id);
 check("files: a card read lists the file's record and carries none of its bytes",
   keyFiles.length === 1 && !!filedFile && keyFiles[0].id === filedFile.id &&
@@ -2897,21 +2900,21 @@ check("files: removing a file takes it off the card and out of reach",
   "remove " + res.status + " listed " + afterRemove.length + " download " + dl.status);
 
 const bigBytes144 = Buffer.alloc(524289, 7);
-res = await keyCall("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesKey, {
+res = await roCall147("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesKey, {
   name: "too-big.bin", kind: "application/octet-stream", data: bigBytes144.toString("base64"),
 });
 check("files: a file past the size cap is refused, with the cap named",
   res.status === 400 && !!res.json && String(res.json.error || "").includes("512"),
   "status " + res.status + " body " + (res.text || "").slice(0, 200));
-res = await keyCall("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesKey, {
+res = await roCall147("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesKey, {
   name: "broken.txt", kind: "text/plain", data: "not base64!!",
 });
 const badDataStatus = res.status;
-res = await keyCall("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesKey, {
+res = await roCall147("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesKey, {
   kind: "text/plain", data: "aGk=",
 });
 const noNameStatus = res.status;
-res = await keyCall("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesKey, {
+res = await roCall147("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesKey, {
   name: "empty.txt", kind: "text/plain",
 });
 check("files: data that is not base64, a missing name and missing data are each refused",
@@ -2920,7 +2923,7 @@ check("files: data that is not base64, a missing name and missing data are each 
 
 res = await b.call("POST", "/api/v1/me/token", { name: "Files Foreign Key" });
 const filesForeignKey144 = res.json.key; const filesForeignKeyId144 = res.json.id;
-res = await keyCall("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesForeignKey144, {
+res = await roCall147("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesForeignKey144, {
   name: "foreign.txt", kind: "text/plain", data: "aGk=",
 });
 const foreignFileStatus = res.status;
@@ -2983,7 +2986,7 @@ check("files: deleting a card takes its files with it",
   res.status === 200 && dl.status === 404,
   "delete " + res.status + " download " + dl.status);
 
-res = await keyCall("GET", "/api/v1/directions", filesKey);
+res = await roCall147("GET", "/api/v1/directions", filesKey);
 check("files: the served directions name the file calls and the size cap",
   res.status === 200 && res.text.includes("/attachments") && res.text.includes("512 KB"),
   "status " + res.status);
@@ -3024,7 +3027,7 @@ const chCardY = res.json && res.json.card;
 res = await a.call("PATCH", "/api/v1/cards/" + chCardX.id, { title: "Changes Card One, Edited" });
 res = await a.call("POST", "/api/v1/me/token", { name: "Changes Key" });
 const chKey = res.json && res.json.key; const chKeyId = res.json && res.json.id;
-res = await keyCall("POST", "/api/v1/cards/" + chCardY.id + "/comments", chKey,
+res = await roCall147("POST", "/api/v1/cards/" + chCardY.id + "/comments", chKey,
   { body: "A comment from the changes key" });
 check("changes: the family's boards, cards and key stand",
   !!chBoardX && !!chBoardY && !!chCardX && !!chCardY && !!chKey,
@@ -3060,7 +3063,7 @@ check("changes: a caller at the current version learns nothing changed",
     res.json.version === chCurrentVersion && res.json.complete === true && res.json.nextAfter === null,
   "status " + res.status + " body " + (res.text || "").slice(0, 140));
 
-res = await keyCall("GET", changesPath145("since_version=" + chVersionBefore), chKey);
+res = await roCall147("GET", changesPath145("since_version=" + chVersionBefore), chKey);
 check("changes: a key reads the same changes as the person",
   res.status === 200 && !!res.json &&
     changesIds145(res.json).join("|") === changesIds145(chFull).join("|") &&
@@ -3141,7 +3144,7 @@ check("changes: a deleted board's acts leave the answer with it",
     changesList145(res.json).some((e) => e.boardId === chBoardY.id),
   "status " + res.status + " boards " + changesList145(res.json).map((e) => e.boardId).join(","));
 
-res = await keyCall("GET", "/api/v1/directions", chKey);
+res = await roCall147("GET", "/api/v1/directions", chKey);
 check("changes: the served directions name the changes read",
   res.status === 200 && res.text.includes("GET /changes") && res.text.includes("Changes since a version"),
   "status " + res.status);
@@ -3257,7 +3260,7 @@ check("filtered: a filter matching nothing answers an empty list, not an error",
     res.json.cards.length === 0 && res.json.nextAfter === null,
   "status " + res.status + " body " + (res.text || "").slice(0, 120));
 
-res = await keyCall("GET", filteredPath146("label_id=" + fltLabel.id), fltKey);
+res = await roCall147("GET", filteredPath146("label_id=" + fltLabel.id), fltKey);
 check("filtered: a key reads the same filtered answer as the person",
   res.status === 200 && filteredIds146(res.json).join("|") === filteredIds146(fltByLabel).join("|"),
   "status " + res.status + " ids " + filteredIds146(res.json).join(","));
@@ -3372,7 +3375,7 @@ check("filtered: the read changes nothing and raises no version",
   fltVersionBefore === fltVersionAfter,
   "version " + fltVersionBefore + " -> " + fltVersionAfter);
 
-res = await keyCall("GET", "/api/v1/directions", fltKey);
+res = await roCall147("GET", "/api/v1/directions", fltKey);
 check("filtered: the served directions name the filtered read",
   res.status === 200 && res.text.includes("GET /cards") && res.text.includes("Filtered reads"),
   "status " + res.status);
@@ -3572,7 +3575,7 @@ res = await a.call("DELETE", "/api/v1/me/token/" + bulkKeyId);
 
   const stBeforeMove = await state(a);
   // The key makes the move: board, column and project in one edit.
-  res = await keyCall("PATCH", "/api/v1/cards/" + mvCard.id, mvKey, {
+  res = await roCall147("PATCH", "/api/v1/cards/" + mvCard.id, mvKey, {
     board_id: mvDst.id, column_id: "in-progress-163", project_id: dstOwnProject.id,
   });
   check("#163: a key's move answers 200 with the card on the new board",
