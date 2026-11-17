@@ -14,7 +14,10 @@
 // each of their keys in its own name follow a card and are
 // told through one small read when it changes), board activity
 // (issue #141: a board's acts read back in order, with their
-// stamps, to the person and to a key alike), keys (mint,
+// stamps, to the person and to a key alike), searching boards
+// and cards (issue #142: a card found by its own words — its
+// title, notes, steps, link names and comments — across every
+// board, without a read of the whole state), keys (mint,
 // list, rename, revoke, the key-door rules), the
 // write gate (unknown fields refused by name, stale writes), the
 // version stamps, the directions, the push route's refusals and
@@ -2379,6 +2382,155 @@ check("activity: a deleted key's hand-back leaves its own row",
     actHandback.detail.to && actHandback.detail.to.holder === "owner",
   "status " + res.status + " body " + (res.text || "").slice(0, 240));
 res = await a.call("DELETE", "/api/v1/boards/" + actHandBoard.id);
+
+// --- Searching boards and cards (issue #142) ----------------------------------
+// One read finds a card by its own words — its title, its
+// notes, its steps' text, its links' names and its comments'
+// bodies — across every board the caller owns, without a read
+// of the whole state. Every word in q must stand somewhere in
+// the card's words, letter case ignored; a link's address and
+// a board's or column's name are not searched, and each match
+// names its board and column instead. Archived cards are
+// searched too. The read never returns another owner's card
+// and never raises the version.
+const searchPath142 = (query) => "/api/v1/search" + (query ? "?" + query : "");
+const searchIds142 = (answer) =>
+  (answer && Array.isArray(answer.cards) ? answer.cards : []).map((card) => card.id);
+const searchFind142 = (answer, id) =>
+  (answer && Array.isArray(answer.cards) ? answer.cards : []).find((card) => card.id === id);
+
+res = await a.call("POST", "/api/v1/boards", { name: "Search Board" });
+const srchBoard = res.json.board;
+res = await a.call("POST", "/api/v1/boards", { name: "Search Second Board" });
+const srchBoard2 = res.json.board;
+res = await a.call("POST", "/api/v1/me/token", { name: "Search Key" });
+const srchKey = res.json.key; const srchKeyId = res.json.id;
+
+res = await keyCall("POST", "/api/v1/cards", srchKey, {
+  board_id: srchBoard.id, column_id: "inbox", title: "Quarterly zebra report",
+  notes: "plain notes for the quarter",
+});
+const srchCardTitle = res.json.card;
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: srchBoard.id, column_id: "inbox", title: "Shopping list",
+  notes: "remember the quixotic melons",
+});
+const srchCardWords = res.json.card;
+res = await a.call("POST", "/api/v1/cards/" + srchCardWords.id + "/steps", { text: "water the ferns" });
+res = await a.call("POST", "/api/v1/cards/" + srchCardWords.id + "/links",
+  { url: "zelda.example.net/search", name: "Fern guide" });
+res = await keyCall("POST", "/api/v1/cards/" + srchCardWords.id + "/comments", srchKey,
+  { body: "the melons were splendid indeed" });
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: srchBoard.id, column_id: "inbox", title: "Archived zebra",
+});
+const srchCardArchived = res.json.card;
+res = await a.call("PATCH", "/api/v1/cards/" + srchCardArchived.id, { archived: true });
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: srchBoard2.id, column_id: "inbox", title: "Second board zebra",
+});
+const srchCardSecond = res.json.card;
+const srchForeignBoard = (await state(b)).boards[0];
+res = await b.call("POST", "/api/v1/cards", {
+  board_id: srchForeignBoard.id, column_id: "inbox", title: "B zebra keepsake",
+});
+const srchCardForeign = res.json.card;
+
+res = await keyCall("GET", searchPath142("q=zebra"), srchKey);
+const srchZebra = res.json;
+check("search: a key finds cards by a word in their titles, across every board",
+  res.status === 200 && searchIds142(srchZebra).includes(srchCardTitle.id) &&
+    searchIds142(srchZebra).includes(srchCardSecond.id),
+  "status " + res.status + " ids " + searchIds142(srchZebra).join(","));
+check("search: an archived card is searched too, and reads flagged archived",
+  !!searchFind142(srchZebra, srchCardArchived.id) &&
+    searchFind142(srchZebra, srchCardArchived.id).archived === true,
+  "archived " + JSON.stringify(searchFind142(srchZebra, srchCardArchived.id) || null));
+check("search: a match names its board and its column",
+  !!searchFind142(srchZebra, srchCardTitle.id) &&
+    searchFind142(srchZebra, srchCardTitle.id).boardName === "Search Board" &&
+    searchFind142(srchZebra, srchCardTitle.id).columnName === "Inbox" &&
+    !!searchFind142(srchZebra, srchCardSecond.id) &&
+    searchFind142(srchZebra, srchCardSecond.id).boardName === "Search Second Board",
+  "names " + JSON.stringify(searchFind142(srchZebra, srchCardTitle.id) || null));
+check("search: another owner's card never stands in the answer",
+  !searchIds142(srchZebra).includes(srchCardForeign.id),
+  "ids " + searchIds142(srchZebra).join(","));
+
+res = await keyCall("GET", searchPath142("q=remember"), srchKey);
+check("search: a key finds a card by a word in its notes",
+  res.status === 200 && searchIds142(res.json).join("|") === srchCardWords.id,
+  "status " + res.status + " ids " + searchIds142(res.json).join(","));
+res = await keyCall("GET", searchPath142("q=indeed"), srchKey);
+check("search: a word in a comment finds its card",
+  res.status === 200 && searchIds142(res.json).includes(srchCardWords.id),
+  "status " + res.status + " ids " + searchIds142(res.json).join(","));
+res = await keyCall("GET", searchPath142("q=ferns"), srchKey);
+check("search: a word in a step's text finds its card",
+  res.status === 200 && searchIds142(res.json).includes(srchCardWords.id),
+  "status " + res.status + " ids " + searchIds142(res.json).join(","));
+res = await keyCall("GET", searchPath142("q=guide"), srchKey);
+check("search: a word in a link's name finds its card",
+  res.status === 200 && searchIds142(res.json).includes(srchCardWords.id),
+  "status " + res.status + " ids " + searchIds142(res.json).join(","));
+res = await keyCall("GET", searchPath142("q=zelda"), srchKey);
+check("search: a link's address is not searched",
+  res.status === 200 && !!res.json && Array.isArray(res.json.cards) && res.json.cards.length === 0,
+  "status " + res.status + " ids " + searchIds142(res.json).join(","));
+
+res = await keyCall("GET", searchPath142("q=zebra%20report"), srchKey);
+check("search: every word must stand — two words narrow the matches",
+  res.status === 200 && searchIds142(res.json).join("|") === srchCardTitle.id,
+  "status " + res.status + " ids " + searchIds142(res.json).join(","));
+res = await keyCall("GET", searchPath142("q=ZEBRA"), srchKey);
+check("search: letter case is ignored",
+  res.status === 200 && searchIds142(res.json).includes(srchCardTitle.id),
+  "status " + res.status + " ids " + searchIds142(res.json).join(","));
+res = await keyCall("GET", searchPath142("q=zzqxwnothing"), srchKey);
+check("search: a search that matches nothing answers an empty list, not an error",
+  res.status === 200 && !!res.json && Array.isArray(res.json.cards) && res.json.cards.length === 0,
+  "status " + res.status + " body " + (res.text || "").slice(0, 120));
+res = await keyCall("GET", searchPath142(""), srchKey);
+const srchNoQStatus = res.status;
+res = await keyCall("GET", searchPath142("q=%20%20"), srchKey);
+check("search: a q with no word in it is refused",
+  srchNoQStatus === 400 && res.status === 400,
+  "missing " + srchNoQStatus + " blank " + res.status);
+
+res = await a.call("GET", searchPath142("q=zebra"));
+check("search: the person's own read answers the same matches as their key's",
+  res.status === 200 && searchIds142(res.json).join("|") === searchIds142(srchZebra).join("|"),
+  "status " + res.status + " ids " + searchIds142(res.json).join(","));
+res = await b.call("GET", searchPath142("q=quarterly"));
+check("search: the other owner's search finds none of these cards",
+  res.status === 200 && !!res.json && Array.isArray(res.json.cards) && res.json.cards.length === 0,
+  "status " + res.status + " ids " + searchIds142(res.json).join(","));
+
+res = await keyCall("GET", searchPath142("q=zebra&board_id=" + srchBoard.id), srchKey);
+check("search: board_id narrows the search to that board",
+  res.status === 200 && searchIds142(res.json).includes(srchCardTitle.id) &&
+    searchIds142(res.json).includes(srchCardArchived.id) &&
+    !searchIds142(res.json).includes(srchCardSecond.id),
+  "status " + res.status + " ids " + searchIds142(res.json).join(","));
+res = await keyCall("GET", searchPath142("q=zebra&board_id=" + srchForeignBoard.id), srchKey);
+check("search: another owner's board id reads as not found",
+  res.status === 404, "status " + res.status);
+
+const srchVersionBefore = (await state(a)).version;
+res = await keyCall("GET", searchPath142("q=zebra"), srchKey);
+const srchVersionAfter = (await state(a)).version;
+check("search: a search changes nothing and raises no version",
+  srchVersionBefore === srchVersionAfter,
+  "version " + srchVersionBefore + " -> " + srchVersionAfter);
+res = await keyCall("GET", "/api/v1/directions", srchKey);
+check("search: the served directions name the search read",
+  res.status === 200 && res.text.includes("GET /search") && res.text.includes("Searching"),
+  "status " + res.status);
+
+res = await b.call("DELETE", "/api/v1/cards/" + srchCardForeign.id);
+res = await a.call("DELETE", "/api/v1/boards/" + srchBoard2.id);
+res = await a.call("DELETE", "/api/v1/boards/" + srchBoard.id);
+res = await a.call("DELETE", "/api/v1/me/token/" + srchKeyId);
 
 // --- Moving a card to another board (issue #163) ------------------------------
 // One card edit names the new board, the column on it and the

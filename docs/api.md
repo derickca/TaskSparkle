@@ -83,6 +83,12 @@ Each entry carries `id`, `boardId`, `version` (the owner's version the act lande
 
 The read takes filters: `card_id`, `act` and `since_version`, and pages with `after` (an entry id) and `limit` (1 to 500, default 100); `nextAfter` names the last entry of a page when more stand after it, and stands null at the end. A write that changes nothing and a refused write write no entry. The history starts with the build that added it: acts from before it were never recorded, and no entry can say when an older card was moved, edited or ticked, or who did it. Deleting a board deletes its activity with it.
 
+### Searching
+
+One read finds a card by its own words: `GET /api/v1/search?q=<words>`, for the signed-in person or for a key, across every board the caller owns at once — or one board, when `board_id` names it; a board that is not the caller's reads as not found. The answer is `{cards}`, in the order the state reads cards, each match in the full card shape the state carries, plus `boardName` and `columnName` naming where the card stands.
+
+A card's own words are its title, its notes, its steps' text, its links' names and its comments' bodies. A link's address is not searched, and neither is a board's or a column's name: those name where a card stands, and the answer names them instead. `q` splits into words, and a card matches when every word stands somewhere in its words, letter case ignored, a word standing inside a longer word counting. A `q` holding no word is refused with a 400; a search that matches nothing answers an empty list. Archived cards are searched too and read flagged `archived: true`. A search changes nothing and raises no version.
+
 ### Writing with baseVersion
 
 A write can name the version it was based on, as `baseVersion` in its body. Think of it as saying: this is the state I read.
@@ -151,6 +157,7 @@ These routes answer a signed-in person only. A call carrying a key gets a 403 on
 
 ### Boards and parts
 
+- `GET /api/v1/search?q=<words>` returns the cards whose words match, across every board: `{cards}`, each in the full card shape with its `boardName` and `columnName` beside it. See "Searching" above for what is searched and the matching rule.
 - `GET /api/v1/boards/:id/activity` returns the board's activity: `{boardId, activity, nextAfter}`, the acts that landed on it, oldest first. See "Board activity" above for the entry shape and the filters.
 - `POST /api/v1/boards` creates a board with the five starter columns. It takes a name, and an `icon` if you send one.
 - `PATCH /api/v1/boards/:id` renames a board. It can also move the board among your boards (`position`), and set the board's label colour mode (`label_colour_mode`).

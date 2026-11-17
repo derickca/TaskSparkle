@@ -306,6 +306,7 @@ function agentDirections(env) {
     "GET /queue - the cards whose next step is yours, across every board, each in the full card shape state carries (see Handing over). For the person it answers the cards whose step is theirs.",
     "GET /following - the cards you follow, each in the full card shape state carries, with changed saying whether the card changed since you last read the list (see Following a card).",
     "GET /boards/{board id}/activity - the board's activity: the acts that landed on it, oldest first (see Board activity).",
+    "GET /search?q={words} - the cards whose words match, across every board, each match naming its board and column (see Searching).",
     "GET /version - just the version number and the build stamp.",
     "GET /directions - these directions, as plain text.",
     "GET /push - a WebSocket for live updates (see Live updates).",
@@ -398,6 +399,10 @@ function agentDirections(env) {
     "Board activity",
     "Every accepted change to a board writes its acts to the board's activity as it lands, one entry per act, all under the one version the change raises. Read a board's activity with GET /boards/{board id}/activity. Entries read oldest first. Each entry carries: id; boardId; version, the owner's version the act landed under; at, when it landed; act, what happened — board-created, board-edited, column-created, column-edited, column-deleted, label-created, label-edited, label-deleted, project-created, project-edited, project-deleted, card-created, card-moved, card-edited, card-archived, card-restored, card-handed-over, card-picked-up, card-deleted, step-added, step-edited, step-ticked, step-unticked, step-moved, step-deleted, link-added, link-edited, link-deleted, comment-added, comment-deleted, and round-landed for a round a column's schedule landed; who did it — actorKind, owner for the person, agent for a key, schedule for a round, with actorKeyId naming the acting key, actorKeyName its name as the entry is read, and actorName naming the actor either way, standing null for the schedule; the object the act touched — objectType (board, column, label, project, card, step, link or comment), objectId, and objectName, its name or title as it stood at that moment, so deleted work still reads by its last name; cardId for an act on a card or one of its parts; and detail, the act's own facts: where a card moved from and to, by board and column name; a hand-over's holder before and after; a tick's before and after; a comment's body; an edit's changed fields with their before and after values; the cards a column delete moved; and the cards a round archived and landed.",
     "Filter the read with card_id (one card's acts), act (one kind of act) or since_version (the acts that landed after a version you already hold), and page it with limit (1 to 500, default 100) and after (the id of the last entry you read): nextAfter names the last entry of a page when more stand after it, and stands null at the end of the history. A card that moves boards writes its move on both boards. A board copy and a template start open the new board's history with one board-created entry naming where it came from and what it holds; a column delete and a recurring round each stand as one entry naming the cards they moved or landed. A write that changes nothing, a refused write, following or unfollowing a card, saving a template, and making, renaming or deleting a key write no entry — except that deleting a key writes a card-handed-over entry for each card it hands back. The history starts with the build that added it: acts from before it were never recorded, and no entry can say when an older card was moved, edited or ticked, or who did it. Deleting a board deletes its activity with it.",
+    "",
+    "Searching",
+    "Read the cards whose words match with GET /search?q={words}: it answers across every board at once, so finding a card never means reading every board whole. A card's words are its title, its notes, its steps' text, its links' names and its comments' bodies. A link's address is not searched, and neither is a board's or a column's name: those name where a card stands, and each match names them instead, as boardName and columnName beside the card. Send board_id with the call to search one board alone; a board that is not the owner's reads as not found.",
+    "q splits into words, and a card matches when every word stands somewhere in its words, letter case ignored; a word standing inside a longer word counts, so report finds reports. A q holding no word is refused. A search that matches nothing answers an empty list, never an error. Archived cards are searched too and come back flagged archived, as they do in the state. Each match stands in the full card shape the state carries — steps, links and comments riding — in the order the state reads cards. A search changes nothing and raises no version.",
     "",
     "Limits",
     "Sizes are capped well past ordinary use, and a write past a cap is refused whole. Lengths count characters as sent.",
@@ -3110,6 +3115,71 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         });
         await batchRun(db, seenStatements);
         return json({ cards: followCards });
+      }
+    }
+
+    // The caller's search (issue #142): the cards whose own
+    // words match the words in q, across all of the owner's
+    // boards — or one board, when board_id names it — each in
+    // the full card shape the state carries, with the board's
+    // and the column's names riding beside the card as
+    // boardName and columnName, the way the follows read adds
+    // its changed. A card's own words are its title, its
+    // notes, its steps' text, its links' names and its
+    // comments' bodies; a link's address is not a word a card
+    // is found by, and neither is a board's or a column's
+    // name — those name where a card stands, and the answer
+    // names them instead. Every word in q must stand
+    // somewhere in the card's words, letter case ignored, a
+    // word standing inside a longer word counting. Archived
+    // cards are searched too and read flagged, as they do in
+    // the state itself. The read changes nothing and raises
+    // no version: it reads the caller's own state, so another
+    // owner's card can never stand in the answer, and a board
+    // id that is not the caller's reads as not found, the rule
+    // every board route keeps.
+    if ((p = match(parts, ["api", "search"]))) {
+      if (method === "GET") {
+        var searchParams = new URL(request.url).searchParams;
+        var searchWords = String(searchParams.get("q") || "")
+          .toLowerCase().split(/\s+/)
+          .filter(function (word) { return word.length > 0; });
+        if (!searchWords.length) {
+          return error("q must name at least one word to search for.");
+        }
+        var searchBoardId = searchParams.get("board_id");
+        if (searchBoardId) {
+          var searchBoard = await ownerBoard(db, owner.id, searchBoardId);
+          if (!searchBoard) return error("Board not found.", 404);
+        }
+        var searchState = await buildState(db, owner, env, via);
+        var searchBoardsById = {};
+        searchState.boards.forEach(function (board) {
+          var columnNames = {};
+          board.columns.forEach(function (column) {
+            columnNames[column.kind] = column.name;
+          });
+          searchBoardsById[board.id] = { name: board.name, columnNames: columnNames };
+        });
+        var searchMatches = [];
+        searchState.cards.forEach(function (card) {
+          if (searchBoardId && card.boardId !== searchBoardId) return;
+          var cardWords = [card.title, card.notes];
+          (card.steps || []).forEach(function (step) { cardWords.push(step.text); });
+          (card.links || []).forEach(function (link) { cardWords.push(link.name); });
+          (card.comments || []).forEach(function (comment) { cardWords.push(comment.body); });
+          var cardText = cardWords.join("\n").toLowerCase();
+          var stands = searchWords.every(function (word) {
+            return cardText.indexOf(word) !== -1;
+          });
+          if (!stands) return;
+          var standing = searchBoardsById[card.boardId];
+          card.boardName = standing ? standing.name : null;
+          card.columnName = standing && standing.columnNames[card.columnId] != null
+            ? standing.columnNames[card.columnId] : null;
+          searchMatches.push(card);
+        });
+        return json({ cards: searchMatches });
       }
     }
 
