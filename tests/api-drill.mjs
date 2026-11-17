@@ -2647,6 +2647,196 @@ check("times: the served directions name the two times and the tidy they serve",
 res = await a.call("DELETE", "/api/v1/boards/" + timesBoard.id);
 res = await a.call("DELETE", "/api/v1/me/token/" + timesKeyId);
 
+// --- File attachments (issue #144) ---------------------------------------------
+// A card holds a file the way it holds a link: the signed
+// contract on its card, the receipt on the expense card. The
+// file stands in the database as base64 in a row of its own,
+// under three caps: 512 KB a file (the size whose base64
+// stands inside D1's value ceiling and the self-host server's
+// body cap alike), 20 files a card, and 100 MB of files a
+// person. A card read carries each file's record — name,
+// kind, size — and never its bytes; the bytes move on one
+// download call alone, which answers them raw with the file's
+// kind and a download disposition, so a filed page never
+// renders as the app. Filing and removing are writes: one
+// version rise each, and a board copy carries a card's files
+// the way it carries its steps and links.
+const fileBytes144 = Buffer.from(Array.from({ length: 2048 }, (_, i) => (i * 37 + 11) % 256));
+const fileData144 = fileBytes144.toString("base64");
+const rawFile144 = (base, headers, path) => new Promise((resolve, reject) => {
+  const url = new URL(path, base);
+  const lib = url.protocol === "https:" ? httpsRequest : httpRequest;
+  const req = lib({ method: "GET", hostname: url.hostname, port: url.port,
+    path: url.pathname + url.search, headers, rejectUnauthorized: false }, (res) => {
+    const chunks = [];
+    res.on("data", (c) => chunks.push(c));
+    res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, bytes: Buffer.concat(chunks) }));
+  });
+  req.on("error", reject);
+  req.end();
+});
+const filesOf144 = (st, cardId) => {
+  const card = (st.cards || []).find((c) => c.id === cardId);
+  return card && Array.isArray(card.attachments) ? card.attachments : [];
+};
+
+res = await a.call("POST", "/api/v1/boards", { name: "Files Board" });
+const filesBoard = res.json.board;
+res = await a.call("POST", "/api/v1/me/token", { name: "Files Key" });
+const filesKey = res.json.key; const filesKeyId = res.json.id;
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: filesBoard.id, column_id: "inbox", title: "Signed contract card",
+});
+const filesCard = res.json.card;
+
+res = await keyCall("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesKey, {
+  name: "contract.pdf", kind: "application/pdf", data: fileData144,
+});
+const filedFile = res.json && res.json.attachment;
+check("files: a key files a file on a card, and the record names it",
+  res.status === 201 && !!filedFile && filedFile.name === "contract.pdf" &&
+    filedFile.kind === "application/pdf" && filedFile.size === fileBytes144.length,
+  "status " + res.status + " body " + (res.text || "").slice(0, 200));
+
+res = await keyCall("GET", "/api/v1/state", filesKey);
+const keyFiles = filesOf144(res.json, filesCard.id);
+check("files: a card read lists the file's record and carries none of its bytes",
+  keyFiles.length === 1 && !!filedFile && keyFiles[0].id === filedFile.id &&
+    keyFiles[0].size === fileBytes144.length && !("data" in keyFiles[0]),
+  "files " + JSON.stringify(keyFiles).slice(0, 200));
+
+let dl = await rawFile144(AGENT_BASE, { Authorization: "Bearer " + filesKey },
+  "/api/v1/cards/" + filesCard.id + "/attachments/" + (filedFile && filedFile.id));
+check("files: a key reads the file back whole, as a download in its own kind",
+  dl.status === 200 && dl.bytes.equals(fileBytes144) &&
+    String(dl.headers["content-type"] || "").includes("application/pdf") &&
+    String(dl.headers["content-disposition"] || "").includes("attachment"),
+  "status " + dl.status + " bytes " + dl.bytes.length + " type " + dl.headers["content-type"]);
+
+const personFiles = filesOf144(await state(a), filesCard.id);
+check("files: the person sees the same file standing on the card",
+  personFiles.length === 1 && !!filedFile && personFiles[0].id === filedFile.id &&
+    personFiles[0].name === "contract.pdf",
+  "files " + JSON.stringify(personFiles).slice(0, 200));
+dl = await rawFile144(BASE, a.headers,
+  "/api/v1/cards/" + filesCard.id + "/attachments/" + (filedFile && filedFile.id));
+check("files: the person opens the same file, byte for byte",
+  dl.status === 200 && dl.bytes.equals(fileBytes144),
+  "status " + dl.status + " bytes " + dl.bytes.length);
+
+const filesVersionBefore = (await state(a)).version;
+res = await a.call("POST", "/api/v1/cards/" + filesCard.id + "/attachments", {
+  name: "receipt.txt", kind: "text/plain", data: Buffer.from("a receipt").toString("base64"),
+});
+const receiptFile = res.json && res.json.attachment;
+const filesVersionAfter = (await state(a)).version;
+check("files: filing a file is one write and one version rise",
+  res.status === 201 && filesVersionAfter === filesVersionBefore + 1,
+  "version " + filesVersionBefore + " -> " + filesVersionAfter);
+res = await a.call("DELETE", "/api/v1/cards/" + filesCard.id + "/attachments/" + (receiptFile && receiptFile.id));
+const afterRemove = filesOf144(await state(a), filesCard.id);
+dl = await rawFile144(BASE, a.headers,
+  "/api/v1/cards/" + filesCard.id + "/attachments/" + (receiptFile && receiptFile.id));
+check("files: removing a file takes it off the card and out of reach",
+  res.status === 200 && afterRemove.length === 1 && dl.status === 404,
+  "remove " + res.status + " listed " + afterRemove.length + " download " + dl.status);
+
+const bigBytes144 = Buffer.alloc(524289, 7);
+res = await keyCall("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesKey, {
+  name: "too-big.bin", kind: "application/octet-stream", data: bigBytes144.toString("base64"),
+});
+check("files: a file past the size cap is refused, with the cap named",
+  res.status === 400 && !!res.json && String(res.json.error || "").includes("512"),
+  "status " + res.status + " body " + (res.text || "").slice(0, 200));
+res = await keyCall("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesKey, {
+  name: "broken.txt", kind: "text/plain", data: "not base64!!",
+});
+const badDataStatus = res.status;
+res = await keyCall("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesKey, {
+  kind: "text/plain", data: "aGk=",
+});
+const noNameStatus = res.status;
+res = await keyCall("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesKey, {
+  name: "empty.txt", kind: "text/plain",
+});
+check("files: data that is not base64, a missing name and missing data are each refused",
+  badDataStatus === 400 && noNameStatus === 400 && res.status === 400,
+  "base64 " + badDataStatus + " name " + noNameStatus + " data " + res.status);
+
+res = await b.call("POST", "/api/v1/me/token", { name: "Files Foreign Key" });
+const filesForeignKey144 = res.json.key; const filesForeignKeyId144 = res.json.id;
+res = await keyCall("POST", "/api/v1/cards/" + filesCard.id + "/attachments", filesForeignKey144, {
+  name: "foreign.txt", kind: "text/plain", data: "aGk=",
+});
+const foreignFileStatus = res.status;
+dl = await rawFile144(AGENT_BASE, { Authorization: "Bearer " + filesForeignKey144 },
+  "/api/v1/cards/" + filesCard.id + "/attachments/" + (filedFile && filedFile.id));
+check("files: a foreign key can neither file on the card nor read its files",
+  foreignFileStatus === 404 && dl.status === 404,
+  "file " + foreignFileStatus + " read " + dl.status);
+
+res = await a.call("POST", "/api/v1/boards/" + filesBoard.id + "/copy",
+  { name: "Files Board Copy", columns: true, cards: true });
+const filesCopyBoard = res.json && res.json.board;
+const copyState = await state(a);
+const copiedCard = filesCopyBoard
+  ? (copyState.cards || []).find((c) => c.title === "Signed contract card" && c.boardId === filesCopyBoard.id)
+  : null;
+const copiedFiles = copiedCard ? filesOf144(copyState, copiedCard.id) : [];
+let copyBytesOk = false;
+if (copiedCard && copiedFiles.length === 1) {
+  const cdl = await rawFile144(BASE, a.headers,
+    "/api/v1/cards/" + copiedCard.id + "/attachments/" + copiedFiles[0].id);
+  copyBytesOk = cdl.status === 200 && cdl.bytes.equals(fileBytes144);
+}
+check("files: a board copy carries a card's files, whole",
+  !!copiedCard && copiedFiles.length === 1 && copiedFiles[0].size === fileBytes144.length && copyBytesOk,
+  "card " + (copiedCard && copiedCard.id) + " files " + copiedFiles.length);
+if (filesCopyBoard) res = await a.call("DELETE", "/api/v1/boards/" + filesCopyBoard.id);
+
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: filesBoard.id, column_id: "inbox", title: "Cap card",
+});
+const capCard = res.json.card;
+let capFiled = 0;
+for (let i = 1; i <= 20; i++) {
+  const one = await a.call("POST", "/api/v1/cards/" + capCard.id + "/attachments", {
+    name: "f" + i + ".txt", kind: "text/plain", data: "AA==",
+  });
+  if (one.status === 201) capFiled += 1;
+}
+res = await a.call("POST", "/api/v1/cards/" + capCard.id + "/attachments", {
+  name: "f21.txt", kind: "text/plain", data: "AA==",
+});
+check("files: a card holds twenty files and refuses the twenty-first",
+  capFiled === 20 && res.status === 400 &&
+    String((res.json || {}).error || "").includes("as many files as one card holds"),
+  "filed " + capFiled + " 21st " + res.status + " body " + (res.text || "").slice(0, 160));
+
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: filesBoard.id, column_id: "inbox", title: "Doomed card",
+});
+const doomedCard = res.json.card;
+res = await a.call("POST", "/api/v1/cards/" + doomedCard.id + "/attachments", {
+  name: "doomed.txt", kind: "text/plain", data: "aGk=",
+});
+const doomedFile = res.json && res.json.attachment;
+res = await a.call("DELETE", "/api/v1/cards/" + doomedCard.id);
+dl = await rawFile144(BASE, a.headers,
+  "/api/v1/cards/" + doomedCard.id + "/attachments/" + (doomedFile && doomedFile.id));
+check("files: deleting a card takes its files with it",
+  res.status === 200 && dl.status === 404,
+  "delete " + res.status + " download " + dl.status);
+
+res = await keyCall("GET", "/api/v1/directions", filesKey);
+check("files: the served directions name the file calls and the size cap",
+  res.status === 200 && res.text.includes("/attachments") && res.text.includes("512 KB"),
+  "status " + res.status);
+
+res = await a.call("DELETE", "/api/v1/boards/" + filesBoard.id);
+res = await a.call("DELETE", "/api/v1/me/token/" + filesKeyId);
+res = await b.call("DELETE", "/api/v1/me/token/" + filesForeignKeyId144);
+
 // --- Moving a card to another board (issue #163) ------------------------------
 // One card edit names the new board, the column on it and the
 // project on it, and the move lands as one act with one version
