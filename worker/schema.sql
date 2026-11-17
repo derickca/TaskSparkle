@@ -32,6 +32,12 @@ CREATE TABLE IF NOT EXISTS api_tokens (
   label TEXT NOT NULL DEFAULT 'Agent',
   token_hash TEXT NOT NULL UNIQUE,
   last4 TEXT,
+  -- The key's level (issue #147): write, the full powers a
+  -- local key has always held, or read — the key reads
+  -- everything a key may read and the write gate refuses its
+  -- every write. The person's own session is never judged by
+  -- it; the level is a property of the key alone.
+  access TEXT NOT NULL DEFAULT 'write',
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   revoked_at TEXT
 );

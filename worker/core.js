@@ -202,7 +202,7 @@ function countOf(row) {
 // loading line. The deploy checks the two stamps agree and fails
 // when they do not, so a release can never ship them mismatched.
 // Bump both together whenever the app files change.
-var BUILD_ID = "r2026-11-16-2";
+var BUILD_ID = "r2026-11-16-3";
 
 // Every API answer carries two standing headers. Cache-Control:
 // no-store, because state answers hold a person's boards and the
@@ -442,8 +442,9 @@ function agentDirections(env) {
     "",
     "Keys and access",
     "All API use need to be from real MemberSpark users. No public access.",
-    "- An owner holds a list of named keys, all live at once, up to 10. Each key stands on its own: it carries its owner's full powers over the boards, and making, renaming or revoking another key never touches it.",
-    "- Keys are managed by the person alone, in the app under Settings, then Set Up Agent: they make a key under a name (the full key shows once, at that moment), rename a key (the name only; the key itself never changes), and delete a key (that key stops working at once; the others are untouched).",
+    "- An owner holds a list of named keys, all live at once, up to 10. Each key stands on its own, and making, renaming or revoking another key never touches it. A key holds one of two levels, which the person sets: write, which carries its owner's full powers over the boards, or read, which reads everything a key may read and changes nothing.",
+    "- Keys are managed by the person alone, in the app under Settings, then Set Up Agent: they make a key under a name and a level (the full key shows once, at that moment), rename a key (the name only; the key itself never changes), change a key's level, and delete a key (that key stops working at once; the others are untouched). A level change takes effect on the key's next call.",
+    "- A read key's write is refused with a 401: \"This key holds read access only, so this change is refused.\" Nothing is written and no version rises. GET /me with your key names your own level as access, so you can tell which standing you hold before you try to write.",
     "- A key's name rides on the work it does as the key is named when the work is read: the cards it creates and holds, the comments it writes and the hand-overs it makes all record the key itself, never its name, so renaming a key renames its name on the work everywhere at once, and deleting a key leaves its name standing on its work, because the key's row stands as its record. The person is told this where keys are named, before they name one.",
     "- The /me/token routes answer only the signed-in browser: a call carrying a key gets a 403. Do not call them. A key can never mint, rename or revoke a key, so a leaked key cannot lock the person's other agents out.",
     "- The sign-in routes answer only the signed-in browser the same way: passkeys, the password and the Admin page are the person's own, under /api/auth. A call carrying a key gets a 403 on every one of them. A key can never enrol a passkey, change a password, mint an invite or be exchanged for the person's session.",
@@ -646,7 +647,7 @@ async function resolveCaller(request, deps, host) {
     if (token) {
       var hash = await sha256Hex(token);
       var row = await db.prepare(
-        "SELECT owners.*, api_tokens.id AS token_id, api_tokens.label AS token_label " +
+        "SELECT owners.*, api_tokens.id AS token_id, api_tokens.label AS token_label, api_tokens.access AS token_access " +
         "FROM api_tokens JOIN owners ON owners.id = api_tokens.owner_id " +
         "WHERE api_tokens.token_hash = ? AND api_tokens.revoked_at IS NULL"
       ).bind(hash).first();
@@ -675,8 +676,10 @@ async function resolveCaller(request, deps, host) {
         // wrote it — its id — so the work names its maker. The
         // name rides this call for the answers that need it now;
         // the name the work reads with resolves from the key's
-        // row as the work is read (issues #120, #121).
-        return { owner: row, via: "agent-token", key: { id: row.token_id, name: row.token_label || "Agent" } };
+        // row as the work is read (issues #120, #121). The key's
+        // level rides too (issue #147): the write gate judges a
+        // write by it, and GET /me names it back to the caller.
+        return { owner: row, via: "agent-token", key: { id: row.token_id, name: row.token_label || "Agent", access: row.token_access === "read" ? "read" : "write" } };
       }
     }
     return { error: error("That key does not work. Check the key in TaskSparkle under Settings, then Set Up Agent.", 401) };
@@ -1338,10 +1341,10 @@ function writeFieldsFor(method, parts) {
   if (rest[0] === "terms" && rest.length === 2 && rest[1] === "agree" && method === "POST") return ["agreed"];
   if (rest[0] === "me" && rest.length === 1 && method === "PATCH") return ["theme", "name"];
   if (rest[0] === "me" && rest.length === 2 && rest[1] === "token") {
-    return method === "POST" ? ["name"] : [];
+    return method === "POST" ? ["name", "access"] : [];
   }
   if (rest[0] === "me" && rest.length === 3 && rest[1] === "token") {
-    return method === "PATCH" ? ["name"] : [];
+    return method === "PATCH" ? ["name", "access"] : [];
   }
   if (rest[0] === "boards") {
     if (rest.length === 1 && method === "POST") return ["name", "icon"];
@@ -2660,10 +2663,10 @@ export function createApiHandler(deps) {
   // stale. The app sends no body at all; the checks guard the
   // route's shape for every caller.
   //
-  // A key can never call this route: a key holds its owner's
-  // full powers over the boards, but erasing the owner is the
-  // person's own act, and a leaked key must not be able to
-  // destroy the account it serves.
+  // A key can never call this route: whatever level a key
+  // holds, erasing the owner is the person's own act, and a
+  // leaked key must not be able to destroy the account it
+  // serves.
   if (method === "DELETE" && parts.length === 2 && parts[1] === "me") {
     if (callerVia === "agent-token") {
       return error("A key cannot delete its owner. Deleting an account is the person's own act, in the app under Settings, then Account.", 403);
@@ -2761,12 +2764,15 @@ export function createApiHandler(deps) {
   }
 
   // Every write passes one gate before its route runs, and the
-  // gate is the same on both doors. A body that carries anything
-  // and is not JSON is refused as not JSON. A field the route
-  // does not take is refused by name, so a misspelled field can
-  // never pass silently while the write answers success. The
-  // body is read from a clone: the route below reads the original
-  // request's body for itself.
+  // gate is the same on both doors. The gate's first act is the
+  // caller's standing: a write from a read-level key is refused
+  // before the body is read at all (issue #147) — nothing is
+  // written, no version rises and no route runs. A body that
+  // carries anything and is not JSON is refused as not JSON. A
+  // field the route does not take is refused by name, so a
+  // misspelled field can never pass silently while the write
+  // answers success. The body is read from a clone: the route
+  // below reads the original request's body for itself.
   //
   // The stale-write guard lives here too. A write may name the
   // version it was based on, as baseVersion in its body. A
@@ -2785,6 +2791,13 @@ export function createApiHandler(deps) {
   // arrived by: a signed-in person is the owner, a key is an
   // agent. resolveCaller has already settled which it is.
   var stampBy = callerVia === "agent-token" ? "agent" : "owner";
+  // A read-level key's write stops here (issue #147): the
+  // answer is the 401 the MemberSpark road gives a read key's
+  // write, with the standing named. DELETE /me stands above
+  // this gate and keeps its own key refusal, as it always has.
+  if (isWrite && callerVia === "agent-token" && callerKey && callerKey.access === "read") {
+    return error("This key holds read access only, so this change is refused.", 401);
+  }
   if (isWrite) {
     var rawBody = "";
     try { rawBody = await request.clone().text(); } catch (e) { rawBody = ""; }
@@ -3030,10 +3043,12 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         // Through a key, /me names the person the key speaks
         // for — id and the name they go by — and carries no
         // email (issue #65's trim covers this answer too: a key
-        // needs boards, not the owner's email). The person's
+        // needs boards, not the owner's email). It also names
+        // the key's own level as access (issue #147), so a
+        // caller can tell which standing it holds. The person's
         // own session gets the email as well.
         return via === "agent-token"
-          ? json({ id: owner.id, name: effectiveName(owner) })
+          ? json({ id: owner.id, name: effectiveName(owner), access: callerKey && callerKey.access === "read" ? "read" : "write" })
           : json({ name: effectiveName(owner), email: owner.email });
       }
       if (method === "PATCH") {
@@ -3425,25 +3440,27 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
     // own, and making, renaming or revoking one touches no other.
     // Only the hash and the last four characters are stored. A
     // key's full value is in its creation response and nowhere
-    // else, ever.
+    // else, ever. Each key also holds a level (issue #147): read
+    // or write, chosen at the mint and changeable on the key's
+    // own route, the way the rename is.
     //
-    // These routes answer signed-in people only, never a key: a
-    // key holds its owner's full powers over the boards, but it
-    // cannot mint, rename or revoke a key. A leaked key therefore
-    // cannot lock the owner's other agents out; the person
-    // manages keys from the signed-in app, which is the only
-    // place it can happen.
+    // These routes answer signed-in people only, never a key:
+    // whatever level a key holds, it cannot mint, rename, change
+    // a level or revoke a key. A leaked key therefore cannot
+    // lock the owner's other agents out; the person manages keys
+    // from the signed-in app, which is the only place it can
+    // happen.
     if ((p = match(parts, ["api", "me", "token"]))) {
       if (via !== "access" && via !== "account") {
         return error("Keys are made and removed in the signed-in app, under Settings, then Set Up Agent.", 403);
       }
       if (method === "GET") {
         var keyRows = (await db.prepare(
-          "SELECT id, label, last4, created_at FROM api_tokens " +
+          "SELECT id, label, last4, access, created_at FROM api_tokens " +
           "WHERE owner_id = ? AND revoked_at IS NULL ORDER BY created_at, rowid"
         ).bind(owner.id).all()).results;
         return json({ keys: keyRows.map(function (row) {
-          return { id: row.id, name: row.label, last4: row.last4 || "", created_at: row.created_at };
+          return { id: row.id, name: row.label, last4: row.last4 || "", access: row.access === "read" ? "read" : "write", created_at: row.created_at };
         }) });
       }
       if (method === "POST") {
@@ -3451,6 +3468,16 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         var keyName = keyBody && keyBody.name != null ? String(keyBody.name).trim() : "";
         if (overLimit(keyName, LIMITS.nameChars)) return error("name is too long.");
         if (!keyName) keyName = "Agent";
+        // The level (issue #147): write unless the mint names
+        // read. A value that is neither is refused by name,
+        // before anything is written.
+        var keyAccess = "write";
+        if (keyBody && keyBody.access != null) {
+          keyAccess = String(keyBody.access);
+          if (keyAccess !== "read" && keyAccess !== "write") {
+            return error("access must be read or write.", 400);
+          }
+        }
         var liveKeys = await db.prepare(
           "SELECT COUNT(*) AS count FROM api_tokens WHERE owner_id = ? AND revoked_at IS NULL"
         ).bind(owner.id).first();
@@ -3460,21 +3487,22 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         var fullKey = makeAgentKey();
         var keyStamp = nowIso();
         var keyId = newId("token");
-        await db.prepare("INSERT INTO api_tokens (id, owner_id, label, token_hash, last4, created_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?, NULL)")
-          .bind(keyId, owner.id, keyName, await sha256Hex(fullKey), fullKey.slice(-4), keyStamp).run();
+        await db.prepare("INSERT INTO api_tokens (id, owner_id, label, token_hash, last4, access, created_at, revoked_at) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)")
+          .bind(keyId, owner.id, keyName, await sha256Hex(fullKey), fullKey.slice(-4), keyAccess, keyStamp).run();
         noteChange();
         await writeAudit(db, owner, "api-key-minted", { id: keyId },
           "last4 " + fullKey.slice(-4));
-        return json({ key: fullKey, id: keyId, name: keyName, last4: fullKey.slice(-4), created_at: keyStamp }, 201);
+        return json({ key: fullKey, id: keyId, name: keyName, last4: fullKey.slice(-4), access: keyAccess, created_at: keyStamp }, 201);
       }
       if (method === "DELETE") {
         return error("Name the key to delete: a delete names one key, by its id.", 400);
       }
     }
 
-    // One of the caller's keys, named in the address: rename it or
-    // revoke it. The row is read through the caller, so an id from
-    // another owner reads as not found, the way every id here does.
+    // One of the caller's keys, named in the address: rename it,
+    // change its level or revoke it. The row is read through the
+    // caller, so an id from another owner reads as not found, the
+    // way every id here does.
     if ((p = match(parts, ["api", "me", "token", ":tokenId"]))) {
       if (via !== "access" && via !== "account") {
         return error("Keys are made and removed in the signed-in app, under Settings, then Set Up Agent.", 403);
@@ -3484,22 +3512,46 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
       ).bind(p.tokenId, owner.id).first();
       if (!theToken) return error("Key not found.", 404);
       if (method === "PATCH") {
-        var renameBody = await readBody(request);
-        if (!renameBody || renameBody.name == null || !String(renameBody.name).trim()) {
+        var patchBody = await readBody(request);
+        var wantsName = !!patchBody && patchBody.name != null;
+        var wantsAccess = !!patchBody && patchBody.access != null;
+        if (!wantsName && !wantsAccess) {
           return error("name is required.");
         }
-        var cleanKeyName = String(renameBody.name).trim();
-        if (overLimit(cleanKeyName, LIMITS.nameChars)) return error("name is too long.");
-        // The name is all a rename touches: the row's hash, and
-        // with it the key itself, stands exactly as it was.
-        await db.prepare("UPDATE api_tokens SET label = ? WHERE id = ? AND owner_id = ?")
-          .bind(cleanKeyName, theToken.id, owner.id).run();
+        var cleanKeyName = theToken.label || "";
+        if (wantsName) {
+          if (!String(patchBody.name).trim()) return error("name is required.");
+          cleanKeyName = String(patchBody.name).trim();
+          if (overLimit(cleanKeyName, LIMITS.nameChars)) return error("name is too long.");
+        }
+        var heldAccess = theToken.access === "read" ? "read" : "write";
+        var cleanAccess = heldAccess;
+        if (wantsAccess) {
+          cleanAccess = String(patchBody.access);
+          if (cleanAccess !== "read" && cleanAccess !== "write") {
+            return error("access must be read or write.", 400);
+          }
+        }
+        // The name and the level are all a patch touches: the
+        // row's hash, and with it the key itself, stands exactly
+        // as it was. A field set to the value it already holds
+        // changes nothing — no write, no audit entry, and the
+        // gate raises no version for it.
         if (cleanKeyName !== (theToken.label || "")) {
+          await db.prepare("UPDATE api_tokens SET label = ? WHERE id = ? AND owner_id = ?")
+            .bind(cleanKeyName, theToken.id, owner.id).run();
           noteChange();
           await writeAudit(db, owner, "api-key-renamed", { id: theToken.id },
             "last4 " + (theToken.last4 || ""));
         }
-        return json({ key: { id: theToken.id, name: cleanKeyName, last4: theToken.last4 || "", created_at: theToken.created_at } });
+        if (cleanAccess !== heldAccess) {
+          await db.prepare("UPDATE api_tokens SET access = ? WHERE id = ? AND owner_id = ?")
+            .bind(cleanAccess, theToken.id, owner.id).run();
+          noteChange();
+          await writeAudit(db, owner, "api-key-access-changed", { id: theToken.id },
+            "access " + cleanAccess + ", last4 " + (theToken.last4 || ""));
+        }
+        return json({ key: { id: theToken.id, name: cleanKeyName, access: cleanAccess, last4: theToken.last4 || "", created_at: theToken.created_at } });
       }
       if (method === "DELETE") {
         // Revoking is a stamp, not a row delete: the row stays as

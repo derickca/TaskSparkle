@@ -167,7 +167,7 @@ Every route answers under `/api/v1`, the base the Set Up Agent instructions name
 ### State and account
 
 - `GET /api/v1/directions` returns the agent directions as plain text: the routes, the fields and the rules an agent works from, with the current build stamp at the top. It takes a key on the agent door or the sign-in on the app door, and no proof means a 401.
-- `GET /api/v1/me` returns who the caller is, in the shape that door may see. A signed-in person gets their name and the name they sign in with. A key gets the owner's id and the name they go by.
+- `GET /api/v1/me` returns who the caller is, in the shape that door may see. A signed-in person gets their name and the name they sign in with. A key gets the owner's id, the name they go by, and its own level as `access`.
 - `GET /api/v1/state` returns the owner's whole state: boards with their columns, cards with their steps, links and comments, labels, projects, the owner's live keys (each an id and a name), the theme mode and `agentHost`, the deployment's configured agent address, which the app prints in its Set Up Agent instructions. A person's state also carries their email, their newest key's last four characters and the date it was made (never a key value or a hash), and the latest-change stamp. A key's state carries none of those three.
 - `GET /api/v1/version` returns the version number on its own, for a caller who only wants to know whether anything changed. Its answer follows the rules under "The version number" above.
 - `GET /api/v1/changes?since_version=<version>` returns the changes since the version named: `{version, sinceVersion, complete, recordStartsAtVersion, changes, nextAfter}` — the acts that landed on any of the caller's boards after that version, oldest first, each in the board activity read's entry shape. See "Changes since a version" above.
@@ -182,10 +182,12 @@ Every route answers under `/api/v1`, the base the Set Up Agent instructions name
 
 These routes answer a signed-in person only. A call carrying a key gets a 403 on every one of them, so a key can never make, rename or revoke a key; that stays with the person in the app.
 
-- `GET /api/v1/me/token` lists the caller's keys: each key's id, name, last four characters and the date it was made, never a value.
-- `POST /api/v1/me/token` makes one key under a name, and returns the full key once. Past ten live keys, it refuses.
-- `PATCH /api/v1/me/token/:id` renames one key: the name only. The key itself does not change.
+- `GET /api/v1/me/token` lists the caller's keys: each key's id, name, last four characters, its level and the date it was made, never a value.
+- `POST /api/v1/me/token` makes one key under a name, and returns the full key once. The body may name the key's level as `access` — `read` or `write`; a mint naming neither stands at `write`. Past ten live keys, it refuses.
+- `PATCH /api/v1/me/token/:id` renames one key, changes its level, or both: the name and the level are all it touches. The key itself does not change.
 - `DELETE /api/v1/me/token/:id` revokes that one key. The rest keep working. Every card whose next step was that key's comes back to the person in the same act, no longer waiting.
+
+A key holds one of two levels. A `write` key carries its owner's full powers over the boards. A `read` key reads everything a key may read, and every write it tries is refused at the gate with a 401: "This key holds read access only, so this change is refused." Nothing is written and no version rises. `GET /api/v1/me` through a key names the key's own level as `access`, beside the person it speaks for.
 
 ### Boards and parts
 

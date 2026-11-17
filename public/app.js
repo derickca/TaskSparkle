@@ -23,7 +23,7 @@
 // paints (see bootLoad). The deploy fails when the stamps differ,
 // so they can only ever disagree in a browser still holding an
 // older copy of this file — which is the case the reload cures.
-var BUILD_ID = "r2026-11-16-2";
+var BUILD_ID = "r2026-11-16-3";
 
 // Label colours are stored as palette ids. The person picks from this
 // palette in Settings and each card chip paints itself from it. Each
@@ -6573,9 +6573,11 @@ function refreshAgentKeys() {
 }
 
 // One row of the Set Up Agent key list per key: its name, its
-// ending and its date, then Rename and Delete. Rename opens a
-// field in the row (the name only; the key itself never changes),
-// and Delete opens the delete dialog (issue #98) — the row itself
+// ending, its date and its level, then Rename, a level button
+// and Delete. Rename opens a field in the row (the name only;
+// the key itself never changes), the level button flips the
+// key between Can change boards and Read only (issue #147), and
+// Delete opens the delete dialog (issue #98) — the row itself
 // never changes shape to ask.
 function renderKeysList() {
   var wrap = document.getElementById("keys-list");
@@ -6608,7 +6610,8 @@ function renderKeysList() {
     main.appendChild(nameLine);
     var sub = document.createElement("p");
     sub.className = "key-sub";
-    sub.textContent = "ending in " + key.last4 + ", made on " + formatMadeDate(key.created_at);
+    sub.textContent = "ending in " + key.last4 + ", made on " + formatMadeDate(key.created_at) +
+      (key.access === "read" ? ", read only" : ", can change boards");
     main.appendChild(sub);
     row.appendChild(main);
 
@@ -6652,6 +6655,13 @@ function renderKeysList() {
       renameBtn.setAttribute("data-key-id", key.id);
       renameBtn.textContent = "Rename";
       actions.appendChild(renameBtn);
+      var levelBtn = document.createElement("button");
+      levelBtn.type = "button";
+      levelBtn.className = "btn";
+      levelBtn.setAttribute("data-role", "key-access");
+      levelBtn.setAttribute("data-key-id", key.id);
+      levelBtn.textContent = key.access === "read" ? "Allow changes" : "Make read-only";
+      actions.appendChild(levelBtn);
       var deleteBtn = document.createElement("button");
       deleteBtn.type = "button";
       deleteBtn.className = "btn btn-danger";
@@ -9157,15 +9167,17 @@ function init() {
     });
   });
   // Add a key: the name from the field (or "Agent" when it stands
-  // empty), and the full key shows once, in its own dialog (issue
-  // #98). Nothing existing is touched: the new key works alongside
-  // the old ones.
+  // empty) and the level from its choice (issue #147), and the
+  // full key shows once, in its own dialog (issue #98). Nothing
+  // existing is touched: the new key works alongside the old ones.
   wire("key-add", "click", function () {
     var note = document.getElementById("key-note");
     var nameField = document.getElementById("key-add-name");
     var name = nameField ? nameField.value.trim() : "";
+    var levelField = document.getElementById("key-add-access");
+    var access = levelField && levelField.value === "read" ? "read" : "write";
     queueWrite(function () {
-      return api("POST", "/api/me/token", { name: name || "Agent" });
+      return api("POST", "/api/me/token", { name: name || "Agent", access: access });
     }).then(function (res) {
       if (state) state.key = { has_key: true, last4: res.last4, created_at: res.created_at };
       if (nameField) nameField.value = "";
@@ -9214,6 +9226,22 @@ function init() {
         renderSettings();
       }).catch(function () {
         if (note) note.textContent = "Renaming the key did not work. Check your connection and try again.";
+      });
+      return;
+    }
+    if (role === "key-access") {
+      var flipKey = (agentKeys || []).find(function (k) { return k.id === keyId; });
+      if (!flipKey) return;
+      var nextAccess = flipKey.access === "read" ? "write" : "read";
+      queueWrite(function () {
+        return api("PATCH", "/api/me/token/" + encodeURIComponent(keyId), { access: nextAccess });
+      }).then(function () {
+        if (note) note.textContent = "";
+        agentKeys = null;
+        refreshAgentKeys();
+        renderSettings();
+      }).catch(function () {
+        if (note) note.textContent = "Changing the key's level did not work. Check your connection and try again.";
       });
       return;
     }

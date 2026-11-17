@@ -2032,8 +2032,8 @@ body.dragging-card { cursor: grabbing; }
 }
 
 /* The Set Up Agent key list (issue #45): one row per key — its
-   name, its ending and date, then its own Rename and Delete.
-   Rename and the delete confirm open inside the row. */
+   name, its ending, date and level, then its own Rename, level
+   and Delete. Rename and the delete confirm open inside the row. */
 .key-row {
   display: flex;
   flex-wrap: wrap;
@@ -2076,6 +2076,17 @@ body.dragging-card { cursor: grabbing; }
 
 .key-add-row input[type="text"] {
   flex: 1 1 180px;
+  min-width: 0;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 44px;
+  background: var(--field-bg);
+  color: var(--ink);
+}
+
+.key-add-row select {
   min-width: 0;
   font-size: 16px;
   padding: 10px 12px;
