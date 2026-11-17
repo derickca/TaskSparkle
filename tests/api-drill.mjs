@@ -29,7 +29,9 @@
 // (issue #146: one read answers the cards matching the filters
 // it is given — board, column, label, project, holder,
 // archived and a due range — paged, for the person and a key
-// alike), keys (mint,
+// alike), bulk create
+// (issue #148: one call creates many cards from a list —
+// whole or not at all, under one version rise), keys (mint,
 // list, rename, revoke, the key-door rules), the
 // write gate (unknown fields refused by name, stale writes), the
 // version stamps, the directions, the push route's refusals and
@@ -3238,6 +3240,133 @@ res = await b.call("DELETE", "/api/v1/me/token/" + fltForeignKeyId);
 res = await a.call("DELETE", "/api/v1/boards/" + fltBoard2.id);
 res = await a.call("DELETE", "/api/v1/boards/" + fltBoard.id);
 res = await a.call("DELETE", "/api/v1/me/token/" + fltKeyId);
+
+// --- Bulk create (issue #148) -------------------------------------------------
+// One call creates many cards from a list: POST /cards/bulk
+// names one board and one column and a list of card bodies,
+// each carrying exactly what one POST /cards carries. The
+// cards land at the end of the column in the list's order,
+// under one version rise for the whole call, each with its
+// own card-created row in the board's activity. The call is
+// judged whole before anything is written: one bad item
+// refuses the call entire — no cards, no version rise — and
+// the answer names the item's place in the list and carries
+// the single create's own sentence for it. At most 100 cards
+// ride one call; a longer list is refused with the cap named,
+// and an empty list is refused. A key caller creates exactly
+// as the person does.
+res = await a.call("POST", "/api/v1/boards", { name: "Bulk Board" });
+const bulkBoard = res.json.board;
+res = await a.call("POST", "/api/v1/labels", { board_id: bulkBoard.id, name: "Bulk Label", colour: "blue" });
+const bulkLabel = res.json.label;
+res = await a.call("POST", "/api/v1/me/token", { name: "Bulk Key" });
+const bulkKey = res.json.key; const bulkKeyId = res.json.id;
+
+check("bulk: the family's board, label and key stand",
+  !!bulkBoard && !!bulkLabel && !!bulkKey,
+  "board " + !!bulkBoard + " label " + !!bulkLabel + " key " + !!bulkKey);
+
+const bulkV0 = (await state(a)).version;
+res = await a.call("POST", "/api/v1/cards/bulk", {
+  board_id: bulkBoard.id, column_id: "inbox",
+  cards: [
+    { title: "Bulk first", labels: [bulkLabel.id] },
+    { title: "Bulk second", notes: "from the meeting", due_date: "2031-05-06", important: true },
+    { title: "Bulk third" },
+  ],
+});
+const bulkMade = res.json && res.json.cards;
+check("bulk: one call creates several cards and answers them in the list's order",
+  res.status === 201 && Array.isArray(bulkMade) && bulkMade.length === 3 &&
+    bulkMade.map((card) => card.title).join("|") === "Bulk first|Bulk second|Bulk third",
+  "status " + res.status + " body " + (res.text || "").slice(0, 240));
+check("bulk: the whole call rises the version once, however many cards land",
+  !!res.json && res.json.version === bulkV0 + 1,
+  "version " + (res.json && res.json.version) + " vs " + (bulkV0 + 1));
+check("bulk: each card stands whole, its label and fields riding",
+  Array.isArray(bulkMade) && bulkMade.length === 3 &&
+    bulkMade[0].labels.includes(bulkLabel.id) &&
+    bulkMade[1].notes === "from the meeting" && bulkMade[1].due === "2031-05-06" &&
+    bulkMade[1].important === true && bulkMade[2].important === false,
+  "cards " + JSON.stringify(bulkMade || null).slice(0, 240));
+
+const bulkState1 = await state(a);
+const bulkInboxTitles = inboxCardsOf(bulkState1, bulkBoard.id).map((card) => card.title);
+check("bulk: the cards stand afterwards in the column, in the list's order",
+  bulkInboxTitles.join("|") === "Bulk first|Bulk second|Bulk third",
+  "inbox " + bulkInboxTitles.join(","));
+
+res = await a.call("GET", "/api/v1/boards/" + bulkBoard.id + "/activity?limit=500");
+const bulkCreatedRows = (res.json && res.json.activity || []).filter((entry) =>
+  entry.act === "card-created" && bulkMade.some((card) => card.id === entry.cardId));
+check("bulk: each card writes its own activity row, all under the call's one version",
+  res.status === 200 && bulkCreatedRows.length === 3 &&
+    bulkCreatedRows.every((entry) => entry.version === bulkV0 + 1),
+  "status " + res.status + " rows " + bulkCreatedRows.length +
+    " versions " + bulkCreatedRows.map((entry) => entry.version).join(","));
+
+const bulkVBad = (await state(a)).version;
+res = await a.call("POST", "/api/v1/cards/bulk", {
+  board_id: bulkBoard.id, column_id: "inbox",
+  cards: [
+    { title: "Bulk never one" },
+    { title: "x".repeat(301) },
+    { title: "Bulk never three" },
+  ],
+});
+check("bulk: a call carrying one bad item is refused, naming the item and its fault",
+  res.status === 400 && !!res.json && typeof res.json.error === "string" &&
+    res.json.error.includes("Card 2 in the list") && res.json.error.includes("title is too long"),
+  "status " + res.status + " body " + (res.text || "").slice(0, 240));
+const bulkStateBad = await state(a);
+check("bulk: the refused call creates nothing and the version does not move",
+  bulkStateBad.version === bulkVBad &&
+    !bulkStateBad.cards.some((card) => card.title.startsWith("Bulk never")),
+  "version " + bulkStateBad.version + " vs " + bulkVBad);
+
+const bulkVCap = (await state(a)).version;
+const bulkMany = Array.from({ length: 101 }, (_, i) => ({ title: "Bulk row " + (i + 1) }));
+res = await a.call("POST", "/api/v1/cards/bulk", {
+  board_id: bulkBoard.id, column_id: "inbox", cards: bulkMany,
+});
+const bulkStateCap = await state(a);
+check("bulk: a list past the cap is refused whole, with the cap named",
+  res.status === 400 && !!res.json && typeof res.json.error === "string" &&
+    res.json.error.includes("100") &&
+    bulkStateCap.version === bulkVCap &&
+    !bulkStateCap.cards.some((card) => card.title.startsWith("Bulk row")),
+  "status " + res.status + " body " + (res.text || "").slice(0, 240));
+
+res = await a.call("POST", "/api/v1/cards/bulk", {
+  board_id: bulkBoard.id, column_id: "inbox", cards: [],
+});
+check("bulk: an empty list is refused",
+  res.status === 400 && !!res.json && typeof res.json.error === "string" && res.json.error.length > 0,
+  "status " + res.status + " body " + (res.text || "").slice(0, 240));
+
+res = await keyCall("POST", "/api/v1/cards/bulk", bulkKey, {
+  board_id: bulkBoard.id, column_id: "ready",
+  cards: [{ title: "Bulk key one" }, { title: "Bulk key two" }],
+});
+const bulkKeyMade = res.json && res.json.cards;
+check("bulk: a key caller creates the same as the person",
+  res.status === 201 && Array.isArray(bulkKeyMade) && bulkKeyMade.length === 2 &&
+    bulkKeyMade.every((card) => card.creatorKeyId === bulkKeyId),
+  "status " + res.status + " body " + (res.text || "").slice(0, 240));
+const bulkStateKey = await state(a);
+check("bulk: the key's cards stand on the person's board",
+  ["Bulk key one", "Bulk key two"].every((title) =>
+    bulkStateKey.cards.some((card) => card.title === title && card.boardId === bulkBoard.id)),
+  "titles " + bulkStateKey.cards.map((card) => card.title).join(","));
+
+res = await keyCall("GET", "/api/v1/directions", bulkKey);
+check("bulk: the served directions name the bulk call, its cap and the whole-or-nothing rule",
+  res.status === 200 && res.text.includes("POST /cards/bulk") &&
+    res.text.includes("at most 100 cards") && res.text.includes("nothing is created"),
+  "status " + res.status);
+
+res = await a.call("DELETE", "/api/v1/boards/" + bulkBoard.id);
+res = await a.call("DELETE", "/api/v1/me/token/" + bulkKeyId);
 
 // --- Moving a card to another board (issue #163) ------------------------------
 // One card edit names the new board, the column on it and the

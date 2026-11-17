@@ -111,6 +111,12 @@ Every card read carries two times, in the state, in the create and edit answers,
 
 A card can hold files, the way it holds links. Every card answer carries an `attachments` list of `{id, name, kind, size, createdAt}` — the record of each file, never its bytes — in the order the files were filed. `POST /api/v1/cards/:id/attachments` files one: its `name`, its `kind` (a media type such as `application/pdf`; it defaults to `application/octet-stream`) and `data`, the file's bytes as base64. The answer is the file's record. `GET /api/v1/cards/:id/attachments/:attachmentId` reads the file back: the bytes themselves, served as a download under the file's name, never rendered. `DELETE /api/v1/cards/:id/attachments/:attachmentId` removes one. Filing and removing are writes like any other: one version rise each, and the board's activity carries them as `attachment-filed` and `attachment-removed`. A card's files travel with the card — through moves, archiving and restoring, and through a board copy, which carries them whole; deleting the card deletes them. A template holds no files, and a recurring round's fresh copies start without them. The bytes stand in the same database as everything else, as base64 text in the card's own table: the one store the hosted service and a self-host copy both have. A file's name is not searched.
 
+### Bulk create
+
+One call creates many cards from a list: `POST /api/v1/cards/bulk`, for the signed-in person or for a key. The body names one board and one column (`board_id`, `column_id`) and a list, `cards`. Each item carries what one card create carries — a `title`, and `notes`, `labels`, `project_id`, `due_date`, `important` and `next_step` as needed — judged exactly as the single create judges it. The cards land at the end of the column in the list's order, and the answer is `{cards}`: every card made, in the list's order, each in the full card shape.
+
+The call lands whole or not at all. Every item is judged before anything is written: one bad item refuses the call entire — no cards, no version rise — and the answer names the item's place in the list and carries the single create's own sentence for it ("Card 2 in the list: title is too long."). At most 100 cards ride one call; a longer list is refused with the cap named, an empty list is refused, and a list that would carry its board past 2,000 cards is refused whole. The whole call rises the version once, however many cards land, and each card writes its own `card-created` row in the board's activity under that one version.
+
 ### Writing with baseVersion
 
 A write can name the version it was based on, as `baseVersion` in its body. Think of it as saying: this is the state I read.
@@ -126,6 +132,7 @@ Sizes are capped well past ordinary use:
 - Names at 120 characters, a card title at 300, notes at 10,000, a step at 500, a link name at 200, a link address at 2,000 and a comment body at 2,000.
 - 50 boards per person, and 50 templates. On each board, 30 columns, 100 labels, 100 projects and 2,000 cards. On each card, 200 steps, 100 links and 500 comments.
 - A file's name at 200 characters and its kind at 100; one file at 512 KB, 20 files on a card, and one person's files at 100 MB in all.
+- One bulk create call creates at most 100 cards.
 
 A write past a cap is refused whole.
 
@@ -205,6 +212,7 @@ These routes answer a signed-in person only. A call carrying a key gets a 403 on
 
 ### Cards and parts
 
+- `POST /api/v1/cards/bulk` creates many cards in one call (see Bulk create). It takes `board_id`, `column_id` and a `cards` list of card bodies like one create's, and answers the cards it made, in the list's order.
 - `POST /api/v1/cards` creates a card. It takes `board_id`, `column_id` and a `title`. It can also take notes, labels, a project, a due date, the `important` flag and a `next_step` naming the step's first holder. A due date must be a real date, written as YYYY-MM-DD, or the write is refused.
 - `PATCH /api/v1/cards/:id` changes part of a card. Send only the fields you are changing. It can also hand the card's next step over (`next_step`) and post a comment in the same write (`comment`). It moves the card to another column by column kind, or to another board by `board_id`. A board move takes the column and project the same write names: `column_id` (a column id or kind on the new board) chooses where it lands, and `project_id` chooses its project there, or null for none. With no `column_id` the card lands in the new board's column at the same place counting from the left as the column it leaves, or in the last column when the new board has fewer; with no `project_id` it takes the new board's project with the same name as the card's project, or none. The card lands at the end of its new column unless `position` rides along. Labels cross by name: a label the new board carries under the same name is worn there as that board's label, and a label with no match is left behind; a `labels` list sent with a board move is not read. Everything else travels, including the archived state and whose step is next. The move is refused when the new board already holds 2,000 cards. A `position` in the body is the place the card takes in its column, counting from the top, starting at 0. The column's other active cards shift around it, and every position is written back as one clean run. So a reorder, or a move to a set place in another column, is this one call. It also archives or unarchives the card (`archived`).
 - `DELETE /api/v1/cards/:id` deletes a card for good, with its steps, links, comments and files.
