@@ -27,6 +27,16 @@
 //                                          a small change's quick
 //                                          verdict, under a minute on
 //                                          a warm machine.
+//     node tests/local-checks.mjs --readiness  the public-readiness
+//                                          scan alone (issue #185):
+//                                          the one part of the smoke
+//                                          tier that reads tracked
+//                                          files wherever they stand,
+//                                          documentation included, run
+//                                          on its own for a
+//                                          documentation-only pull
+//                                          request, whose checks set
+//                                          does not run.
 //
 // The harness writes a throwaway nameless config (issue #107:
 // the config holds no people) into a scratch folder, starts the
@@ -69,6 +79,7 @@ const PW_A = "drill-a-own-password";
 const PW_B = "drill-b-own-password";
 const WITH_UI = process.argv.includes("--ui");
 const WITH_SMOKE = process.argv.includes("--smoke");
+const WITH_READINESS = process.argv.includes("--readiness");
 const STARTED_AT = Date.now();
 
 const scratch = mkdtempSync(join(tmpdir(), "tasksparkle-checks-"));
@@ -506,6 +517,19 @@ function smokeStaticChecks() {
   if (!slopGateScan()) return false;
   if (!publicReadinessScan()) return false;
   return true;
+}
+
+// The readiness-only road (issue #185): the scan and nothing else.
+// It runs before the route check and the standing static checks
+// below, which read code and served files only, so a documentation-
+// only change is judged by the one check that can read it and by
+// no other.
+if (WITH_READINESS) {
+  const ok = publicReadinessScan();
+  rmSync(scratch, { recursive: true, force: true });
+  console.log(ok ? "\nPublic-readiness scan passed." :
+    "\nPublic-readiness scan FAILED — read the failure above.");
+  process.exit(ok ? 0 : 1);
 }
 
 if (WITH_SMOKE && !smokeStaticChecks()) {
