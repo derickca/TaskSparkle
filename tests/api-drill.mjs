@@ -25,7 +25,11 @@
 // person sees and opens the same file, an over-cap file is
 // refused with the cap named, a foreign caller can neither
 // read nor file, a board copy carries a card's files, and
-// deleting a card takes its files with it), keys (mint,
+// deleting a card takes its files with it), filtered reads
+// (issue #146: one read answers the cards matching the filters
+// it is given — board, column, label, project, holder,
+// archived and a due range — paged, for the person and a key
+// alike), keys (mint,
 // list, rename, revoke, the key-door rules), the
 // write gate (unknown fields refused by name, stale writes), the
 // version stamps, the directions, the push route's refusals and
@@ -2998,6 +3002,242 @@ check("changes: the served directions name the changes read",
 
 res = await a.call("DELETE", "/api/v1/boards/" + chBoardY.id);
 res = await a.call("DELETE", "/api/v1/me/token/" + chKeyId);
+
+// --- Filtered reads (issue #146) ----------------------------------------------
+// One read answers the cards that match the filters it is
+// given — board, column, label, project, holder, archived and
+// a due range — across every board the caller owns, without a
+// read of the whole state. Every named filter must hold at
+// once. Each card stands in the full card shape the state
+// carries, in the order the state reads cards, naming its
+// board and column beside it, and the answer pages the way
+// the activity and changes reads page. An id naming another
+// owner's thing reads as not found. The read changes nothing
+// and raises no version.
+const filteredPath146 = (query) => "/api/v1/cards" + (query ? "?" + query : "");
+const filteredIds146 = (answer) =>
+  (answer && Array.isArray(answer.cards) ? answer.cards : []).map((card) => card.id);
+const filteredFind146 = (answer, id) =>
+  (answer && Array.isArray(answer.cards) ? answer.cards : []).find((card) => card.id === id);
+const filteredSet146 = (answer) => filteredIds146(answer).slice().sort().join("|");
+
+res = await a.call("POST", "/api/v1/boards", { name: "Filter Board" });
+const fltBoard = res.json.board;
+res = await a.call("POST", "/api/v1/boards", { name: "Filter Second Board" });
+const fltBoard2 = res.json.board;
+res = await a.call("POST", "/api/v1/labels", { board_id: fltBoard.id, name: "Money", colour: "green" });
+const fltLabel = res.json.label;
+res = await a.call("POST", "/api/v1/labels", { board_id: fltBoard.id, name: "Unworn", colour: "grey" });
+const fltLabelUnworn = res.json.label;
+res = await a.call("POST", "/api/v1/projects", { board_id: fltBoard.id, name: "Filter Project" });
+const fltProject = res.json.project;
+res = await a.call("POST", "/api/v1/me/token", { name: "Filter Key" });
+const fltKey = res.json.key; const fltKeyId = res.json.id;
+
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: fltBoard.id, column_id: "inbox", title: "Filter money one",
+  labels: [fltLabel.id], project_id: fltProject.id, due_date: "2031-03-10",
+});
+const fltC1 = res.json.card;
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: fltBoard.id, column_id: "ready", title: "Filter money two",
+  labels: [fltLabel.id], due_date: "2031-03-20",
+});
+const fltC2 = res.json.card;
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: fltBoard.id, column_id: "inbox", title: "Filter money three",
+  labels: [fltLabel.id],
+});
+const fltC3 = res.json.card;
+res = await a.call("PATCH", "/api/v1/cards/" + fltC3.id, { next_step: fltKeyId });
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: fltBoard.id, column_id: "inbox", title: "Filter plain archived",
+  project_id: fltProject.id, due_date: "2031-04-05",
+});
+const fltC4 = res.json.card;
+res = await a.call("PATCH", "/api/v1/cards/" + fltC4.id, { archived: true });
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: fltBoard2.id, column_id: "inbox", title: "Filter second board card",
+  due_date: "2031-03-15",
+});
+const fltC5 = res.json.card;
+
+const fltForeignState = await state(b);
+const fltForeignBoard = fltForeignState.boards[0];
+const fltForeignColumnId = fltForeignBoard.columns[0].id;
+res = await b.call("POST", "/api/v1/labels", { board_id: fltForeignBoard.id, name: "B filter label", colour: "red" });
+const fltForeignLabel = res.json.label;
+res = await b.call("POST", "/api/v1/projects", { board_id: fltForeignBoard.id, name: "B filter project" });
+const fltForeignProject = res.json.project;
+res = await b.call("POST", "/api/v1/cards", {
+  board_id: fltForeignBoard.id, column_id: "inbox", title: "B filter card",
+});
+const fltForeignCard = res.json.card;
+res = await b.call("POST", "/api/v1/me/token", { name: "B filter key" });
+const fltForeignKeyId = res.json.id;
+
+check("filtered: the family's boards, labels, project, key and cards stand",
+  !!fltBoard && !!fltBoard2 && !!fltLabel && !!fltLabelUnworn && !!fltProject && !!fltKey &&
+    !!fltC1 && !!fltC2 && !!fltC3 && !!fltC4 && !!fltC5 && !!fltForeignCard,
+  "board " + !!fltBoard + " label " + !!fltLabel + " project " + !!fltProject +
+    " cards " + [fltC1, fltC2, fltC3, fltC4, fltC5].map((card) => !!card).join(","));
+
+const fltState = await state(a);
+const fltLabelExpected = fltState.cards
+  .filter((card) => card.labels.includes(fltLabel.id)).map((card) => card.id);
+const fltReadyColumn = (fltState.boards.find((board) => board.id === fltBoard.id).columns || [])
+  .find((column) => column.kind === "ready");
+
+res = await a.call("GET", filteredPath146("label_id=" + fltLabel.id));
+const fltByLabel = res.json;
+check("filtered: a read filtered by label returns exactly the cards wearing it, in the state's order",
+  res.status === 200 && filteredIds146(fltByLabel).join("|") === fltLabelExpected.join("|") &&
+    fltLabelExpected.slice().sort().join("|") === [fltC1.id, fltC2.id, fltC3.id].sort().join("|"),
+  "status " + res.status + " ids " + filteredIds146(fltByLabel).join(","));
+check("filtered: a match names its board and its column beside the card",
+  !!filteredFind146(fltByLabel, fltC2.id) &&
+    filteredFind146(fltByLabel, fltC2.id).boardName === "Filter Board" &&
+    filteredFind146(fltByLabel, fltC2.id).columnName === "Ready",
+  "names " + JSON.stringify(filteredFind146(fltByLabel, fltC2.id) || null));
+
+res = await a.call("GET", filteredPath146("label_id=" + fltLabel.id + "&due_from=2031-03-01&due_to=2031-03-31"));
+check("filtered: two filters together return only the cards matching both",
+  res.status === 200 && filteredSet146(res.json) === [fltC1.id, fltC2.id].sort().join("|"),
+  "status " + res.status + " ids " + filteredIds146(res.json).join(","));
+
+res = await a.call("GET", filteredPath146("label_id=" + fltLabelUnworn.id));
+check("filtered: a filter matching nothing answers an empty list, not an error",
+  res.status === 200 && !!res.json && Array.isArray(res.json.cards) &&
+    res.json.cards.length === 0 && res.json.nextAfter === null,
+  "status " + res.status + " body " + (res.text || "").slice(0, 120));
+
+res = await keyCall("GET", filteredPath146("label_id=" + fltLabel.id), fltKey);
+check("filtered: a key reads the same filtered answer as the person",
+  res.status === 200 && filteredIds146(res.json).join("|") === filteredIds146(fltByLabel).join("|"),
+  "status " + res.status + " ids " + filteredIds146(res.json).join(","));
+
+res = await a.call("GET", filteredPath146("board_id=" + fltForeignBoard.id));
+const fltForeignBoardStatus = res.status;
+res = await a.call("GET", filteredPath146("label_id=" + fltForeignLabel.id));
+check("filtered: a foreign board and a foreign label each read as not found",
+  fltForeignBoardStatus === 404 && res.status === 404,
+  "board " + fltForeignBoardStatus + " label " + res.status);
+
+res = await a.call("GET", filteredPath146("project_id=" + fltForeignProject.id));
+const fltForeignProjectStatus = res.status;
+res = await a.call("GET", filteredPath146("holder=" + fltForeignKeyId));
+const fltForeignHolderStatus = res.status;
+res = await a.call("GET", filteredPath146("column_id=" + fltForeignColumnId));
+check("filtered: a foreign project, a foreign holder key and a foreign column each read as not found",
+  fltForeignProjectStatus === 404 && fltForeignHolderStatus === 404 && res.status === 404,
+  "project " + fltForeignProjectStatus + " holder " + fltForeignHolderStatus + " column " + res.status);
+
+res = await a.call("GET", filteredPath146("board_id=" + fltBoard.id + "&column_id=ready"));
+const fltByColumnKind = res.json; const fltByColumnKindStatus = res.status;
+res = await a.call("GET", filteredPath146("board_id=" + fltBoard.id + "&column_id=" + fltReadyColumn.id));
+check("filtered: a column filter takes a kind or the column's own id",
+  fltByColumnKindStatus === 200 && filteredIds146(fltByColumnKind).join("|") === fltC2.id &&
+    res.status === 200 && filteredIds146(res.json).join("|") === fltC2.id,
+  "kind ids " + filteredIds146(fltByColumnKind).join(",") + " id ids " + filteredIds146(res.json).join(","));
+
+res = await a.call("GET", filteredPath146("project_id=" + fltProject.id));
+check("filtered: a project read returns the cards carrying it, the archived one standing flagged",
+  res.status === 200 && filteredSet146(res.json) === [fltC1.id, fltC4.id].sort().join("|") &&
+    !!filteredFind146(res.json, fltC4.id) && filteredFind146(res.json, fltC4.id).archived === true,
+  "status " + res.status + " ids " + filteredIds146(res.json).join(","));
+
+res = await a.call("GET", filteredPath146("board_id=" + fltBoard.id + "&holder=owner"));
+const fltHolderOwner = res.json;
+res = await a.call("GET", filteredPath146("board_id=" + fltBoard.id + "&holder=agent"));
+const fltHolderAgent = res.json;
+res = await a.call("GET", filteredPath146("board_id=" + fltBoard.id + "&holder=" + fltKeyId));
+const fltHolderKey = res.json;
+res = await a.call("GET", filteredPath146("board_id=" + fltBoard.id + "&holder=none"));
+check("filtered: the holder filter names the person, any key, one key, or no one",
+  filteredSet146(fltHolderOwner) === [fltC1.id, fltC2.id].sort().join("|") &&
+    filteredIds146(fltHolderAgent).join("|") === fltC3.id &&
+    filteredIds146(fltHolderKey).join("|") === fltC3.id &&
+    filteredIds146(res.json).join("|") === fltC4.id,
+  "owner " + filteredIds146(fltHolderOwner).join(",") + " agent " + filteredIds146(fltHolderAgent).join(",") +
+    " key " + filteredIds146(fltHolderKey).join(",") + " none " + filteredIds146(res.json).join(","));
+
+res = await a.call("GET", filteredPath146("board_id=" + fltBoard.id + "&archived=true"));
+const fltArchivedOnly = res.json;
+res = await a.call("GET", filteredPath146("board_id=" + fltBoard.id + "&archived=false"));
+check("filtered: archived narrows to the archived cards, or to the standing ones",
+  filteredIds146(fltArchivedOnly).join("|") === fltC4.id &&
+    filteredSet146(res.json) === [fltC1.id, fltC2.id, fltC3.id].sort().join("|"),
+  "archived " + filteredIds146(fltArchivedOnly).join(",") + " standing " + filteredIds146(res.json).join(","));
+
+res = await a.call("GET", filteredPath146("due_from=2031-03-01&due_to=2031-03-31"));
+const fltDueRange = res.json;
+res = await a.call("GET", filteredPath146("board_id=" + fltBoard2.id + "&due_to=2031-03-15"));
+check("filtered: a due range returns the cards due inside it across boards, and one end may ride alone",
+  filteredSet146(fltDueRange) === [fltC1.id, fltC2.id, fltC5.id].sort().join("|") &&
+    filteredIds146(res.json).join("|") === fltC5.id,
+  "range " + filteredIds146(fltDueRange).join(",") + " one end " + filteredIds146(res.json).join(","));
+
+res = await a.call("GET", filteredPath146("label_id=" + fltLabel.id + "&limit=2"));
+const fltPage1 = res.json;
+res = await a.call("GET", filteredPath146("label_id=" + fltLabel.id + "&limit=2&after=" + (fltPage1 && fltPage1.nextAfter)));
+const fltPage2 = res.json;
+check("filtered: paging walks the same list in slices, and nextAfter stands null at the end",
+  !!fltPage1 && !!fltPage2 && filteredIds146(fltPage1).length === 2 &&
+    fltPage1.nextAfter === filteredIds146(fltPage1)[1] &&
+    filteredIds146(fltPage2).length === 1 && fltPage2.nextAfter === null &&
+    [...filteredIds146(fltPage1), ...filteredIds146(fltPage2)].join("|") === fltLabelExpected.join("|"),
+  "pages " + [fltPage1, fltPage2].map((page) => filteredIds146(page).length).join(","));
+
+res = await a.call("GET", filteredPath146("label_id=" + fltLabel.id + "&after=" + fltForeignCard.id));
+const fltAfterForeignStatus = res.status;
+res = await a.call("GET", filteredPath146("label_id=" + fltLabel.id + "&after=" + fltC4.id));
+check("filtered: an after naming no card in the filtered answer reads as not found",
+  fltAfterForeignStatus === 404 && res.status === 404,
+  "foreign " + fltAfterForeignStatus + " filtered-out " + res.status);
+
+res = await a.call("GET", filteredPath146("archived=maybe"));
+const fltBadArchivedStatus = res.status;
+res = await a.call("GET", filteredPath146("due_from=2031-02-30"));
+const fltBadDueStatus = res.status;
+res = await a.call("GET", filteredPath146("due_from=2031-04-01&due_to=2031-03-01"));
+const fltBackwardsStatus = res.status;
+res = await a.call("GET", filteredPath146("limit=0"));
+check("filtered: a bad archived value, a date that is not a date, a backwards range and a bad limit are each refused",
+  fltBadArchivedStatus === 400 && fltBadDueStatus === 400 &&
+    fltBackwardsStatus === 400 && res.status === 400,
+  "archived " + fltBadArchivedStatus + " due " + fltBadDueStatus +
+    " backwards " + fltBackwardsStatus + " limit " + res.status);
+
+res = await a.call("GET", "/api/cards?label_id=" + fltLabel.id);
+check("filtered: the spelling without v1 answers the same",
+  res.status === 200 && filteredIds146(res.json).join("|") === filteredIds146(fltByLabel).join("|"),
+  "status " + res.status + " ids " + filteredIds146(res.json).join(","));
+
+res = await a.call("GET", filteredPath146(""));
+check("filtered: with no filter named, the read answers the caller's own cards and no one else's",
+  res.status === 200 && !!res.json && Array.isArray(res.json.cards) && res.json.cards.length > 0 &&
+    !filteredIds146(res.json).includes(fltForeignCard.id),
+  "status " + res.status + " count " + filteredIds146(res.json).length);
+
+const fltVersionBefore = (await state(a)).version;
+res = await a.call("GET", filteredPath146("label_id=" + fltLabel.id));
+const fltVersionAfter = (await state(a)).version;
+check("filtered: the read changes nothing and raises no version",
+  fltVersionBefore === fltVersionAfter,
+  "version " + fltVersionBefore + " -> " + fltVersionAfter);
+
+res = await keyCall("GET", "/api/v1/directions", fltKey);
+check("filtered: the served directions name the filtered read",
+  res.status === 200 && res.text.includes("GET /cards") && res.text.includes("Filtered reads"),
+  "status " + res.status);
+
+res = await b.call("DELETE", "/api/v1/cards/" + fltForeignCard.id);
+res = await b.call("DELETE", "/api/v1/labels/" + fltForeignLabel.id);
+res = await b.call("DELETE", "/api/v1/projects/" + fltForeignProject.id);
+res = await b.call("DELETE", "/api/v1/me/token/" + fltForeignKeyId);
+res = await a.call("DELETE", "/api/v1/boards/" + fltBoard2.id);
+res = await a.call("DELETE", "/api/v1/boards/" + fltBoard.id);
+res = await a.call("DELETE", "/api/v1/me/token/" + fltKeyId);
 
 // --- Moving a card to another board (issue #163) ------------------------------
 // One card edit names the new board, the column on it and the
