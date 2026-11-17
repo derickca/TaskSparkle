@@ -535,8 +535,9 @@ function toWebRequest(req, body, extraHeaders) {
 // request: past the limit the read refuses, the handler answers
 // 413 and the connection closes, so a flood costs the sender
 // its connection instead of costing this machine its memory.
-// 1 MB is far past any real call — the core itself caps a
-// card's notes at ten thousand characters.
+// 1 MB stands past the largest call the API takes: a file
+// filing, whose 512 KB of bytes ride as base64 inside the
+// JSON body (issue #144).
 const BODY_LIMIT = 1024 * 1024;
 
 function readBody(req) {

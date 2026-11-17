@@ -160,6 +160,34 @@ CREATE TABLE IF NOT EXISTS card_links (
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
+-- A card's files (issue #144): the file itself, kept with the
+-- card it was filed on. The bytes stand in the row as base64
+-- text. This database is the one store both homes have — the
+-- hosted shape binds no file store and the self-host server
+-- has none — and a file is read and written whole, never
+-- queried inside: the standing the templates table's payload
+-- already has. The caps stand in the code's LIMITS: one file
+-- at most 512 KB of bytes, whose base64 text stays inside this
+-- database's value ceiling; 20 files to a card; and 100 MB of
+-- file bytes to an owner across all their cards. A card's read
+-- shows the record — name, kind, size — read without the data
+-- column; the bytes come back only from the file's own read,
+-- as a download. filer_key_id records the key that filed it,
+-- the split card_comments keeps for its authors; the person's
+-- own filings leave it null.
+CREATE TABLE IF NOT EXISTS card_attachments (
+  id TEXT PRIMARY KEY,
+  card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'application/octet-stream',
+  size INTEGER NOT NULL DEFAULT 0,
+  data TEXT NOT NULL DEFAULT '',
+  filer_key_id TEXT,
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 -- A card's comments: the running conversation on the card, in
 -- the order the comments were written. A comment carries its
 -- body and its author as an identity, never as a name: the
@@ -485,6 +513,7 @@ CREATE INDEX IF NOT EXISTS idx_cards_label ON cards (label_id);
 CREATE INDEX IF NOT EXISTS idx_cards_archived ON cards (archived);
 CREATE INDEX IF NOT EXISTS idx_checklist_items_card ON checklist_items (card_id, position);
 CREATE INDEX IF NOT EXISTS idx_card_links_card ON card_links (card_id, position);
+CREATE INDEX IF NOT EXISTS idx_card_attachments_card ON card_attachments (card_id, position);
 CREATE INDEX IF NOT EXISTS idx_card_comments_card ON card_comments (card_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_card_labels_label ON card_labels (label_id);
 CREATE INDEX IF NOT EXISTS idx_templates_owner ON templates (owner_id, created_at);
@@ -531,8 +560,11 @@ CREATE INDEX IF NOT EXISTS idx_templates_owner ON templates (owner_id, created_a
 -- card the way its checklist steps do. They keep their order from
 -- the position column, they survive the same moves, and deleting
 -- the card deletes them through the same cascade. A link carries a
--- web address and an optional name, nothing else. TaskSparkle
--- stores addresses only, never files.
+-- web address and an optional name, nothing else.
+-- A card can carry files: rows in card_attachments that belong
+-- to the card the same way. A file carries a name, a kind and
+-- its bytes; the card's read shows the record, and the bytes
+-- come back only when the file itself is read, as a download.
 -- A card can be flagged Important: one boolean in cards.important,
 -- nothing more. There are no levels, and the flag never changes a
 -- card's order anywhere — no sorting, no pinning, no filtering.

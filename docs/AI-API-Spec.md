@@ -124,16 +124,11 @@ The Set Up Agent page gives the person a short bootstrap (`agentInstructions` in
 - Read one card alone. `/state` and `/queue` are the only card reads.
 - Search or filter. No route takes a query.
 - Work in bulk. There are no bulk calls. Clearing a column means one call per card.
-- Attach a file. Links hold web addresses only.
 - Edit a comment. A comment is removed whole or stands.
 - Read history. The version is one counter. The latest-change stamp rides on the person's answers only, and it names the latest change alone.
 - Hold a read-only local key. Every local key can write.
 
 ## Recommended capabilities
-
-### File attachments
-
-Let a card hold a file, the way it holds a link. Jobs it unblocks: the signed contract on the card, the receipt on the expense card, the photo on the repair card.
 
 ### Changes since a version
 
@@ -212,10 +207,10 @@ The API carries this today. The served directions describe this very pattern. Th
 Ana signs a venue contract. She asks her AI to file the signed PDF on the booking card.
 
 1. The AI reads `GET /state` and finds the card.
-2. It looks for a way to attach the file. Links take web addresses only.
-3. The AI can add a link if the file stands at a web address. It cannot store the file itself.
+2. It files the PDF with `POST /cards/{card id}/attachments`: the file's name, its kind and its bytes as base64.
+3. The card now reads with the file's record — its name, its kind and its size — and the file itself comes back whole from `GET /cards/{card id}/attachments/{attachment id}`, as a download under its name.
 
-The API does not carry this today. TaskSparkle stores web addresses, never files.
+The API carries this today. A card holds its files the way it holds its links: they travel with the card, a board copy carries them whole, and deleting the card takes them with it.
 
 ### Scenario seven
 

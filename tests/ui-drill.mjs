@@ -1218,6 +1218,37 @@ check("#151: a comment past the cap refuses at the editor — the count named, t
 await page.screenshot({ path: join(OUT, "wave3-comment-cap-1280.png") });
 await page.fill("#comment-add-input", "");
 
+// Files on the card (issue #144): the person files a small
+// file from the editor and its row stands with its name and
+// size and a download standing behind the row — the anchor
+// only stands once the server's answer has landed — and
+// removing it takes the row off the card.
+await page.setInputFiles("#card-file-input", {
+  name: "wave3-note.txt",
+  mimeType: "text/plain",
+  buffer: Buffer.from("wave three file bytes")
+});
+await page.waitForFunction(() => {
+  const row = document.querySelector("#files-list .link-row");
+  return !!row && (row.textContent || "").includes("wave3-note.txt") &&
+    !!row.querySelector("a.link-open[href*='/attachments/']");
+}, undefined, { timeout: 15000 }).catch(() => {});
+const w3FileRows = await page.locator("#files-list .link-row").count();
+const w3FileText = w3FileRows
+  ? await page.locator("#files-list .link-row").first().textContent() : "";
+check("#144: a file filed from the editor stands on the card with its name and size",
+  w3FileRows === 1 && (w3FileText || "").includes("wave3-note.txt") &&
+    (w3FileText || "").includes("21 bytes"),
+  "rows=" + w3FileRows + " text=" + (w3FileText || "").slice(0, 80));
+await page.screenshot({ path: join(OUT, "wave3-file-filed-1280.png") });
+await page.locator("#files-list [data-role='file-remove']").first().click();
+await page.waitForFunction(() =>
+  document.querySelectorAll("#files-list .link-row").length === 0,
+  undefined, { timeout: 10000 }).catch(() => {});
+const w3FileRowsAfter = await page.locator("#files-list .link-row").count();
+check("#144: removing the file in the editor takes its row off the card",
+  w3FileRowsAfter === 0, "rows=" + w3FileRowsAfter);
+
 // A failed save keeps its banner and its text (issue #137):
 // the card PATCH is aborted at the network while the editor
 // commits a new title; the state reload that follows the

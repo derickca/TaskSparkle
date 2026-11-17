@@ -23,7 +23,7 @@
 // paints (see bootLoad). The deploy fails when the stamps differ,
 // so they can only ever disagree in a browser still holding an
 // older copy of this file — which is the case the reload cures.
-var BUILD_ID = "r2026-11-16-1";
+var BUILD_ID = "r2026-11-16-2";
 
 // Label colours are stored as palette ids. The person picks from this
 // palette in Settings and each card chip paints itself from it. Each
@@ -1601,8 +1601,8 @@ function isLateCard(card) {
 
 // The words the card delete dialog carries: the card is named,
 // where it stands is named — on the board, or archived — what
-// goes with it is named (its checklist steps, its links and its
-// comments), and the deletion is named as permanent. The
+// goes with it is named (its checklist steps, its links, its
+// comments and its files), and the deletion is named as permanent. The
 // editor's Delete and the Archived list's Delete open the one
 // dialog (issue #97), so the two ask in the same words.
 function cardDeleteNote(card) {
@@ -1610,14 +1610,16 @@ function cardDeleteNote(card) {
   var steps = card.steps ? card.steps.length : 0;
   var links = card.links ? card.links.length : 0;
   var comments = card.comments ? card.comments.length : 0;
+  var files = card.attachments ? card.attachments.length : 0;
   var text = "Delete “" + name + "”? ";
   text += card.archived ? "It is archived. " : "It is on the board. ";
-  if (steps || links || comments) {
+  if (steps || links || comments || files) {
     var bits = [];
     if (steps) bits.push(steps + (steps === 1 ? " checklist step" : " checklist steps"));
     if (links) bits.push(links + (links === 1 ? " link" : " links"));
     if (comments) bits.push(comments + (comments === 1 ? " comment" : " comments"));
-    var verb = steps + links + comments === 1 ? " goes" : " go";
+    if (files) bits.push(files + (files === 1 ? " file" : " files"));
+    var verb = steps + links + comments + files === 1 ? " goes" : " go";
     text += "Its " + bits.join(" and ") + verb + " with it. ";
   }
   return text + "It cannot be brought back.";
@@ -3879,6 +3881,9 @@ function openEditor(id) {
   showLinkError("");
   renderLinks();
 
+  showFileError("");
+  renderFiles();
+
   document.getElementById("comment-add-input").value = "";
   renderComments();
 
@@ -3911,6 +3916,7 @@ function openNewCard(columnKind) {
     steps: [],
     links: [],
     comments: [],
+    attachments: [],
     creatorKeyId: null,
     creatorKeyName: null,
     step: { holder: "owner", keyId: null, keyName: null, handedAt: null, handedByKeyName: null, handedByName: null, waiting: false }
@@ -4011,6 +4017,12 @@ function createCardOnServer(card) {
     // way again: create each local one now, in its order.
     (tempRef.comments || []).slice().forEach(function (comment) {
       if (isTempId(comment.id)) queueCommentCreate(tempRef, comment);
+    });
+    // Files filed in those same moments ride along the same
+    // way: file each local one now, in its order, from the
+    // bytes held for it.
+    (tempRef.attachments || []).slice().forEach(function (att) {
+      if (isTempId(att.id)) queueFileCreate(tempRef, att);
     });
   }).catch(function () {
     tempRef.creating = false;
@@ -4571,6 +4583,188 @@ function addLinkFromInputs() {
   render();
   urlInput.focus();
   persistLinkAdd(card, link);
+}
+
+// --- The card's files ---
+//
+// Files belong to the card the way its links do (issue #144):
+// they survive column moves, board moves, archiving and
+// unarchiving, and they are deleted with the card. A file
+// carries a name, a kind and its bytes; the card shows the
+// record — name, kind and size — and the row's name downloads
+// the file itself from the server's download answer. Each
+// change paints at once and sends its own call behind it,
+// through the same write queue as every other edit. A file
+// added to a card whose create is still in flight rides along
+// with that create, the way a link does: its bytes wait in
+// pendingFileData, keyed by the file's temporary id, until its
+// create runs — they never ride on the card object itself.
+
+// One file's cap, the server's own: 512 KB of bytes.
+var FILE_LIMIT_BYTES = 524288;
+var pendingFileData = {};
+
+function showFileError(message) {
+  var el = document.getElementById("file-error");
+  if (!el) return;
+  el.textContent = message || "";
+  el.hidden = !message;
+}
+
+function humanFileSize(bytes) {
+  if (bytes < 1024) return bytes + (bytes === 1 ? " byte" : " bytes");
+  if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, "") + " MB";
+}
+
+function renderFiles() {
+  var list = document.getElementById("files-list");
+  if (!list) return;
+  list.innerHTML = "";
+  var card = findCard(editingId);
+  if (!card) return;
+  (card.attachments || []).forEach(function (att) {
+    var row = document.createElement("div");
+    row.className = "link-row";
+    row.setAttribute("data-file-row", att.id);
+
+    // The row's name downloads the file, under its name; the
+    // size stands under it, the way a link's address stands
+    // under its name. A file not yet on the server has no
+    // download yet, so its name stands plain.
+    var open = document.createElement("a");
+    open.className = "link-open";
+    if (!isTempId(att.id) && !isTempId(card.id)) {
+      open.href = "/api/cards/" + encodeURIComponent(realId(card.id)) +
+        "/attachments/" + encodeURIComponent(att.id);
+      open.setAttribute("download", att.name);
+    }
+    var name = document.createElement("span");
+    name.className = "link-name";
+    name.textContent = att.name;
+    open.appendChild(name);
+    var size = document.createElement("span");
+    size.className = "link-url";
+    size.textContent = humanFileSize(att.size || 0);
+    open.appendChild(size);
+    row.appendChild(open);
+
+    var removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "btn btn-danger";
+    removeBtn.setAttribute("data-role", "file-remove");
+    removeBtn.textContent = "Remove";
+    row.appendChild(removeBtn);
+
+    list.appendChild(row);
+  });
+}
+
+function queueFileCreate(card, att) {
+  saveQueued(function () {
+    // The file may have been removed again before its turn
+    // came, or its card deleted. Then there is nothing to file.
+    if (!state || state.cards.indexOf(card) === -1) return {};
+    if ((card.attachments || []).indexOf(att) === -1) return {};
+    var data = pendingFileData[att.id];
+    if (data == null) return {};
+    return api("POST", "/api/cards/" + encodeURIComponent(realId(card.id)) + "/attachments", { name: att.name, kind: att.kind, data: data });
+  }, function (res) {
+    if (!res || !res.attachment) return;
+    var oldId = att.id;
+    idAliases[oldId] = res.attachment.id;
+    att.id = res.attachment.id;
+    att.name = res.attachment.name;
+    att.kind = res.attachment.kind;
+    att.size = res.attachment.size;
+    att.createdAt = res.attachment.createdAt;
+    delete pendingFileData[oldId];
+    document.querySelectorAll("[data-file-row]").forEach(function (row) {
+      if (row.getAttribute("data-file-row") === oldId) {
+        row.setAttribute("data-file-row", res.attachment.id);
+      }
+    });
+    if (editingId === card.id) renderFiles();
+    render();
+  }).catch(function (err) {
+    // A refusal with a reason: the server judged the file
+    // itself and said no — the painted row is then a phantom.
+    // It goes, and the refusal lands beside the field in the
+    // server's own words, the way a refused link lands.
+    if (err && err.status === 400 && err.data && err.data.error) {
+      if (card.attachments) {
+        card.attachments = card.attachments.filter(function (a) { return a !== att; });
+      }
+      delete pendingFileData[att.id];
+      hideApiError();
+      if (editingId === card.id) {
+        renderFiles();
+        showFileError(err.data.error);
+      }
+      render();
+    }
+  });
+}
+
+function persistFileAdd(card, att) {
+  if (isTempId(card.id)) {
+    // The card itself is not on the server yet. Once it has a
+    // title, its create carries the local files with it
+    // (createCardOnServer queues a create for each). With no
+    // title yet there is nothing to send: the files wait with
+    // the card.
+    if (card.title) createCardOnServer(card);
+    return;
+  }
+  queueFileCreate(card, att);
+}
+
+function queueFileDelete(card, att) {
+  // A file still carrying a temporary id never reached the
+  // server: its queued create sees the file gone from the card
+  // and skips, and its held bytes go with it.
+  if (isTempId(card.id) || isTempId(att.id)) {
+    delete pendingFileData[att.id];
+    return;
+  }
+  var attId = att.id;
+  saveQueued(function () {
+    return api("DELETE", "/api/cards/" + encodeURIComponent(realId(card.id)) + "/attachments/" + encodeURIComponent(attId));
+  }).catch(function () { /* reloadState already ran */ });
+}
+
+function addFileFromInput() {
+  var card = findCard(editingId);
+  if (!card) return;
+  var input = document.getElementById("card-file-input");
+  var file = input && input.files && input.files[0];
+  if (input) input.value = "";
+  if (!file) return;
+  if (file.size > FILE_LIMIT_BYTES) {
+    showFileError("That file is " + humanFileSize(file.size) + ". A file can be at most 512 KB.");
+    return;
+  }
+  showFileError("");
+  var reader = new FileReader();
+  reader.onload = function () {
+    var dataUrl = String(reader.result || "");
+    var data = dataUrl.slice(dataUrl.indexOf(",") + 1);
+    if (!card.attachments) card.attachments = [];
+    var att = {
+      id: tempId("attachment"), name: file.name,
+      kind: file.type || "application/octet-stream",
+      size: file.size, createdAt: new Date().toISOString()
+    };
+    pendingFileData[att.id] = data;
+    card.attachments.push(att);
+    renderFiles();
+    render();
+    persistFileAdd(card, att);
+  };
+  reader.onerror = function () {
+    showFileError("That file could not be read.");
+  };
+  reader.readAsDataURL(file);
 }
 
 // --- The card's next step ---
@@ -7871,6 +8065,36 @@ function init() {
         addLinkFromInputs();
       }
     });
+  });
+
+  // The editor's files. The Add button opens the file picker
+  // and the chosen file files at once; Remove acts at once —
+  // the same save-themselves rules as the links. A row's name
+  // downloads the file: the anchor's own doing, through the
+  // server's download answer.
+  var filesList = byId("files-list");
+  if (filesList) filesList.addEventListener("click", function (ev) {
+    if (ev.target.getAttribute("data-role") !== "file-remove") return;
+    var card = findCard(editingId);
+    if (!card) return;
+    var row = ev.target.closest("[data-file-row]");
+    if (!row) return;
+    var rowId = row.getAttribute("data-file-row");
+    var found = null;
+    (card.attachments || []).forEach(function (a) { if (a.id === rowId) found = a; });
+    if (!found) return;
+    card.attachments = card.attachments.filter(function (a) { return a.id !== found.id; });
+    renderFiles();
+    render();
+    queueFileDelete(card, found);
+  });
+  wire("file-add-btn", "click", function () {
+    var input = document.getElementById("card-file-input");
+    if (input) input.click();
+  });
+  var fileInput = document.getElementById("card-file-input");
+  if (fileInput) fileInput.addEventListener("change", function () {
+    addFileFromInput();
   });
 
   // The editor's comments. Remove acts at once, and the Add
