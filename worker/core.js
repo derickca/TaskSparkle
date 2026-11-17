@@ -173,6 +173,7 @@ var LIMITS = {
   labelsPerBoard: 100,
   projectsPerBoard: 100,
   cardsPerBoard: 2000,
+  cardsPerBulkCall: 100,  // one bulk create call's cards
   stepsPerCard: 200,
   linksPerCard: 100,
   commentsPerCard: 500,
@@ -341,6 +342,7 @@ function agentDirections(env) {
     "PATCH /projects/{project id} - change a project: name and icon, any of them.",
     "DELETE /projects/{project id} - delete a project. Its cards carry on with no project.",
     "POST /cards - create a card: board_id, column_id and title are required; notes, labels, project_id, due_date and important may ride along, and next_step may name the step's first holder (see Handing over). The card lands at the end of its column.",
+    "POST /cards/bulk - create many cards in one call: board_id, column_id and cards, a list of card bodies like one create's (see Bulk create).",
     "PATCH /cards/{card id} - edit a card: title, notes, labels, project_id, due_date, important, column_id, position, board_id, archived, next_step and comment, any of them. See Cards and Handing over.",
     "DELETE /cards/{card id} - delete a card for good, with its steps, its links, its comments and its files.",
     "POST /cards/{card id}/steps - add a step: text, plus done if it starts ticked.",
@@ -366,7 +368,10 @@ function agentDirections(env) {
     "- important is a single flag: true or false, nothing else. There are no levels. The flag never changes a card's order.",
     "- archived: true archives the card. archived: false restores it: the card returns to its column, or to the board's first column if that column is gone. Steps, links, labels, comments and files survive archiving and restoring. Deleting a card is forever.",
     "- creatorKeyName records who wrote the card's first version. A card made with an agent key records that key's id, and the name it reads with is the key's name as it stands when the card is read: rename the key and the maker name on every card it made follows at once, and delete it and its cards keep its name, because its row stands as its record. A card the person made in the app carries null, and so does a card made before the stamp existed. A card made by copying a board takes whoever made the copy as its creator: the copy is a new first version.",
-    "- There are no bulk calls. Clearing a column means archiving or deleting its cards one at a time, naming each card: every archive is a deliberate act on a named card.",
+    "- Bulk create makes many cards in one call (see Bulk create). Clearing a column still means archiving or deleting its cards one at a time, naming each card: every archive is a deliberate act on a named card.",
+    "",
+    "Bulk create",
+    "POST /cards/bulk creates many cards in one call. The body names one board and one column (board_id, column_id) and a list, cards. Each item in the list carries what one POST /cards carries: title, and notes, labels, project_id, due_date, important and next_step as needed. The cards land at the end of the column in the list's order, under one version rise for the whole call, and the answer names every card made, in the list's order. One call creates at most 100 cards; a longer list is refused whole, with the cap named, and an empty list is refused. Every item is judged before anything is written: if one card in the list cannot be made, nothing is created, and the answer names that card's place in the list and the reason it failed.",
     "",
     "Handing over",
     "Every card's next step belongs to someone: the person, one of their keys, or no one. A card you create starts as your step; a card the person creates starts as theirs. GET /queue lists the cards whose next step is yours: work those cards. When you start on one, write to it — a comment, a step, any change — because your first write to the card is what marks it picked up; until then it stands as waiting on you, and the person can see that it waits.",
@@ -1376,6 +1381,9 @@ function writeFieldsFor(method, parts) {
     if (rest.length === 2) return method === "PATCH" ? ["name", "icon"] : [];
   }
   if (rest[0] === "cards") {
+    if (rest.length === 2 && rest[1] === "bulk" && method === "POST") {
+      return ["board_id", "column_id", "cards"];
+    }
     if (rest.length === 1 && method === "POST") {
       return ["board_id", "column_id", "title", "notes", "labels", "project_id", "due_date", "important", "next_step"];
     }
@@ -5054,6 +5062,166 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         kindMap[cardColumn.id] = columnKind(cardColumn);
         var createKeyNames = await keyNameMap(db, owner.id);
         return json({ card: cardOut(cardRow, kindMap, [], [], await labelsForCard(db, cardRow.id), [], effectiveName(owner), createKeyNames, keyIdsByName(createKeyNames), []) }, 201);
+      }
+    }
+
+    // Bulk create (issue #148): one call creates many cards
+    // from a list. The body names one board and one column;
+    // each item in the list carries exactly what one create
+    // carries and is judged exactly as the single create
+    // judges it, and every item is judged before anything is
+    // written — a call carrying one bad item is refused whole,
+    // its answer naming the item's place in the list and
+    // carrying the single create's own sentence for it. The
+    // cards land at the end of the column in the list's order
+    // as one batch, under one version rise for the whole call,
+    // each with its own card-created activity row.
+    if ((p = match(parts, ["api", "cards", "bulk"]))) {
+      if (method === "POST") {
+        var bulkBody = await readBody(request);
+        if (!bulkBody || !bulkBody.board_id || !bulkBody.column_id || !Array.isArray(bulkBody.cards)) {
+          return error("board_id, column_id and cards are required.");
+        }
+        var bulkBoard = await ownerBoard(db, owner.id, String(bulkBody.board_id));
+        if (!bulkBoard) return error("Board not found.", 404);
+        var bulkColumn = await columnForBoard(db, bulkBoard.id, String(bulkBody.column_id));
+        if (!bulkColumn) return error("column_id does not belong to this board.");
+        if (!bulkBody.cards.length) {
+          return error("cards must name at least one card.");
+        }
+        if (bulkBody.cards.length > LIMITS.cardsPerBulkCall) {
+          return error("One call creates at most " + LIMITS.cardsPerBulkCall +
+            " cards. Split the list and call again.");
+        }
+        var bulkCount = await db.prepare("SELECT COUNT(*) AS count FROM cards WHERE board_id = ?")
+          .bind(bulkBoard.id).first();
+        if (countOf(bulkCount) + bulkBody.cards.length > LIMITS.cardsPerBoard) {
+          return error("That is as many cards as one board holds.", 400);
+        }
+        var bulkMax = await db.prepare(
+          "SELECT MAX(position) AS maxp FROM cards WHERE board_id = ? AND column_id = ? AND archived = 0"
+        ).bind(bulkBoard.id, bulkColumn.id).first();
+        var bulkNextPosition = bulkMax && bulkMax.maxp != null ? Number(bulkMax.maxp) + 1 : 0;
+        var bulkAt = nowIso();
+        var bulkRows = [];
+        for (var bulkIndex = 0; bulkIndex < bulkBody.cards.length; bulkIndex++) {
+          var bulkItem = bulkBody.cards[bulkIndex];
+          var bulkPlace = "Card " + (bulkIndex + 1) + " in the list: ";
+          if (!bulkItem || typeof bulkItem !== "object" || Array.isArray(bulkItem) ||
+              !bulkItem.title || !String(bulkItem.title).trim()) {
+            return error(bulkPlace + "title is required.");
+          }
+          var bulkLabelIds = [];
+          if (Object.prototype.hasOwnProperty.call(bulkItem, "labels")) {
+            bulkLabelIds = await labelIdsForBoard(db, bulkBoard.id, bulkItem.labels);
+            if (bulkLabelIds === undefined) {
+              return error(bulkPlace + "labels must be labels on this board.");
+            }
+          }
+          if (Object.prototype.hasOwnProperty.call(bulkItem, "important") &&
+              typeof bulkItem.important !== "boolean") {
+            return error(bulkPlace + "important must be true or false.");
+          }
+          if (bulkItem.due_date != null && bulkItem.due_date !== "" && !isRealDateString(bulkItem.due_date)) {
+            return error(bulkPlace + "due_date must be a real date written as YYYY-MM-DD.");
+          }
+          if (overLimit(String(bulkItem.title).trim(), LIMITS.titleChars)) {
+            return error(bulkPlace + "title is too long.");
+          }
+          if (bulkItem.notes != null && overLimit(bulkItem.notes, LIMITS.notesChars)) {
+            return error(bulkPlace + "notes are too long.");
+          }
+          var bulkProjectId = null;
+          if (bulkItem.project_id) {
+            var bulkProject = await ownerProject(db, owner.id, String(bulkItem.project_id));
+            if (!bulkProject || bulkProject.board_id !== bulkBoard.id) {
+              return error(bulkPlace + "project_id does not belong to this board.");
+            }
+            bulkProjectId = bulkProject.id;
+          }
+          // The item's next step, judged as a single create
+          // judges it (issue #119): unnamed, the card starts
+          // with its maker; named, it is a hand-over.
+          var bulkStep = callerKey
+            ? { holder: "agent", keyId: callerKey.id, keyName: callerKey.name }
+            : { holder: "owner", keyId: null, keyName: null };
+          var bulkStepColumns = null;
+          if (Object.prototype.hasOwnProperty.call(bulkItem, "next_step")) {
+            var bulkTarget = await stepTargetFor(db, owner.id, bulkItem.next_step);
+            if (bulkTarget === undefined) {
+              return error(bulkPlace + "next_step must be \"owner\", \"none\" or the id of one of the owner's keys.");
+            }
+            if (!sameStepTarget(bulkTarget, bulkStep)) {
+              bulkStepColumns = handoverColumns(null, bulkTarget, callerKey, bulkAt);
+            }
+            bulkStep = bulkTarget;
+          }
+          if (!bulkStepColumns) {
+            bulkStepColumns = {
+              step_holder: bulkStep.holder,
+              step_key_id: bulkStep.keyId,
+              step_key_name: null,
+              step_handed_at: null,
+              step_handed_by_key_id: null,
+              step_handed_by_key_name: null,
+              step_waiting: 0
+            };
+          }
+          bulkRows.push({
+            row: {
+              id: newId("card"),
+              board_id: bulkBoard.id,
+              column_id: bulkColumn.id,
+              project_id: bulkProjectId,
+              title: String(bulkItem.title).trim(),
+              notes: bulkItem.notes ? String(bulkItem.notes) : "",
+              due_date: bulkItem.due_date ? String(bulkItem.due_date) : null,
+              position: bulkNextPosition + bulkIndex,
+              archived: 0,
+              important: bulkItem.important ? 1 : 0,
+              creator_key_id: callerKey ? callerKey.id : null,
+              creator_key_name: null,
+              step_holder: bulkStepColumns.step_holder,
+              step_key_id: bulkStepColumns.step_key_id,
+              step_key_name: bulkStepColumns.step_key_name,
+              step_handed_at: bulkStepColumns.step_handed_at,
+              step_handed_by_key_id: bulkStepColumns.step_handed_by_key_id,
+              step_handed_by_key_name: bulkStepColumns.step_handed_by_key_name,
+              step_waiting: bulkStepColumns.step_waiting,
+              created_at: bulkAt,
+              updated_at: bulkAt
+            },
+            labelIds: bulkLabelIds
+          });
+        }
+        var bulkStatements = [];
+        bulkRows.forEach(function (bulkEntry) {
+          var bulkRow = bulkEntry.row;
+          bulkStatements.push(
+            db.prepare("INSERT INTO cards (id, board_id, column_id, project_id, title, notes, due_date, position, archived, important, creator_key_id, creator_key_name, step_holder, step_key_id, step_key_name, step_handed_at, step_handed_by_key_id, step_handed_by_key_name, step_waiting, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+              .bind(bulkRow.id, bulkRow.board_id, bulkRow.column_id, bulkRow.project_id, bulkRow.title, bulkRow.notes, bulkRow.due_date, bulkRow.position, bulkRow.archived, bulkRow.important, bulkRow.creator_key_id, bulkRow.creator_key_name, bulkRow.step_holder, bulkRow.step_key_id, bulkRow.step_key_name, bulkRow.step_handed_at, bulkRow.step_handed_by_key_id, bulkRow.step_handed_by_key_name, bulkRow.step_waiting, bulkRow.created_at, bulkRow.updated_at)
+          );
+          bulkEntry.labelIds.forEach(function (bulkLabelId) {
+            bulkStatements.push(db.prepare("INSERT INTO card_labels (card_id, label_id) VALUES (?, ?)")
+              .bind(bulkRow.id, bulkLabelId));
+          });
+          bulkStatements.push(activityStmt({
+            boardId: bulkRow.board_id, act: "card-created",
+            cardId: bulkRow.id,
+            objectType: "card", objectId: bulkRow.id, objectName: bulkRow.title,
+            at: bulkRow.created_at,
+            detail: { columnId: bulkColumn.id, columnName: bulkColumn.name }
+          }));
+        });
+        await batchRun(db, bulkStatements);
+        noteChange();
+        var bulkKindMap = {};
+        bulkKindMap[bulkColumn.id] = columnKind(bulkColumn);
+        var bulkKeyNames = await keyNameMap(db, owner.id);
+        return json({ cards: bulkRows.map(function (bulkEntry) {
+          return cardOut(bulkEntry.row, bulkKindMap, [], [], bulkEntry.labelIds, [],
+            effectiveName(owner), bulkKeyNames, keyIdsByName(bulkKeyNames), []);
+        }) }, 201);
       }
     }
 

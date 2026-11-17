@@ -8,6 +8,8 @@ Inside a release, the app stamps every deploy with a build stamp. The stamp is `
 
 ### Added
 
+- Many cards can now be created in one call. `POST /api/v1/cards/bulk` takes a board, a column and a list of card bodies — a spreadsheet of tasks, a meeting's action list, an import from another tool — and lands them all at the end of the column in the list's order, under one version rise for the whole call. The call lands whole or not at all: one bad item refuses it entire, and the answer names the item's place in the list and why it failed. One call takes at most 100 cards.
+
 - A card read can now be filtered. `GET /api/v1/cards` answers the cards matching the filters the call names — a board, a column, a label, a project, whose step is next, the archived flag and a due range — across every board at once, each in the full card shape with its board and column named, and paged like the board activity read, for the signed-in person and for an agent key alike. "Cards due this week" and "everything under the Money label" no longer mean reading the whole board. The read changes nothing and raises no version.
 
 - A watcher can now read what changed without reading everything. `GET /api/v1/changes?since_version=` answers the acts that landed on any of the caller's boards after the version named — the board activity entries, across every board in landing order — for the signed-in person and for an agent key alike. The answer names where its record starts and stands `complete` false when the named version predates the record as it stands, so a partial story never reads as the whole one. The read changes nothing and raises no version.

@@ -33,7 +33,7 @@ Reads speak camelCase. Writes speak snake_case. Each call takes only its own spe
 - Columns: add, rename, reorder and remove. Removing a column that holds cards names the column that receives them.
 - Labels: add, rename, recolour and delete. A delete lifts the label off its cards.
 - Projects: add, rename and delete. A delete leaves its cards with no project.
-- Cards: create, edit and delete. One edit can change the title, notes, labels, project, due date, the important flag, the column, the place in the column, the board and the archived state.
+- Cards: create, edit and delete. One bulk call creates many cards from a list: whole or not at all, under one version rise. One edit can change the title, notes, labels, project, due date, the important flag, the column, the place in the column, the board and the archived state.
 - Steps: add, rename, tick, untick, reorder and remove.
 - Links: add, change and remove. The address must clean to an http or https address.
 - Comments: add and remove. There is no edit.
@@ -69,7 +69,7 @@ Every write passes one gate in `worker/core.js`.
 Caps stand in the `LIMITS` table in `worker/core.js`. A write past a cap is refused whole.
 
 - Names: 120 characters. A colour: 40. A card title: 300. Notes: 10,000. A step: 500. A link name: 200. A link address: 2,000. A comment body: 2,000.
-- Per owner: 50 boards and 10 keys. Per board: 30 columns, 100 labels, 100 projects and 2,000 cards. Per card: 200 steps, 100 links and 500 comments.
+- Per owner: 50 boards and 10 keys. Per board: 30 columns, 100 labels, 100 projects and 2,000 cards. Per card: 200 steps, 100 links and 500 comments. One bulk create call: 100 cards.
 
 ### Stamps
 
@@ -124,7 +124,6 @@ The Set Up Agent page gives the person a short bootstrap (`agentInstructions` in
 ### What no key can do
 
 - Read one card alone. `/state` and `/queue` are the only card reads.
-- Work in bulk. There are no bulk calls. Clearing a column means one call per card.
 - Edit a comment. A comment is removed whole or stands.
 - Read history. The version is one counter. The latest-change stamp rides on the person's answers only, and it names the latest change alone.
 - Hold a read-only local key. Every local key can write.
@@ -134,10 +133,6 @@ The Set Up Agent page gives the person a short bootstrap (`agentInstructions` in
 ### Read-only local keys
 
 Give a local key the same read and write levels a MemberSpark key carries. Jobs it unblocks: a reporting helper on a self-host copy that can read the boards and never change them.
-
-### Bulk create
-
-Let one call create many cards from a list. Jobs it unblocks: a spreadsheet of tasks, a meeting's action list, an import from another tool. Today each card is its own call, so a hundred rows is a hundred calls.
 
 ## User scenarios
 
@@ -168,11 +163,11 @@ The API carries this today. The hand-over and its explanation land as one write.
 Priya pastes her club's meeting notes into her chat. She asks her AI to turn the actions into cards.
 
 1. The AI reads `GET /state` and finds the club board and its labels.
-2. It creates one card per action, each with its steps and the right label.
+2. It creates the twelve cards in one bulk call, each with the right label, and adds their steps.
 3. Two cards name the treasurer as their first holder, so the creates carry `next_step` for her key.
 4. The AI reads `/state` again and checks every card landed.
 
-The API carries this today. Twelve actions mean twelve create calls. A bulk create would make it one.
+The API carries this today. Twelve actions are one bulk call; the steps ride their own calls, as they do on any card.
 
 ### Scenario four
 

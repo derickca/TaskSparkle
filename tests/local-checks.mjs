@@ -1665,7 +1665,8 @@ function paletteBlocksOf(css) {
   const knownLimits = ["nameChars", "colourChars", "titleChars", "notesChars",
     "stepChars", "linkNameChars", "linkUrlChars", "commentChars",
     "boardsPerOwner", "keysPerOwner", "templatesPerOwner", "columnsPerBoard",
-    "labelsPerBoard", "projectsPerBoard", "cardsPerBoard", "stepsPerCard",
+    "labelsPerBoard", "projectsPerBoard", "cardsPerBoard", "cardsPerBulkCall",
+    "stepsPerCard",
     "linksPerCard", "commentsPerCard", "attachmentNameChars",
     "attachmentKindChars", "attachmentBytes", "attachmentsPerCard",
     "attachmentBytesPerOwner"];
@@ -1709,6 +1710,11 @@ function paletteBlocksOf(css) {
   if (!directions.includes(filesLine)) {
     failures.push("the directions' file limits do not carry worker/core.js's " +
       "LIMITS values: " + filesLine);
+  }
+  const bulkLine = "One call creates at most " + limits.cardsPerBulkCall + " cards";
+  if (!directions.includes(bulkLine)) {
+    failures.push("the directions do not state the bulk create cap with its " +
+      "number: " + bulkLine);
   }
   const lineStarting = (prefix) => dirLines.find((l) => l.startsWith(prefix)) || "";
   if (!lineStarting("- 401 means")) {
