@@ -17,7 +17,10 @@
 // stamps, to the person and to a key alike), searching boards
 // and cards (issue #142: a card found by its own words — its
 // title, notes, steps, link names and comments — across every
-// board, without a read of the whole state), keys (mint,
+// board, without a read of the whole state), card times
+// (issue #143: every card read carries createdAt and changedAt —
+// when the card was made and when it last changed in a way a
+// reader of the card can see), keys (mint,
 // list, rename, revoke, the key-door rules), the
 // write gate (unknown fields refused by name, stale writes), the
 // version stamps, the directions, the push route's refusals and
@@ -2531,6 +2534,118 @@ res = await b.call("DELETE", "/api/v1/cards/" + srchCardForeign.id);
 res = await a.call("DELETE", "/api/v1/boards/" + srchBoard2.id);
 res = await a.call("DELETE", "/api/v1/boards/" + srchBoard.id);
 res = await a.call("DELETE", "/api/v1/me/token/" + srchKeyId);
+
+// --- Card times (issue #143) --------------------------------------------------
+// Every card read carries two times. createdAt is when the
+// card was made — the stamp has stood on every card since the
+// first release, and a copy, a template start and a recurring
+// round each make a new card born at their own moment.
+// changedAt is when the card last changed in a way a reader
+// of the card can see — a move, an edit, a step, a link, a
+// comment, archiving — the change stamp the following family
+// reads, with the creation stamp standing for a card nothing
+// has changed yet. The two ride the one card shape, so the
+// state, the create and edit answers, search and a key's reads
+// all carry the same pair, and a write that changes nothing
+// moves neither.
+const timesWait = () => new Promise((resolve) => setTimeout(resolve, 80));
+const timesShape = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const timesCardIn = (answer, id) =>
+  (answer && Array.isArray(answer.cards) ? answer.cards : []).find((card) => card.id === id);
+
+res = await a.call("POST", "/api/v1/boards", { name: "Times Board" });
+const timesBoard = res.json.board;
+res = await a.call("POST", "/api/v1/me/token", { name: "Times Key" });
+const timesKey = res.json.key; const timesKeyId = res.json.id;
+
+res = await a.call("POST", "/api/v1/cards", {
+  board_id: timesBoard.id, column_id: "inbox", title: "Times birth card",
+});
+const timesBorn = res.json.card;
+check("times: a created card reads its times — created in the stamp's shape, changed standing at it",
+  res.status === 201 && timesShape.test(timesBorn.createdAt || "") &&
+    timesBorn.changedAt === timesBorn.createdAt,
+  "status " + res.status + " created " + (timesBorn && timesBorn.createdAt) +
+    " changed " + (timesBorn && timesBorn.changedAt));
+const timesBirthRead = timesCardIn(await state(a), timesBorn.id);
+check("times: the state read carries the same two times as the create answer",
+  !!timesBirthRead && timesBirthRead.createdAt === timesBorn.createdAt &&
+    timesBirthRead.changedAt === timesBorn.changedAt,
+  "state " + JSON.stringify(timesBirthRead || null));
+
+await timesWait();
+res = await a.call("PATCH", "/api/v1/cards/" + timesBorn.id, { title: "Times birth card, edited" });
+const timesEdited = res.json.card;
+check("times: an edit moves the changed time and leaves the created time standing",
+  res.status === 200 && timesEdited.createdAt === timesBorn.createdAt &&
+    timesEdited.changedAt > timesBorn.changedAt,
+  "status " + res.status + " created " + (timesEdited && timesEdited.createdAt) +
+    " changed " + (timesEdited && timesEdited.changedAt) + " vs " + timesBorn.changedAt);
+res = await a.call("PATCH", "/api/v1/cards/" + timesBorn.id, { title: "Times birth card, edited" });
+check("times: a write that changes nothing moves neither time",
+  res.status === 200 && !!res.json.card && res.json.card.createdAt === timesBorn.createdAt &&
+    res.json.card.changedAt === timesEdited.changedAt,
+  "status " + res.status + " changed " + (res.json.card && res.json.card.changedAt) +
+    " vs " + timesEdited.changedAt);
+
+await timesWait();
+res = await a.call("PATCH", "/api/v1/cards/" + timesBorn.id, { column_id: "doing" });
+const timesMoved = res.json.card;
+check("times: a move to another column moves the changed time — the card's arrival there",
+  res.status === 200 && timesMoved.columnId === "doing" &&
+    timesMoved.changedAt > timesEdited.changedAt && timesMoved.createdAt === timesBorn.createdAt,
+  "status " + res.status + " column " + (timesMoved && timesMoved.columnId) +
+    " changed " + (timesMoved && timesMoved.changedAt) + " vs " + timesEdited.changedAt);
+
+await timesWait();
+res = await a.call("POST", "/api/v1/cards/" + timesBorn.id + "/comments",
+  { body: "a note on the times card" });
+const timesCommentStatus = res.status;
+const timesAfterComment = timesCardIn(await state(a), timesBorn.id);
+check("times: a comment moves the changed time — a change a reader sees",
+  timesCommentStatus === 201 && !!timesAfterComment &&
+    timesAfterComment.changedAt > timesMoved.changedAt &&
+    timesAfterComment.createdAt === timesBorn.createdAt,
+  "comment status " + timesCommentStatus + " changed " +
+    (timesAfterComment && timesAfterComment.changedAt) + " vs " + timesMoved.changedAt);
+
+await timesWait();
+res = await a.call("PATCH", "/api/v1/cards/" + timesBorn.id, { archived: true });
+const timesArchived = res.json.card;
+check("times: an archived card reads its archive moment as its changed time",
+  res.status === 200 && timesArchived.archived === true &&
+    timesArchived.changedAt > timesAfterComment.changedAt &&
+    timesArchived.createdAt === timesBorn.createdAt,
+  "status " + res.status + " changed " + (timesArchived && timesArchived.changedAt) +
+    " vs " + timesAfterComment.changedAt);
+
+res = await keyCall("GET", "/api/v1/state", timesKey);
+const timesKeyCard = timesCardIn(res.json, timesBorn.id);
+check("times: a key caller reads the same two times as the person",
+  res.status === 200 && !!timesKeyCard && timesKeyCard.createdAt === timesBorn.createdAt &&
+    timesKeyCard.changedAt === timesArchived.changedAt,
+  "status " + res.status + " key " + JSON.stringify(timesKeyCard || null));
+res = await keyCall("GET", "/api/v1/search?q=Times%20birth", timesKey);
+const timesSearchCard = timesCardIn(res.json, timesBorn.id);
+check("times: a search match carries the same two times",
+  res.status === 200 && !!timesSearchCard && timesSearchCard.createdAt === timesBorn.createdAt &&
+    timesSearchCard.changedAt === timesArchived.changedAt,
+  "status " + res.status + " match " + JSON.stringify(timesSearchCard || null));
+
+const timesReadOne = timesCardIn(await state(a), timesBorn.id);
+const timesReadTwo = timesCardIn(await state(a), timesBorn.id);
+check("times: reading a card moves neither time",
+  !!timesReadOne && !!timesReadTwo && timesReadOne.createdAt === timesReadTwo.createdAt &&
+    timesReadOne.changedAt === timesReadTwo.changedAt,
+  "one " + JSON.stringify(timesReadOne || null) + " two " + JSON.stringify(timesReadTwo || null));
+res = await keyCall("GET", "/api/v1/directions", timesKey);
+check("times: the served directions name the two times and the tidy they serve",
+  res.status === 200 && res.text.includes("createdAt") && res.text.includes("changedAt") &&
+    res.text.includes("Card times"),
+  "status " + res.status);
+
+res = await a.call("DELETE", "/api/v1/boards/" + timesBoard.id);
+res = await a.call("DELETE", "/api/v1/me/token/" + timesKeyId);
 
 // --- Moving a card to another board (issue #163) ------------------------------
 // One card edit names the new board, the column on it and the

@@ -79,6 +79,10 @@ Work records who did it. The record holds an identity, never a name. Names resol
 
 Moves, edits and ticks carry no stamp. A watcher cannot attribute them and must not guess.
 
+### Card times
+
+A card read carries `createdAt` and `changedAt`. The created time is when the card was made; a board copy, a template start and a recurring round each make a new card at their own moment. The changed time is the card's last change a reader can see — a move, an edit, a hand-over, a step, a link, a comment, archiving — read off the change stamp the following build keeps, with the creation time standing for a card nothing has changed yet. A weekly tidy by age and a "what changed this week" answer both read straight off the cards.
+
 ### Key limits
 
 A key can never call the key routes. `GET`, `POST`, `PATCH` and `DELETE` on `/me/token` answer a key with a 403.
@@ -122,15 +126,10 @@ The Set Up Agent page gives the person a short bootstrap (`agentInstructions` in
 - Work in bulk. There are no bulk calls. Clearing a column means one call per card.
 - Attach a file. Links hold web addresses only.
 - Edit a comment. A comment is removed whole or stands.
-- Read a card's age. A card read carries no created or changed time.
 - Read history. The version is one counter. The latest-change stamp rides on the person's answers only, and it names the latest change alone.
 - Hold a read-only local key. Every local key can write.
 
 ## Recommended capabilities
-
-### Card times
-
-Add a created time and a last-changed time to the card read. Jobs it unblocks: a weekly tidy by age, and a "what changed this week" answer without a full state diff.
 
 ### File attachments
 
@@ -193,10 +192,10 @@ The API carries this today. Twelve actions mean twelve create calls. A bulk crea
 Every Friday, Sam's AI tidies his work board. It archives the Done cards that finished more than a month ago.
 
 1. The AI reads `GET /state` and finds the Done column's cards.
-2. It looks for a finished date on each card. The card read carries none.
-3. It cannot tell a card finished yesterday from one finished last spring.
+2. It reads each card's `changedAt`. For a card resting in Done, that stamp is when it landed there or was last touched.
+3. It archives the ones whose stamp stands more than a month back, one card at a time.
 
-The API does not carry this today. Archiving works one card at a time, but no stamp on the card says when it was finished or last changed. Card times close the gap.
+The API carries this today. Archiving works one card at a time, and the changed time on the card says when it was finished or last changed, so the tidy picks its month by that stamp.
 
 ### Scenario five
 
