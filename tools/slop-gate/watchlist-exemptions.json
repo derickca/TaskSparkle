@@ -236,5 +236,12 @@
     "sentence_sha256": "a956d5ebf81256949c084380246a8f502cae1602449ddc7753a00c56f956941f",
     "sentence": "The public key is not a COSE map.",
     "reason": "Literal use: a cryptographic key in a WebAuthn error message. The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Standing copy, recorded 2026-11-09 when the slop gate landed in this repo."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "0beb2317ec4ac8ad608917286eaff01266afe9fff9ca29eb83e10dc19e0bbdf9",
+    "sentence": "Changing the key's level did not work.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. New copy from the read-only keys build (issue #147), whose key-level control carries this sentence; recorded 2026-11-16."
   }
 ]
