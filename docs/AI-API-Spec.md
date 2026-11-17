@@ -79,7 +79,7 @@ Work records who did it. The record holds an identity, never a name. Names resol
 - A comment carries `authorKeyName` and `authorName`.
 - A step carries `handedByKeyName` and `handedByName`.
 
-Moves, edits and ticks carry no stamp. A watcher cannot attribute them and must not guess.
+Moves, edits and ticks carry no stamp on the work itself. A watcher attributes them from the board's activity, which names every act's actor — never by guessing from the state.
 
 ### Card times
 
@@ -123,9 +123,9 @@ The Set Up Agent page gives the person a short bootstrap (`agentInstructions` in
 
 ### What no key can do
 
-- Read one card alone. `/state` and `/queue` are the only card reads.
+- Read one card alone. Cards come back through `/state`, `/queue`, `/cards` and `/following`, and no read names one card by its id.
 - Edit a comment. A comment is removed whole or stands.
-- Read history. The version is one counter. The latest-change stamp rides on the person's answers only, and it names the latest change alone.
+- Read the acts from before the record started. A key reads the board's activity and `/changes` as far back as the record stands. Acts from before the build that added the record were never written down, and a deleted board's activity is gone with it. The version is one counter, and the latest-change stamp rides on the person's answers only, naming the latest change alone.
 
 ## Recommended capabilities
 
@@ -209,4 +209,6 @@ The API carries this today, on both key roads: a key the person sets to read acc
 
 Good enough for the day-to-day jobs. One person's AI can read the boards, work its queue, create and move cards, comment, hand work back and watch for changes, on either key road.
 
-Not yet enough for three jobs people will ask for. An AI cannot file a file on a card. It cannot tidy by age, because a card carries no times. It reads the whole board for every small question, because no read takes a filter.
+An AI can file a file on a card and read it back whole. It can tidy by age, because every card carries the time it was made and the time it last changed. A small question takes one filtered read, not the whole board.
+
+What still lacks is short. No read names one card alone. A comment cannot be edited. The activity record reaches back only to the build that started it, and a deleted board takes its record with it.
