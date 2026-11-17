@@ -95,7 +95,7 @@ A key can never delete the account. `DELETE /me` answers a key with a 403.
 
 A key can never set the person's name. `PATCH /me` with a name answers a key with a 403.
 
-A local key carries its owner's full powers over the boards. Local keys have no read-only level.
+A local key holds one of two levels, the same two a MemberSpark key carries. A write key carries its owner's full powers over the boards. A read key reads everything a key may read, and the one write gate refuses its every write with a 401 — "This key holds read access only, so this change is refused." — before the body is judged and before any route runs. The person chooses the level at the mint, sees it in the key list, and changes it on the key's own route; a change takes effect on the key's next call. The level is a property of the key alone: a signed-in person always holds full powers. `GET /me` through a key names the key's own level as `access`.
 
 ### MemberSpark keys
 
@@ -126,13 +126,8 @@ The Set Up Agent page gives the person a short bootstrap (`agentInstructions` in
 - Read one card alone. `/state` and `/queue` are the only card reads.
 - Edit a comment. A comment is removed whole or stands.
 - Read history. The version is one counter. The latest-change stamp rides on the person's answers only, and it names the latest change alone.
-- Hold a read-only local key. Every local key can write.
 
 ## Recommended capabilities
-
-### Read-only local keys
-
-Give a local key the same read and write levels a MemberSpark key carries. Jobs it unblocks: a reporting helper on a self-host copy that can read the boards and never change them.
 
 ## User scenarios
 
@@ -206,9 +201,9 @@ Rob gives a second AI a key so it can report on his boards each week. He wants i
 1. On the hosted service, Rob makes a MemberSpark key with read access.
 2. The second AI reads `/state` and writes its report.
 3. It tries a card edit by mistake. The write gets a 401, because its key holds read access only.
-4. On Rob's self-host copy at home, his local key carries full powers. The same mistake would land.
+4. On Rob's self-host copy at home, he makes the second AI's local key read-only too. The same mistake gets the same 401.
 
-The API carries this on the MemberSpark road today. It does not carry it on the local key road. Read-only local keys close the gap.
+The API carries this today, on both key roads: a key the person sets to read access reads the boards and changes nothing.
 
 ## Verdict
 
