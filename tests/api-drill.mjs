@@ -20,7 +20,12 @@
 // board, without a read of the whole state), card times
 // (issue #143: every card read carries createdAt and changedAt —
 // when the card was made and when it last changed in a way a
-// reader of the card can see), keys (mint,
+// reader of the card can see), file attachments (issue #144:
+// a key files a file on a card and reads it back whole, the
+// person sees and opens the same file, an over-cap file is
+// refused with the cap named, a foreign caller can neither
+// read nor file, a board copy carries a card's files, and
+// deleting a card takes its files with it), keys (mint,
 // list, rename, revoke, the key-door rules), the
 // write gate (unknown fields refused by name, stale writes), the
 // version stamps, the directions, the push route's refusals and

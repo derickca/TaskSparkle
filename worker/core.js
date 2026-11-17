@@ -175,7 +175,12 @@ var LIMITS = {
   cardsPerBoard: 2000,
   stepsPerCard: 200,
   linksPerCard: 100,
-  commentsPerCard: 500
+  commentsPerCard: 500,
+  attachmentNameChars: 200,   // a file's name
+  attachmentKindChars: 100,   // a file's kind (its media type)
+  attachmentBytes: 524288,    // one file, 512 KB of bytes
+  attachmentsPerCard: 20,
+  attachmentBytesPerOwner: 104857600  // one person's files in all, 100 MB
 };
 
 // True when a text value runs past its limit.
@@ -196,7 +201,7 @@ function countOf(row) {
 // loading line. The deploy checks the two stamps agree and fails
 // when they do not, so a release can never ship them mismatched.
 // Bump both together whenever the app files change.
-var BUILD_ID = "r2026-11-16-1";
+var BUILD_ID = "r2026-11-16-2";
 
 // Every API answer carries two standing headers. Cache-Control:
 // no-store, because state answers hold a person's boards and the
@@ -274,17 +279,17 @@ function agentDirections(env) {
     "A board reads as: id, name, icon, position, labelColourMode and columns. Its columns ride inside it: id, kind, name, icon, position and recur, in board order. recur is the column's recurrence schedule (see Recurring lists), or null when the column carries none.",
     "labelColourMode says how the app paints a card's first label colour on this board: chip keeps the colour on the label alone, background gives the card's face that colour faded, trim rings the card with a thick border in it, and top sets a thick band of it across the card's top. First means first in the board's own label order; a card with no labels is never painted. The label chips themselves always show. The mode is the board's own — it is part of what tells one board from another — and a board copy carries it. It starts at chip.",
     "A label reads as: id, boardId, name, icon and colour. A project reads as: id, boardId, name and icon. Each belongs to one board.",
-    "A card reads as: id, boardId, columnId, title, notes, labels, due, projectId, archived, important, position, createdAt, changedAt, steps, links, comments, creatorKeyId, creatorKeyName and step.",
+    "A card reads as: id, boardId, columnId, title, notes, labels, due, projectId, archived, important, position, createdAt, changedAt, steps, links, comments, attachments, creatorKeyId, creatorKeyName and step.",
     "A card's columnId on a read is the column's kind, not its row id. The five starting kinds are inbox, ready, doing, waiting and done. A column added later carries a generated kind of its own. A kind never changes when its column is renamed or reordered, and a write takes that kind as column_id (a column's row id is accepted too).",
-    "A card's labels are a list of label ids in the board's label order. Its steps are a list of id, text and done, in the order they stand on the card. Its links are a list of id, url and name, in the order the links were added. Its comments are a list of id, body, createdAt, authorKeyName and authorName, in the order the comments were written (see Comments).",
+    "A card's labels are a list of label ids in the board's label order. Its steps are a list of id, text and done, in the order they stand on the card. Its links are a list of id, url and name, in the order the links were added. Its comments are a list of id, body, createdAt, authorKeyName and authorName, in the order the comments were written (see Comments). Its attachments are a list of id, name, kind, size and createdAt, in the order the files were filed (see Files).",
     "creatorKeyName is the name of the agent key that created the card, resolved from that key's record as the card is read, or null when the person made the card in the app. creatorKeyId, riding beside it, is that key's id, or null the same way: it tells two keys of one name apart, and it is what a step's keyId is compared against to know the maker holds the step — matched by id, never by name. The card records the key's id, never the name, so renaming the key renames the maker name on every card it made at once, and deleting the key changes nothing: its row stands, and its cards keep reading with its name. Cards made before the stamp existed also read null. See Cards.",
     "step says whose turn the card's next step is (see Handing over): step.holder is owner (the person), agent or none. When it is agent, step.keyId names the holding key and step.keyName is that key's name as it stands now, resolved from the key's record as the card is read. step.handedAt says when the step was last handed over, or null when it never has been; step.handedByKeyName names the key that handed it over the same way, or null when the person did, and step.handedByName names whoever handed it over — the key's current name, or the person's name as it stands now — or null when the step has never been handed over. step.waiting is true while the holder has not picked the card up yet: the holder's first write to the card clears it.",
     "due is the due date written YYYY-MM-DD, or an empty string when the card has none. projectId is null when the card carries no project.",
-    "Archived cards come back in every state read, flagged archived: true. Archiving is not deleting: an archived card leaves the board and keeps its steps, its links and its labels.",
+    "Archived cards come back in every state read, flagged archived: true. Archiving is not deleting: an archived card leaves the board and keeps its steps, its links, its labels and its files.",
     "Icons on a read: a board, a column, a label and a project can each carry one emoji, and it rides in the state as icon. A board with no icon stored reads one from its name: a person for Personal, a building for Professional and a card box for any other name. A column with no icon stored reads the keycap number of its position. A project or label with no icon stored reads an empty icon.",
     "",
     "Card times",
-    "Every card carries two times, both UTC stamps with milliseconds, in the form 2026-11-16T17:00:00.000Z. createdAt is when the card was made: a card made by a board copy, a start from a template or a recurring round was made at that moment — a new card with its own times, never its source's. changedAt is when the card last changed in a way a reader of the card can see: a move, an edit, a hand-over or a pickup, a step, a link, a comment, archiving or restoring. A card nothing has changed yet reads its creation time as its changed time, and a write that changes nothing moves neither time.",
+    "Every card carries two times, both UTC stamps with milliseconds, in the form 2026-11-16T17:00:00.000Z. createdAt is when the card was made: a card made by a board copy, a start from a template or a recurring round was made at that moment — a new card with its own times, never its source's. changedAt is when the card last changed in a way a reader of the card can see: a move, an edit, a hand-over or a pickup, a step, a link, a comment, a file, archiving or restoring. A card nothing has changed yet reads its creation time as its changed time, and a write that changes nothing moves neither time.",
     "Plan a tidy from them. A card resting in Done whose changedAt stands more than a month back was finished more than a month ago, or last touched then: a later comment or edit is a change a reader can see, and the stamp honestly moves with it. The cards that changed in a week are the ones whose changedAt stands inside it — a what-changed-this-week answer read straight off the cards, with no diff of the whole state.",
     "",
     "Version and baseVersion",
@@ -300,7 +305,7 @@ function agentDirections(env) {
     "- A body that is not JSON is refused with a 400. A route that needs a body refuses a missing or empty one the same way.",
     "- Ids that belong to another owner read as not found (404), on reads and writes alike. Your key reaches only its owner's boards.",
     "- Multi-step changes land as one act. A board copy, a start from a template, a new board with its columns and a card with its labels are each written as one database batch, so a failure partway leaves nothing half-done standing.",
-    "- Answers to a write carry the thing written (board, column, label, project, card, step or link) plus the new version. A delete answers {ok: true} plus the new version.",
+    "- Answers to a write carry the thing written (board, column, label, project, card, step, link or attachment) plus the new version. A delete answers {ok: true} plus the new version.",
     "",
     "Routes",
     "GET /me - your id and the name the owner goes by. The owner's own sign-in gets their email on this answer too; a key does not.",
@@ -335,13 +340,16 @@ function agentDirections(env) {
     "DELETE /projects/{project id} - delete a project. Its cards carry on with no project.",
     "POST /cards - create a card: board_id, column_id and title are required; notes, labels, project_id, due_date and important may ride along, and next_step may name the step's first holder (see Handing over). The card lands at the end of its column.",
     "PATCH /cards/{card id} - edit a card: title, notes, labels, project_id, due_date, important, column_id, position, board_id, archived, next_step and comment, any of them. See Cards and Handing over.",
-    "DELETE /cards/{card id} - delete a card for good, with its steps, its links and its comments.",
+    "DELETE /cards/{card id} - delete a card for good, with its steps, its links, its comments and its files.",
     "POST /cards/{card id}/steps - add a step: text, plus done if it starts ticked.",
     "PATCH /cards/{card id}/steps/{step id} - change a step: text, done and position, any of them. A position is the step's place in the card's list counting from the top at 0; the other steps shift around it.",
     "DELETE /cards/{card id}/steps/{step id} - remove a step.",
     "POST /cards/{card id}/links - add a link: url, plus name if one is given.",
     "PATCH /cards/{card id}/links/{link id} - change a link: url and name, either of them.",
     "DELETE /cards/{card id}/links/{link id} - remove a link.",
+    "POST /cards/{card id}/attachments - file a file on a card: name, kind and data, the file's bytes as base64 (see Files).",
+    "GET /cards/{card id}/attachments/{attachment id} - read a file back: the file itself, as a download.",
+    "DELETE /cards/{card id}/attachments/{attachment id} - remove a file from a card.",
     "POST /cards/{card id}/comments - add a comment: body. See Comments.",
     "DELETE /cards/{card id}/comments/{comment id} - remove a comment.",
     "POST /cards/{card id}/follow - follow a card. DELETE /cards/{card id}/follow - stop following it. See Following a card.",
@@ -349,12 +357,12 @@ function agentDirections(env) {
     "",
     "Cards",
     "- position is the card's place in its column, counting from the top starting at 0. Send position with a card edit to place the card: it takes that place, the column's other active cards shift around it, and every position is written back as one clean run from 0. A create takes no position; a new card lands at the end of its column.",
-    "- column_id on an edit moves the card to that column on its board. board_id moves the card to another board in the same one edit: send column_id (a column id or kind on the new board) to choose the column it lands in, and project_id to choose its project on the new board, or null for no project. With no column_id it lands in the new board's column at the same place counting from the left as the column it leaves, or in the last column when the new board has fewer; with no project_id it takes the new board's project with the same name as the card's project, or none. The card lands at the end of its new column unless position rides along. Labels cross by name: a label the new board carries under the same name is worn there as that board's label, with its own colour and icon, and a label with no match on the new board is left behind. A labels list sent with a board move is not read — the server works the crossing out from the card's labels as they stand. Everything else travels: title, notes, due date, steps, links, comments, the archived state and whose step is next. The move is refused, and nothing changes, when the new board already holds as many cards as one board holds.",
+    "- column_id on an edit moves the card to that column on its board. board_id moves the card to another board in the same one edit: send column_id (a column id or kind on the new board) to choose the column it lands in, and project_id to choose its project on the new board, or null for no project. With no column_id it lands in the new board's column at the same place counting from the left as the column it leaves, or in the last column when the new board has fewer; with no project_id it takes the new board's project with the same name as the card's project, or none. The card lands at the end of its new column unless position rides along. Labels cross by name: a label the new board carries under the same name is worn there as that board's label, with its own colour and icon, and a label with no match on the new board is left behind. A labels list sent with a board move is not read — the server works the crossing out from the card's labels as they stand. Everything else travels: title, notes, due date, steps, links, comments, files, the archived state and whose step is next. The move is refused, and nothing changes, when the new board already holds as many cards as one board holds.",
     "- labels on a create or an edit replaces the card's whole set: send the full list of label ids the card should wear, or an empty list for none. Every id must be a label on the card's board. An id from another board, or one that does not exist, refuses the whole write and nothing changes.",
     "- project_id names a project on the card's board, or null for no project. A project from another board refuses the write.",
     "- due_date is a real calendar date written YYYY-MM-DD, or empty (an empty string or null) for no date. Anything else is refused: a shape that is not a date, and a date that does not exist, such as 2026-02-30.",
     "- important is a single flag: true or false, nothing else. There are no levels. The flag never changes a card's order.",
-    "- archived: true archives the card. archived: false restores it: the card returns to its column, or to the board's first column if that column is gone. Steps, links, labels and comments survive archiving and restoring. Deleting a card is forever.",
+    "- archived: true archives the card. archived: false restores it: the card returns to its column, or to the board's first column if that column is gone. Steps, links, labels, comments and files survive archiving and restoring. Deleting a card is forever.",
     "- creatorKeyName records who wrote the card's first version. A card made with an agent key records that key's id, and the name it reads with is the key's name as it stands when the card is read: rename the key and the maker name on every card it made follows at once, and delete it and its cards keep its name, because its row stands as its record. A card the person made in the app carries null, and so does a card made before the stamp existed. A card made by copying a board takes whoever made the copy as its creator: the copy is a new first version.",
     "- There are no bulk calls. Clearing a column means archiving or deleting its cards one at a time, naming each card: every archive is a deliberate act on a named card.",
     "",
@@ -367,7 +375,11 @@ function agentDirections(env) {
     "A step carries text and a tick (done), nothing else. Steps come back with the card in the order they stand on the card. Add, rename, tick, untick, reorder and remove them through the step routes above: a step's order changes by sending its new position on the step's PATCH, and the card's steps are written back as one clean run.",
     "",
     "Links",
-    "A link carries a web address and an optional name. An address typed without a scheme is stored with https:// added. A bare host with a port (a name, a colon, then digits) is stored the same way. Anything that is not an http or https address is refused with a 400 and nothing is stored. The address is stored cleaned, as the absolute address it names. TaskSparkle stores web addresses only, never files.",
+    "A link carries a web address and an optional name. An address typed without a scheme is stored with https:// added. A bare host with a port (a name, a colon, then digits) is stored the same way. Anything that is not an http or https address is refused with a 400 and nothing is stored. The address is stored cleaned, as the absolute address it names. A link is an address, never a file; a card's files stand apart (see Files).",
+    "",
+    "Files",
+    "A file filed on a card stands beside its links: it carries a name and a kind — its media type, such as application/pdf — and the card read shows each file's record: id, name, kind, size in bytes and createdAt, never the bytes. File one with POST /cards/{card id}/attachments: name, kind and data, the file's bytes as base64; kind may be left out and defaults to application/octet-stream. Read a file back with GET /cards/{card id}/attachments/{attachment id}: the answer is the file itself, served as a download under its name, never rendered. Remove one with DELETE /cards/{card id}/attachments/{attachment id}. Filing and removing are changes like any other: one version rise each, and the board's activity carries them as attachment-filed and attachment-removed.",
+    "A card's files travel with the card: they survive a move, archiving and restoring, and a board copy carries them whole, like its steps and links. Deleting the card deletes its files. A template holds no files, and a recurring round's fresh copies start without them. A file's name is not searched (see Searching). The bytes stand in the same database as everything else, as base64 text in the card's own table — the one store the hosted service and a self-host copy both have.",
     "",
     "Comments",
     "A comment is a note left on a card: progress updates and anything else worth saying about the card, kept with the card. A comment reads as id, body, createdAt, authorKeyName and authorName, and a card's comments come back in the order they were written. A comment records who wrote it as an identity — the key's id, or the person's — and the names are resolved from those records as the comment is read: authorKeyName is the writing key's name as it stands now, or null when the person wrote it, and authorName names the author either way, the key's current name or the person's current name. Rename the key or the person and every standing comment's author name follows at once. Add a comment with POST /cards/{card id}/comments and remove one with DELETE /cards/{card id}/comments/{comment id}; each is a change like any other, raising the version once. There is no edit: a comment is removed whole or stands as written. Archiving a card keeps its comments; deleting the card takes them with it. A board copy does not copy comments: they are the source board's conversation, not the card's content, so a copied card starts with none. Working a card starts with its comments: read them before changing anything on the card, because the person's progress updates and instructions about the card live there. Leave your own progress as comments on the card as the work goes, so the person and every other agent see it in one place.",
@@ -376,7 +388,7 @@ function agentDirections(env) {
     "Send icon in the same call that sets the name. The value must be one emoji: one grapheme cluster carrying a pictograph, or a keycap sequence. An empty string clears it: a board or column falls back to its read default, and a project or label falls back to none. A value that is not one emoji is refused, and nothing is stored.",
     "",
     "Copying a board",
-    "POST /boards/{board id}/copy makes the whole copy as one act with one version rise. The body names the copy and sets the four flags. Without columns: true, the copy starts with the five standard columns. Copied cards are the source's active cards only; archived cards never copy. A copied card lands in the new board's column at the same position index as its source column, clamped to the last column. Its labels and project point at the copies when labels and projects ride along, and land empty when those flags are off. Steps and links ride along with their cards. Comments never ride along: a copied card starts with no comments. A copied card's creator is whoever made the copy (see Cards).",
+    "POST /boards/{board id}/copy makes the whole copy as one act with one version rise. The body names the copy and sets the four flags. Without columns: true, the copy starts with the five standard columns. Copied cards are the source's active cards only; archived cards never copy. A copied card lands in the new board's column at the same position index as its source column, clamped to the last column. Its labels and project point at the copies when labels and projects ride along, and land empty when those flags are off. Steps, links and files ride along with their cards. Comments never ride along: a copied card starts with no comments. A copied card's creator is whoever made the copy (see Cards).",
     "",
     "Templates",
     "A template is a saved shape: a board's whole shape, or one card's shape with its steps and links, kept apart from the boards so a shape that works once is one act to start again. Save one with POST /boards/{board id}/templates or POST /cards/{card id}/templates; the name defaults to the board's name or the card's title. Saving takes the shape as it stands at that moment. Later changes to the board or the card never reach the template, and starting from a template reaches back into neither. Read the owner's templates with GET /templates; they never ride in the state.",
@@ -385,7 +397,7 @@ function agentDirections(env) {
     "",
     "Following a card",
     "A card can be followed: by the person, and by each of their keys in its own name. The person's follows are the person's; a key's follows are that key's, and neither list names the other as a follower. Follow with POST /cards/{card id}/follow (it takes no body) and stop with DELETE /cards/{card id}/follow. Following a card already followed answers the same standing and changes nothing; stopping a follow that does not stand answers 404. Following and stopping are not board changes: they raise no version and send no update.",
-    "GET /following answers the cards you follow, each in the full card shape the state carries, in the order the state reads cards, with one field of its own: changed. changed stands true when the card changed since you last read the list, or since you followed it. Reading the list marks every card it shows as seen, so the next read shows changed only for cards that changed after it. What counts is any change a reader of the card can see: a move, an edit, a hand-over or a pickup, a step added, ticked, renamed, moved or removed, a link added, changed or removed, and a comment added or removed. A write that changes nothing tells a follower nothing. A deleted card leaves the list with it. Follow the cards you are working on, and read /following when the version moves: it names the changes among the cards you care about, without a read of the whole state.",
+    "GET /following answers the cards you follow, each in the full card shape the state carries, in the order the state reads cards, with one field of its own: changed. changed stands true when the card changed since you last read the list, or since you followed it. Reading the list marks every card it shows as seen, so the next read shows changed only for cards that changed after it. What counts is any change a reader of the card can see: a move, an edit, a hand-over or a pickup, a step added, ticked, renamed, moved or removed, a link added, changed or removed, a comment added or removed, and a file filed or removed. A write that changes nothing tells a follower nothing. A deleted card leaves the list with it. Follow the cards you are working on, and read /following when the version moves: it names the changes among the cards you care about, without a read of the whole state.",
     "",
     "Recurring lists",
     "A column can recur: the person sets a schedule on it, and when the day comes, the cards standing in the column are archived and fresh copies land in their place, so a weekly or monthly round of work stands ready without anyone rebuilding it by hand. Set or clear the schedule on the column's PATCH as recur: {every: \"day\"}, {every: \"week\", weekday: N} with N counting from 0 (Sunday) to 6, {every: \"month\", month_day: N} with N from 1 to 31, or null for no schedule. A month day past the end of a short month lands on that month's last day. A column reads its schedule back as recur — the same fields in camelCase (monthDay), plus next, the date the next round lands — or null when it has none.",
@@ -401,7 +413,7 @@ function agentDirections(env) {
     "Offer the person a recurring check (a cron) that watches their boards: on each run it reads /version, and when the number has moved it reads each board's activity with since_version set to the last version it reported, and sends a short note about those acts to the chat each act belongs to. A few minutes between polls is plenty: the poll is one small request. Keep the version you last reported, so each act is reported once. Tell the person's work from an agent's by each entry's actor: actorKind agent is that key's work, named by actorKeyName; actorKind owner is the person's; actorKind schedule is a round landing. Offer the check; never set it up unasked. Comments are part of it: a comment entry's detail carries the comment's text, not just the fact of it, and a note about a comment carries that text.",
     "",
     "Board activity",
-    "Every accepted change to a board writes its acts to the board's activity as it lands, one entry per act, all under the one version the change raises. Read a board's activity with GET /boards/{board id}/activity. Entries read oldest first. Each entry carries: id; boardId; version, the owner's version the act landed under; at, when it landed; act, what happened — board-created, board-edited, column-created, column-edited, column-deleted, label-created, label-edited, label-deleted, project-created, project-edited, project-deleted, card-created, card-moved, card-edited, card-archived, card-restored, card-handed-over, card-picked-up, card-deleted, step-added, step-edited, step-ticked, step-unticked, step-moved, step-deleted, link-added, link-edited, link-deleted, comment-added, comment-deleted, and round-landed for a round a column's schedule landed; who did it — actorKind, owner for the person, agent for a key, schedule for a round, with actorKeyId naming the acting key, actorKeyName its name as the entry is read, and actorName naming the actor either way, standing null for the schedule; the object the act touched — objectType (board, column, label, project, card, step, link or comment), objectId, and objectName, its name or title as it stood at that moment, so deleted work still reads by its last name; cardId for an act on a card or one of its parts; and detail, the act's own facts: where a card moved from and to, by board and column name; a hand-over's holder before and after; a tick's before and after; a comment's body; an edit's changed fields with their before and after values; the cards a column delete moved; and the cards a round archived and landed.",
+    "Every accepted change to a board writes its acts to the board's activity as it lands, one entry per act, all under the one version the change raises. Read a board's activity with GET /boards/{board id}/activity. Entries read oldest first. Each entry carries: id; boardId; version, the owner's version the act landed under; at, when it landed; act, what happened — board-created, board-edited, column-created, column-edited, column-deleted, label-created, label-edited, label-deleted, project-created, project-edited, project-deleted, card-created, card-moved, card-edited, card-archived, card-restored, card-handed-over, card-picked-up, card-deleted, step-added, step-edited, step-ticked, step-unticked, step-moved, step-deleted, link-added, link-edited, link-deleted, comment-added, comment-deleted, attachment-filed, attachment-removed, and round-landed for a round a column's schedule landed; who did it — actorKind, owner for the person, agent for a key, schedule for a round, with actorKeyId naming the acting key, actorKeyName its name as the entry is read, and actorName naming the actor either way, standing null for the schedule; the object the act touched — objectType (board, column, label, project, card, step, link, comment or attachment), objectId, and objectName, its name or title as it stood at that moment, so deleted work still reads by its last name; cardId for an act on a card or one of its parts; and detail, the act's own facts: where a card moved from and to, by board and column name; a hand-over's holder before and after; a tick's before and after; a comment's body; an edit's changed fields with their before and after values; the cards a column delete moved; and the cards a round archived and landed.",
     "Filter the read with card_id (one card's acts), act (one kind of act) or since_version (the acts that landed after a version you already hold), and page it with limit (1 to 500, default 100) and after (the id of the last entry you read): nextAfter names the last entry of a page when more stand after it, and stands null at the end of the history. A card that moves boards writes its move on both boards. A board copy and a template start open the new board's history with one board-created entry naming where it came from and what it holds; a column delete and a recurring round each stand as one entry naming the cards they moved or landed. A write that changes nothing, a refused write, following or unfollowing a card, saving a template, and making, renaming or deleting a key write no entry — except that deleting a key writes a card-handed-over entry for each card it hands back. The history starts with the build that added it: acts from before it were never recorded, and no entry can say when an older card was moved, edited or ticked, or who did it. Deleting a board deletes its activity with it.",
     "",
     "Searching",
@@ -412,6 +424,7 @@ function agentDirections(env) {
     "Sizes are capped well past ordinary use, and a write past a cap is refused whole. Lengths count characters as sent.",
     "- Names (board, column, label and project): 120 characters. A colour: 40. A card title: 300. A card's notes: 10000. A step: 500. A link's name: 200. A link's address, after cleaning: 2000. A comment's body: 2000.",
     "- Per owner: 50 boards, 50 templates and 10 agent keys. Per board: 30 columns, 100 labels, 100 projects and 2000 cards. Per card: 200 steps, 100 links and 500 comments.",
+    "- Files: a file's name at most 200 characters, its kind at most 100, one file at most 524288 bytes (512 KB), 20 files to a card, and one person's files at most 104857600 bytes (100 MB) in all.",
     "",
     "Keys and access",
     "All API use need to be from real MemberSpark users. No public access.",
@@ -785,6 +798,18 @@ async function ownerCardLink(db, ownerId, cardId, linkId) {
     "JOIN boards ON boards.id = cards.board_id " +
     "WHERE card_links.id = ? AND card_links.card_id = ? AND boards.owner_id = ?"
   ).bind(linkId, cardId, ownerId).first();
+}
+
+// One file on one of the caller's cards, its bytes riding with
+// it (issue #144). The file scopes to the caller through its
+// card and its card's board, the same road the link above takes.
+async function ownerCardAttachment(db, ownerId, cardId, attachmentId) {
+  return db.prepare(
+    "SELECT card_attachments.* FROM card_attachments " +
+    "JOIN cards ON cards.id = card_attachments.card_id " +
+    "JOIN boards ON boards.id = cards.board_id " +
+    "WHERE card_attachments.id = ? AND card_attachments.card_id = ? AND boards.owner_id = ?"
+  ).bind(attachmentId, cardId, ownerId).first();
 }
 
 // One comment on one of the caller's cards. The comment scopes
@@ -1356,11 +1381,13 @@ function writeFieldsFor(method, parts) {
     }
     if (rest.length === 3 && rest[2] === "steps" && method === "POST") return ["text", "done"];
     if (rest.length === 3 && rest[2] === "links" && method === "POST") return ["url", "name"];
+    if (rest.length === 3 && rest[2] === "attachments" && method === "POST") return ["name", "kind", "data"];
     if (rest.length === 3 && rest[2] === "comments" && method === "POST") return ["body"];
     if (rest.length === 3 && rest[2] === "templates" && method === "POST") return ["name"];
     if (rest.length === 3 && rest[2] === "follow") return [];
     if (rest.length === 4 && rest[2] === "steps") return method === "PATCH" ? ["text", "done", "position"] : [];
     if (rest.length === 4 && rest[2] === "links") return method === "PATCH" ? ["url", "name"] : [];
+    if (rest.length === 4 && rest[2] === "attachments") return [];
     if (rest.length === 4 && rest[2] === "comments") return [];
   }
   return null;
@@ -1610,6 +1637,38 @@ function linkOut(row) {
   return { id: row.id, url: row.url || "", name: row.name || "" };
 }
 
+// A file's record as a card read shows it (issue #144): the
+// name, the kind, the size in bytes and the stamp — never the
+// bytes. The bytes come back only from the file's own read.
+function attachmentOut(row) {
+  return {
+    id: row.id, name: row.name, kind: row.kind,
+    size: row.size, createdAt: row.created_at
+  };
+}
+
+// A file's bytes ride as base64 text (see card_attachments in
+// schema.sql). The text is judged strictly before it is stored
+// or read back: the alphabet alone, padding only at the end,
+// and a length the alphabet divides — so what decodes is
+// exactly what was filed.
+function isBase64Text(text) {
+  return typeof text === "string" && text.length % 4 === 0 &&
+    /^[A-Za-z0-9+/]*={0,2}$/.test(text);
+}
+
+function base64ByteLength(text) {
+  var padding = text.endsWith("==") ? 2 : (text.endsWith("=") ? 1 : 0);
+  return (text.length / 4) * 3 - padding;
+}
+
+function base64ToBytes(text) {
+  var binary = atob(text);
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
 // A card's checklist steps in their order: position first, oldest
 // first where positions tie.
 async function stepsForCard(db, cardId) {
@@ -1626,6 +1685,16 @@ async function linksForCard(db, cardId) {
     "SELECT * FROM card_links WHERE card_id = ? ORDER BY position, created_at"
   ).bind(cardId).all()).results;
   return rows.map(linkOut);
+}
+
+// A card's files in their order, records only: the data column
+// is never read here, so a state read carries no file's bytes.
+async function attachmentsForCard(db, cardId) {
+  var rows = (await db.prepare(
+    "SELECT id, name, kind, size, created_at FROM card_attachments " +
+    "WHERE card_id = ? ORDER BY position, created_at"
+  ).bind(cardId).all()).results;
+  return rows.map(attachmentOut);
 }
 
 // Every key an owner holds, standing or revoked, as an
@@ -2010,7 +2079,7 @@ function boardActivityOut(row, personName, keyNames) {
 // so the id served is the bound one where a binding was
 // possible; a name no key carries binds nothing and the id
 // reads null while the name falls back to its stored text.
-function cardOut(row, kindByColumnId, steps, links, labels, comments, personName, keyNames, idsByName) {
+function cardOut(row, kindByColumnId, steps, links, labels, comments, personName, keyNames, idsByName, attachments) {
   return {
     id: row.id,
     boardId: row.board_id,
@@ -2028,6 +2097,7 @@ function cardOut(row, kindByColumnId, steps, links, labels, comments, personName
     steps: steps || [],
     links: links || [],
     comments: comments || [],
+    attachments: attachments || [],
     creatorKeyId: row.creator_key_id || null,
     creatorKeyName: resolvedKeyName(row.creator_key_id, row.creator_key_name, keyNames, idsByName),
     step: stepReadOf(row, personName, keyNames, idsByName)
@@ -2113,6 +2183,21 @@ async function buildState(db, owner, env, via) {
     if (!linksByCardId[row.card_id]) linksByCardId[row.card_id] = [];
     linksByCardId[row.card_id].push(linkOut(row));
   });
+  // The cards' files ride as their records only (issue #144):
+  // the data column is not named, so no file's bytes ever stand
+  // in a state read.
+  var attachmentRows = (await db.prepare(
+    "SELECT card_attachments.id, card_attachments.card_id, card_attachments.name, " +
+    "card_attachments.kind, card_attachments.size, card_attachments.created_at FROM card_attachments " +
+    "JOIN cards ON cards.id = card_attachments.card_id " +
+    "JOIN boards ON boards.id = cards.board_id " +
+    "WHERE boards.owner_id = ? ORDER BY card_attachments.position, card_attachments.created_at"
+  ).bind(owner.id).all()).results;
+  var attachmentsByCardId = {};
+  attachmentRows.forEach(function (row) {
+    if (!attachmentsByCardId[row.card_id]) attachmentsByCardId[row.card_id] = [];
+    attachmentsByCardId[row.card_id].push(attachmentOut(row));
+  });
   // One row per card-and-label pairing, in the board's label order,
   // so each card's list reads the way its chips are painted.
   var cardLabelRows = (await db.prepare(
@@ -2188,7 +2273,7 @@ async function buildState(db, owner, env, via) {
     projects: projectRows.map(function (row) {
       return { id: row.id, boardId: row.board_id, name: row.name, icon: row.icon || "" };
     }),
-    cards: cardRows.map(function (row) { return cardOut(row, kindByColumnId, stepsByCardId[row.id] || [], linksByCardId[row.id] || [], labelsByCardId[row.id] || [], commentsByCardId[row.id] || [], effectiveName(owner), keyNamesForComments, keyIdsForNames); }),
+    cards: cardRows.map(function (row) { return cardOut(row, kindByColumnId, stepsByCardId[row.id] || [], linksByCardId[row.id] || [], labelsByCardId[row.id] || [], commentsByCardId[row.id] || [], effectiveName(owner), keyNamesForComments, keyIdsForNames, attachmentsByCardId[row.id] || []); }),
     // The owner's live keys, by id and current name (issue
     // #119): the app's Next step chooser and filter name them,
     // and an agent reads them to hand a card to another key.
@@ -3694,6 +3779,22 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
             return byColumn !== 0 ? byColumn : Number(a.position) - Number(b.position);
           });
           var targetRun = {};
+          // The copy carries each card's files whole (issue
+          // #144), so the owner's file total is judged before
+          // anything is written: a copy that would take it past
+          // its cap is refused whole, like any write past a cap.
+          var copiedFileBytes = countOf(await db.prepare(
+            "SELECT COALESCE(SUM(size), 0) AS count FROM card_attachments " +
+            "WHERE card_id IN (SELECT id FROM cards WHERE board_id = ? AND archived = 0)"
+          ).bind(copySource.id).first());
+          var standingFileBytes = countOf(await db.prepare(
+            "SELECT COALESCE(SUM(card_attachments.size), 0) AS count FROM card_attachments " +
+            "JOIN cards ON cards.id = card_attachments.card_id " +
+            "JOIN boards ON boards.id = cards.board_id WHERE boards.owner_id = ?"
+          ).bind(owner.id).first());
+          if (standingFileBytes + copiedFileBytes > LIMITS.attachmentBytesPerOwner) {
+            return error("Copying this board would take your files past 100 MB in all.");
+          }
           for (var cai = 0; cai < sourceCards.length; cai++) {
             var sourceCard = sourceCards[cai];
             var fromIndex = sourceColumnIndex[sourceCard.column_id] || 0;
@@ -3744,6 +3845,13 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
             for (var lki = 0; lki < linkRows.length; lki++) {
               copyStatements.push(db.prepare("INSERT INTO card_links (id, card_id, url, name, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
                 .bind(newId("link"), newCardId, linkRows[lki].url, linkRows[lki].name, linkRows[lki].position, copyStamp, copyStamp));
+            }
+            var copiedFileRows = (await db.prepare(
+              "SELECT * FROM card_attachments WHERE card_id = ? ORDER BY position, created_at"
+            ).bind(sourceCard.id).all()).results;
+            for (var fai = 0; fai < copiedFileRows.length; fai++) {
+              copyStatements.push(db.prepare("INSERT INTO card_attachments (id, card_id, name, kind, size, data, filer_key_id, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                .bind(newId("attachment"), newCardId, copiedFileRows[fai].name, copiedFileRows[fai].kind, copiedFileRows[fai].size, copiedFileRows[fai].data, copiedFileRows[fai].filer_key_id, copiedFileRows[fai].position, copyStamp, copyStamp));
             }
           }
         }
@@ -4095,7 +4203,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
           return json({ card: cardOut(startedCardRow, startKindMap,
             await stepsForCard(db, startedCardRow.id), await linksForCard(db, startedCardRow.id),
             await labelsForCard(db, startedCardRow.id), [], effectiveName(owner),
-            startKeyNames, keyIdsByName(startKeyNames)) }, 201);
+            startKeyNames, keyIdsByName(startKeyNames), []) }, 201);
         }
         return error("Template not found.", 404);
       }
@@ -4708,7 +4816,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         var kindMap = {};
         kindMap[cardColumn.id] = columnKind(cardColumn);
         var createKeyNames = await keyNameMap(db, owner.id);
-        return json({ card: cardOut(cardRow, kindMap, [], [], await labelsForCard(db, cardRow.id), [], effectiveName(owner), createKeyNames, keyIdsByName(createKeyNames)) }, 201);
+        return json({ card: cardOut(cardRow, kindMap, [], [], await labelsForCard(db, cardRow.id), [], effectiveName(owner), createKeyNames, keyIdsByName(createKeyNames), []) }, 201);
       }
     }
 
@@ -5199,7 +5307,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
           cardAfter.change_stamp = await touchCardChange(db, p.cardId);
         }
         var answerKeyNames = await keyNameMap(db, owner.id);
-        return json({ card: cardOut(cardAfter, afterKinds, await stepsForCard(db, cardAfter.id), await linksForCard(db, cardAfter.id), await labelsForCard(db, cardAfter.id), await commentsForCard(db, cardAfter.id, effectiveName(owner), answerKeyNames), effectiveName(owner), answerKeyNames, keyIdsByName(answerKeyNames)) });
+        return json({ card: cardOut(cardAfter, afterKinds, await stepsForCard(db, cardAfter.id), await linksForCard(db, cardAfter.id), await labelsForCard(db, cardAfter.id), await commentsForCard(db, cardAfter.id, effectiveName(owner), answerKeyNames), effectiveName(owner), answerKeyNames, keyIdsByName(answerKeyNames), await attachmentsForCard(db, cardAfter.id)) });
       }
       if (method === "DELETE") {
         await db.prepare("DELETE FROM cards WHERE id = ? AND board_id = ?")
@@ -5445,6 +5553,123 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
           detail: { url: theLink.url, name: theLink.name == null ? "" : String(theLink.name) }
         });
         await noteCardPickupActivity(linkItemCard);
+        return json({ ok: true });
+      }
+    }
+
+    // Files (issue #144). A file belongs to its card the way a
+    // link does: it survives column moves, board moves, archiving
+    // and unarchiving, and deleting the card deletes its files
+    // through the schema's cascade. The bytes stand in the card's
+    // own table as base64 text (see card_attachments in
+    // schema.sql) and ride the filing call as base64 in its JSON
+    // body; a card read carries the file's record, never the
+    // bytes, and the bytes come back only from the file's own
+    // read below, as a download.
+    if ((p = match(parts, ["api", "cards", ":cardId", "attachments"]))) {
+      var fileCard = await ownerCardRow(db, owner.id, p.cardId);
+      if (!fileCard) return error("Card not found.", 404);
+      if (method === "POST") {
+        var fileBody = await readBody(request);
+        if (!fileBody) return error("JSON body is required.");
+        if (fileBody.name == null || !String(fileBody.name).trim()) {
+          return error("name is required.");
+        }
+        var fileName = String(fileBody.name).trim();
+        if (overLimit(fileName, LIMITS.attachmentNameChars)) {
+          return error("A file's name is at most " + LIMITS.attachmentNameChars + " characters.");
+        }
+        var fileKind = fileBody.kind == null || !String(fileBody.kind).trim()
+          ? "application/octet-stream" : String(fileBody.kind).trim();
+        if (overLimit(fileKind, LIMITS.attachmentKindChars) ||
+            !/^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*\/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]*$/.test(fileKind)) {
+          return error("kind must be a media type, such as application/pdf.");
+        }
+        if (fileBody.data == null) return error("data is required.");
+        if (!isBase64Text(fileBody.data)) {
+          return error("data must be the file's bytes as base64.");
+        }
+        var fileSize = base64ByteLength(fileBody.data);
+        if (fileSize > LIMITS.attachmentBytes) {
+          return error("A file can be at most 512 KB.");
+        }
+        var fileCount = await db.prepare("SELECT COUNT(*) AS count FROM card_attachments WHERE card_id = ?")
+          .bind(fileCard.id).first();
+        if (countOf(fileCount) >= LIMITS.attachmentsPerCard) {
+          return error("That is as many files as one card holds.", 400);
+        }
+        var ownerFileBytes = await db.prepare(
+          "SELECT COALESCE(SUM(card_attachments.size), 0) AS count FROM card_attachments " +
+          "JOIN cards ON cards.id = card_attachments.card_id " +
+          "JOIN boards ON boards.id = cards.board_id WHERE boards.owner_id = ?"
+        ).bind(owner.id).first();
+        if (countOf(ownerFileBytes) + fileSize > LIMITS.attachmentBytesPerOwner) {
+          return error("Your files hold 100 MB in all; this one would take them past it.");
+        }
+        var maxFile = await db.prepare(
+          "SELECT MAX(position) AS maxp FROM card_attachments WHERE card_id = ?"
+        ).bind(fileCard.id).first();
+        var fileRow = {
+          id: newId("attachment"),
+          card_id: fileCard.id,
+          name: fileName,
+          kind: fileKind,
+          size: fileSize,
+          data: fileBody.data,
+          filer_key_id: callerKey ? callerKey.id : null,
+          position: maxFile && maxFile.maxp != null ? Number(maxFile.maxp) + 1 : 0,
+          created_at: nowIso(),
+          updated_at: nowIso()
+        };
+        await db.prepare("INSERT INTO card_attachments (id, card_id, name, kind, size, data, filer_key_id, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+          .bind(fileRow.id, fileRow.card_id, fileRow.name, fileRow.kind, fileRow.size, fileRow.data, fileRow.filer_key_id, fileRow.position, fileRow.created_at, fileRow.updated_at).run();
+        await noteCardChange(fileCard.id);
+        await recordActivity({
+          boardId: fileCard.board_id, act: "attachment-filed",
+          cardId: fileCard.id, objectType: "attachment", objectId: fileRow.id,
+          objectName: fileRow.name, at: fileRow.created_at,
+          detail: { kind: fileRow.kind, size: fileRow.size }
+        });
+        await noteCardPickupActivity(fileCard);
+        return json({ attachment: attachmentOut(fileRow) }, 201);
+      }
+    }
+
+    if ((p = match(parts, ["api", "cards", ":cardId", "attachments", ":attachmentId"]))) {
+      var heldFileCard = await ownerCardRow(db, owner.id, p.cardId);
+      if (!heldFileCard) return error("Card not found.", 404);
+      var theFile = await ownerCardAttachment(db, owner.id, p.cardId, p.attachmentId);
+      if (!theFile) return error("File not found.", 404);
+      if (method === "GET") {
+        // The file itself, as a download: its kind is the
+        // answer's content type and the disposition names the
+        // file, so the file is saved, never rendered inside the
+        // app. The name is scrubbed of the two characters that
+        // could break out of the quoted filename. The standing
+        // headers ride along, as on every API answer.
+        var downloadName = String(theFile.name).replace(/["\\]/g, "_");
+        return new Response(base64ToBytes(theFile.data), {
+          status: 200,
+          headers: {
+            "content-type": theFile.kind,
+            "content-disposition": "attachment; filename=\"" + downloadName + "\"",
+            "content-length": String(theFile.size),
+            "cache-control": "no-store",
+            "strict-transport-security": "max-age=31536000; includeSubDomains"
+          }
+        });
+      }
+      if (method === "DELETE") {
+        await db.prepare("DELETE FROM card_attachments WHERE id = ? AND card_id = ?")
+          .bind(p.attachmentId, p.cardId).run();
+        await noteCardChange(p.cardId);
+        await recordActivity({
+          boardId: heldFileCard.board_id, act: "attachment-removed",
+          cardId: p.cardId, objectType: "attachment", objectId: p.attachmentId,
+          objectName: theFile.name,
+          detail: { kind: theFile.kind, size: theFile.size }
+        });
+        await noteCardPickupActivity(heldFileCard);
         return json({ ok: true });
       }
     }

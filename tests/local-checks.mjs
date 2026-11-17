@@ -1666,7 +1666,9 @@ function paletteBlocksOf(css) {
     "stepChars", "linkNameChars", "linkUrlChars", "commentChars",
     "boardsPerOwner", "keysPerOwner", "templatesPerOwner", "columnsPerBoard",
     "labelsPerBoard", "projectsPerBoard", "cardsPerBoard", "stepsPerCard",
-    "linksPerCard", "commentsPerCard"];
+    "linksPerCard", "commentsPerCard", "attachmentNameChars",
+    "attachmentKindChars", "attachmentBytes", "attachmentsPerCard",
+    "attachmentBytesPerOwner"];
   for (const name of Object.keys(limits)) {
     if (!knownLimits.includes(name)) {
       failures.push("worker/core.js's LIMITS carries " + name + ", which this pin " +
@@ -1698,6 +1700,15 @@ function paletteBlocksOf(css) {
   if (!directions.includes(countLine)) {
     failures.push("the directions' count limits do not carry worker/core.js's " +
       "LIMITS values: " + countLine);
+  }
+  const filesLine = "- Files: a file's name at most " + limits.attachmentNameChars +
+    " characters, its kind at most " + limits.attachmentKindChars +
+    ", one file at most " + limits.attachmentBytes + " bytes (512 KB), " +
+    limits.attachmentsPerCard + " files to a card, and one person's files at most " +
+    limits.attachmentBytesPerOwner + " bytes (100 MB) in all.";
+  if (!directions.includes(filesLine)) {
+    failures.push("the directions' file limits do not carry worker/core.js's " +
+      "LIMITS values: " + filesLine);
   }
   const lineStarting = (prefix) => dirLines.find((l) => l.startsWith(prefix)) || "";
   if (!lineStarting("- 401 means")) {
