@@ -12,6 +12,8 @@ Inside a release, the app stamps every deploy with a build stamp. The stamp is `
 
 - Boards and cards can now be searched by their words. `GET /api/v1/search?q=` answers across every board at once — a card matches when every word stands in its title, its notes, its steps' text, its links' names or its comments' bodies — for the signed-in person and for an agent key alike, each match in the card's full shape with its board and column named. Archived cards are searched too. A search changes nothing and raises no version.
 
+- Every card now reads with two times: `createdAt`, when the card was made, and `changedAt`, when it last changed in a way a reader of the card can see — a move, an edit, a step, a link, a comment, archiving. They ride every card read, so a weekly tidy can pick Done cards by age and a "what changed this week" answer reads straight off the cards.
+
 ### Changed
 
 - The agent directions now state the MemberSpark key road's answers in full. The 503 — MemberSpark could not be checked just now — stands named with its Retry-After, apart from a 401; the 429 for too many refused key checks stands with its count; the outage standing stands stated (a vouched key keeps working on its last good check for ten days, and no call answered from that check extends them); and the directions carry the standing that all API use is by real MemberSpark users, with no public access. A check in the local suite pins the directions against the code's limits, so a limit that stands in the code with no line in the directions fails the run.

@@ -274,7 +274,7 @@ function agentDirections(env) {
     "A board reads as: id, name, icon, position, labelColourMode and columns. Its columns ride inside it: id, kind, name, icon, position and recur, in board order. recur is the column's recurrence schedule (see Recurring lists), or null when the column carries none.",
     "labelColourMode says how the app paints a card's first label colour on this board: chip keeps the colour on the label alone, background gives the card's face that colour faded, trim rings the card with a thick border in it, and top sets a thick band of it across the card's top. First means first in the board's own label order; a card with no labels is never painted. The label chips themselves always show. The mode is the board's own — it is part of what tells one board from another — and a board copy carries it. It starts at chip.",
     "A label reads as: id, boardId, name, icon and colour. A project reads as: id, boardId, name and icon. Each belongs to one board.",
-    "A card reads as: id, boardId, columnId, title, notes, labels, due, projectId, archived, important, position, steps, links, comments, creatorKeyId, creatorKeyName and step.",
+    "A card reads as: id, boardId, columnId, title, notes, labels, due, projectId, archived, important, position, createdAt, changedAt, steps, links, comments, creatorKeyId, creatorKeyName and step.",
     "A card's columnId on a read is the column's kind, not its row id. The five starting kinds are inbox, ready, doing, waiting and done. A column added later carries a generated kind of its own. A kind never changes when its column is renamed or reordered, and a write takes that kind as column_id (a column's row id is accepted too).",
     "A card's labels are a list of label ids in the board's label order. Its steps are a list of id, text and done, in the order they stand on the card. Its links are a list of id, url and name, in the order the links were added. Its comments are a list of id, body, createdAt, authorKeyName and authorName, in the order the comments were written (see Comments).",
     "creatorKeyName is the name of the agent key that created the card, resolved from that key's record as the card is read, or null when the person made the card in the app. creatorKeyId, riding beside it, is that key's id, or null the same way: it tells two keys of one name apart, and it is what a step's keyId is compared against to know the maker holds the step — matched by id, never by name. The card records the key's id, never the name, so renaming the key renames the maker name on every card it made at once, and deleting the key changes nothing: its row stands, and its cards keep reading with its name. Cards made before the stamp existed also read null. See Cards.",
@@ -282,6 +282,10 @@ function agentDirections(env) {
     "due is the due date written YYYY-MM-DD, or an empty string when the card has none. projectId is null when the card carries no project.",
     "Archived cards come back in every state read, flagged archived: true. Archiving is not deleting: an archived card leaves the board and keeps its steps, its links and its labels.",
     "Icons on a read: a board, a column, a label and a project can each carry one emoji, and it rides in the state as icon. A board with no icon stored reads one from its name: a person for Personal, a building for Professional and a card box for any other name. A column with no icon stored reads the keycap number of its position. A project or label with no icon stored reads an empty icon.",
+    "",
+    "Card times",
+    "Every card carries two times, both UTC stamps with milliseconds, in the form 2026-11-16T17:00:00.000Z. createdAt is when the card was made: a card made by a board copy, a start from a template or a recurring round was made at that moment — a new card with its own times, never its source's. changedAt is when the card last changed in a way a reader of the card can see: a move, an edit, a hand-over or a pickup, a step, a link, a comment, archiving or restoring. A card nothing has changed yet reads its creation time as its changed time, and a write that changes nothing moves neither time.",
+    "Plan a tidy from them. A card resting in Done whose changedAt stands more than a month back was finished more than a month ago, or last touched then: a later comment or edit is a change a reader can see, and the stamp honestly moves with it. The cards that changed in a week are the ones whose changedAt stands inside it — a what-changed-this-week answer read straight off the cards, with no diff of the whole state.",
     "",
     "Version and baseVersion",
     "Every state read carries version: one number per owner. Every accepted change raises it by exactly one, whoever made the change, and every change's answer carries the new number as version. A refused change never raises it, and neither does a write that changes nothing.",
@@ -1907,10 +1911,14 @@ function cardChangeStamp(cardRow) {
 
 // Sets a card's change stamp to now: the write paths call
 // this at the moments a card changes in a way a reader of
-// the card can see, and at no others.
+// the card can see, and at no others. It answers the stamp
+// it set, so a route answering with the card itself can
+// stand the stamp on the row its answer is built from.
 async function touchCardChange(db, cardId) {
+  var stamp = nowIso();
   await db.prepare("UPDATE cards SET change_stamp = ? WHERE id = ?")
-    .bind(nowIso(), cardId).run();
+    .bind(stamp, cardId).run();
+  return stamp;
 }
 
 // --- Board activity (issue #141) -------------------------------------------
@@ -2015,6 +2023,8 @@ function cardOut(row, kindByColumnId, steps, links, labels, comments, personName
     archived: !!row.archived,
     important: !!row.important,
     position: row.position,
+    createdAt: row.created_at,
+    changedAt: cardChangeStamp(row),
     steps: steps || [],
     links: links || [],
     comments: comments || [],
@@ -5180,7 +5190,14 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         // changed — the card's fields, its step, its labels,
         // its place — and the card's change stamp is set when
         // it did, and only then.
-        if (report && report.changed) await touchCardChange(db, p.cardId);
+        if (report && report.changed) {
+          // The answer below is built from the row as it stood
+          // before this touch, and the card's read carries its
+          // times (issue #143): stand the stamp this write just
+          // set on that row, so the answer reads the moment of
+          // the change it answers for.
+          cardAfter.change_stamp = await touchCardChange(db, p.cardId);
+        }
         var answerKeyNames = await keyNameMap(db, owner.id);
         return json({ card: cardOut(cardAfter, afterKinds, await stepsForCard(db, cardAfter.id), await linksForCard(db, cardAfter.id), await labelsForCard(db, cardAfter.id), await commentsForCard(db, cardAfter.id, effectiveName(owner), answerKeyNames), effectiveName(owner), answerKeyNames, keyIdsByName(answerKeyNames)) });
       }

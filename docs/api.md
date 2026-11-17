@@ -89,6 +89,10 @@ One read finds a card by its own words: `GET /api/v1/search?q=<words>`, for the 
 
 A card's own words are its title, its notes, its steps' text, its links' names and its comments' bodies. A link's address is not searched, and neither is a board's or a column's name: those name where a card stands, and the answer names them instead. `q` splits into words, and a card matches when every word stands somewhere in its words, letter case ignored, a word standing inside a longer word counting. A `q` holding no word is refused with a 400; a search that matches nothing answers an empty list. Archived cards are searched too and read flagged `archived: true`. A search changes nothing and raises no version.
 
+### Card times
+
+Every card read carries two times, in the state, in the create and edit answers, in search matches and in the follows read alike: `createdAt`, when the card was made, and `changedAt`, when it last changed in a way a reader of the card can see — a move, an edit, a hand-over or a pickup, a step, a link, a comment, archiving or restoring. Both are UTC stamps with milliseconds. A card nothing has changed yet reads its creation time as its changed time, and a write that changes nothing moves neither. A card made by a board copy, a template start or a recurring round is a new card, born at that moment with its own two times. There is no separate column-arrival or archive stamp: a move into a column and an archiving land as changes, so `changedAt` is when the card arrived in its column — in Done, for a tidy — and when it was archived, for as long as nothing changes it after.
+
 ### Writing with baseVersion
 
 A write can name the version it was based on, as `baseVersion` in its body. Think of it as saying: this is the state I read.
