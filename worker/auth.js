@@ -2216,12 +2216,12 @@ function pageHtml(title, body, cfg) {
   return "<!DOCTYPE html>\n<html lang=\"en\" data-product=\"tasksparkle\">\n<head>\n<meta charset=\"utf-8\">\n" +
     "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n" +
     "<title>" + escapeHtml(title) + "</title>\n" +
-    "<link rel=\"icon\" type=\"image/svg+xml\" href=\"/icons/icon.svg?v=r2026-11-16-3\">\n" +
-    "<link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"/icons/icon-32.png?v=r2026-11-16-3\">\n" +
-    "<link rel=\"icon\" type=\"image/png\" sizes=\"64x64\" href=\"/icons/icon-64.png?v=r2026-11-16-3\">\n" +
-    "<link rel=\"icon\" type=\"image/png\" sizes=\"192x192\" href=\"/icons/icon-192.png?v=r2026-11-16-3\">\n" +
-    "<link rel=\"icon\" type=\"image/png\" sizes=\"512x512\" href=\"/icons/icon-512.png?v=r2026-11-16-3\">\n" +
-    "<link rel=\"apple-touch-icon\" href=\"/icons/icon-180.png?v=r2026-11-16-3\">\n" +
+    "<link rel=\"icon\" type=\"image/svg+xml\" href=\"/icons/icon.svg?v=r2026-11-16-4\">\n" +
+    "<link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"/icons/icon-32.png?v=r2026-11-16-4\">\n" +
+    "<link rel=\"icon\" type=\"image/png\" sizes=\"64x64\" href=\"/icons/icon-64.png?v=r2026-11-16-4\">\n" +
+    "<link rel=\"icon\" type=\"image/png\" sizes=\"192x192\" href=\"/icons/icon-192.png?v=r2026-11-16-4\">\n" +
+    "<link rel=\"icon\" type=\"image/png\" sizes=\"512x512\" href=\"/icons/icon-512.png?v=r2026-11-16-4\">\n" +
+    "<link rel=\"apple-touch-icon\" href=\"/icons/icon-180.png?v=r2026-11-16-4\">\n" +
     // The wordmark's font, preloaded so the name never paints
     // in a fallback face first (issue #49).
     "<link rel=\"preload\" as=\"font\" type=\"font/woff2\" href=\"/fonts/comfortaa-bold.woff2\" crossorigin>\n" +

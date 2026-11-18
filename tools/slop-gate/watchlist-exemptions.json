@@ -264,5 +264,54 @@
     "sentence_sha256": "8b5dafaaeb8a8ef9e822962a828bc64d4bd76d269bb86923e077db8d05efa2a2",
     "sentence": "If a request comes back 401 or 403, tell me, and I will check the key in TaskSparkle under Settings, then Your own AI.",
     "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Your own AI). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. The sentence stands renamed by the wording bundle (issue #199), recorded 2026-11-17."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "b9595f0020dd583e40cee02407be6c0e536993198b23d72b85064d209ed4c731",
+    "sentence": "Choosing an agent hands the card over, and it waits in that key's queue until the agent writes on it.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Your own AI). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. New copy from the in-context help pane (issue #197), recorded 2026-11-17."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "dae923ff24f987c04e791e7f255926823bef6226eefdf434c49d94ca8b25da48",
+    "sentence": "Make a key so your own AI assistant can read or work in a Spark product for you, and revoke it any time.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Your own AI). The sentence is the MS-NAME standard's prescribed one line for the feature (MS-NAME-2), standing word for word; the in-context help pane carries the same line (issue #197). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Recorded 2026-11-17."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "5d71aa902ab9bee647a6d3e22e86586dd1a2f4eeb0ba75f79450c515b10dc9e8",
+    "sentence": "Give your agent the instructions on this page with its key.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Your own AI). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. New copy from the in-context help pane (issue #197), recorded 2026-11-17."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "2864183d6f97dc295ff7871d3d394ff5b7f85bd8e16ac8ea69b33e6b5a91621a",
+    "sentence": "A key's cards wait in its queue until it writes on one, and the key's name stamps the work it makes.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Your own AI). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. New copy from the in-context help pane (issue #197), recorded 2026-11-17."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "d9a3702b7f0517c1843010b8925fb018ce2be276a21b42c2d8fe9076aaa46b18",
+    "sentence": "The card waits in the key's queue until the agent picks it up with its first write on it.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Your own AI). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. New copy from the in-context help pane (issue #197), recorded 2026-11-17."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "79a7cbc01ee6aef40091f9d1bd213dc7f3e9a82e8ad6c600a3c386baca73c86d",
+    "sentence": "Give your own AI assistant a key, so it can read and work your boards beside you.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Your own AI). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. New copy from the in-context help pane (issue #197), recorded 2026-11-17."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "aec1f858da87e843e7aa3f11765cc917bf95361e96218c5014639be93b80ee4d",
+    "sentence": "Make a key and give it to your agent, with the instructions.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Your own AI). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. New copy from the in-context help pane (issue #197), recorded 2026-11-17."
   }
 ]
