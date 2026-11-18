@@ -886,7 +886,7 @@ export async function createAccount(authDb, fields) {
   // pass no version and create exactly as before.
   if (fields.termsVersion) {
     await authDb.batch([accountWrite,
-      agreementWrite(authDb, fields.key, fields.termsVersion, "join", stamp)]);
+      agreementWrite(authDb, fields.key, fields.termsVersion, fields.privacyVersion, "join", stamp)]);
   } else {
     await accountWrite.run();
   }
@@ -899,24 +899,38 @@ export async function createAccount(authDb, fields) {
 // stand. The machinery is the shared code's; the version it
 // records is the deployment's to name, and where a
 // deployment names none, no caller passes one and no rows
-// stand.
+// stand. The row also carries the Privacy version the same
+// tick accepted (issue #198), where the deployment names
+// one beside its Terms version: the tick stands behind
+// both documents, and the core judges the standing against
+// the pair.
 
-function agreementWrite(authDb, accountKey, termsVersion, source, stamp) {
+// The write itself: the pair (account, Terms version) is
+// the key, as it has always been — one row per person per
+// Terms version. A tick a Privacy-only change asked for
+// lands on the row that already stands for that Terms
+// version and brings its Privacy version, its stamp and
+// its source forward, rather than standing a second row
+// the key would refuse.
+function agreementWrite(authDb, accountKey, termsVersion, privacyVersion, source, stamp) {
   return authDb.prepare(
-    "INSERT OR IGNORE INTO agreements (account_key, terms_version, agreed_at, source) " +
-    "VALUES (?, ?, ?, ?)"
-  ).bind(accountKey, termsVersion, stamp, source);
+    "INSERT INTO agreements (account_key, terms_version, privacy_version, agreed_at, source) " +
+    "VALUES (?, ?, ?, ?, ?) " +
+    "ON CONFLICT(account_key, terms_version) DO UPDATE SET " +
+    "privacy_version = excluded.privacy_version, " +
+    "agreed_at = excluded.agreed_at, source = excluded.source"
+  ).bind(accountKey, termsVersion, privacyVersion || null, stamp, source);
 }
 
-export async function recordAgreement(authDb, accountKey, termsVersion, source) {
-  await agreementWrite(authDb, accountKey, termsVersion, source, nowMs()).run();
+export async function recordAgreement(authDb, accountKey, termsVersion, privacyVersion, source) {
+  await agreementWrite(authDb, accountKey, termsVersion, privacyVersion, source, nowMs()).run();
 }
 
 // The newest row a person holds, by when it was written —
 // the row the re-tick's standing is judged against.
 export async function latestAgreement(authDb, accountKey) {
   return authDb.prepare(
-    "SELECT account_key, terms_version, agreed_at, source FROM agreements " +
+    "SELECT account_key, terms_version, privacy_version, agreed_at, source FROM agreements " +
     "WHERE account_key = ? ORDER BY agreed_at DESC, rowid DESC LIMIT 1"
   ).bind(accountKey).first();
 }

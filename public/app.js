@@ -10000,7 +10000,10 @@ function showUnlinked(me) {
 // tab, and waits on an unticked box: Continue posts the new
 // agreement, and the boards load behind it. The box starts
 // unticked every time the gate stands — the agreement is
-// this press's, never a remembered one.
+// this press's, never a remembered one. A change that also
+// moved the Privacy page (issue #198) adds its own sentence
+// to the note and stands the Privacy line with its link.
+
 var termsGateWired = false;
 function showTermsGate(update) {
   var loading = byId("loading-state");
@@ -10013,8 +10016,17 @@ function showTermsGate(update) {
   if (!box) { loadInitial(); return; }
   var note = byId("terms-note");
   if (note) {
-    note.textContent = "The terms changed on " + termsDateWords(update.changedOn) + ".";
+    var sentences = [];
+    if (update.changedOn) {
+      sentences.push("The terms changed on " + termsDateWords(update.changedOn) + ".");
+    }
+    if (update.privacyChangedOn) {
+      sentences.push("The Privacy page changed on " + termsDateWords(update.privacyChangedOn) + ".");
+    }
+    note.textContent = sentences.join(" ");
   }
+  var privacyLine = byId("terms-privacy-line");
+  if (privacyLine) privacyLine.hidden = !update.privacyChangedOn;
   var agree = byId("terms-agree");
   var cont = byId("terms-continue");
   if (agree) agree.checked = false;

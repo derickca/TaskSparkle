@@ -600,6 +600,24 @@ console.log("Standalone sign-in routes: every address the sign-in, " +
   if (!index.includes('id="terms-state"') || !app.includes("/api/terms/agree")) {
     missing.push("the app carries no terms gate before the boards");
   }
+  // The pair (public issue #198): the record also carries
+  // the Privacy version each tick accepted, both entry
+  // points hand the core the deployment's Privacy version
+  // beside its Terms version, and the gate carries the
+  // Privacy line the note stands where the Privacy page
+  // also changed.
+  if (!schema.includes("privacy_version TEXT")) {
+    missing.push("worker/schema.sql's agreements table carries no privacy_version column");
+  }
+  if ((workerEntry.match(/privacyVersion: privacyVersionOf\(env\)/g) || []).length !== 2) {
+    missing.push("worker/worker.js does not hand the deployment's PRIVACY_VERSION to both handler configs");
+  }
+  if ((serverEntry.match(/privacyVersion: config\.privacyVersion/g) || []).length !== 2) {
+    missing.push("server/server.mjs does not hand the config's privacyVersion to both handler configs");
+  }
+  if (!index.includes('id="terms-privacy-line"') || !app.includes("privacyChangedOn")) {
+    missing.push("the app's gate carries no Privacy line for a change that also moved the Privacy page");
+  }
   if (missing.length) {
     console.error("The terms record's wiring is incomplete: " + missing.join("; ") + ".");
     process.exit(1);

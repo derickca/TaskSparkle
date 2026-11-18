@@ -2560,6 +2560,43 @@ function match(parts, pattern) {
 // The handler takes and returns web-standard Request and Response
 // objects and nothing else, which is what lets the same core
 // serve from a Worker and from a plain Node server.
+// The agreements standing (issue #43; issue #198): what a
+// change to the agreements asks of a person whose newest
+// tick predates it. The deployment names the two
+// documents' versions — the Terms page's and the Privacy
+// page's "Last updated" dates — and the standing judges
+// both: a material change to either stands the gate. The
+// answer names each changed document's own date, so the
+// gate's note can link the Privacy page where it also
+// changed. A row written before the pair was recorded
+// carries no Privacy version: its Privacy standing reads
+// as the earlier of the two dates — the deployment's
+// standing Privacy version and the row's own Terms
+// version — because a tick can only have accepted a
+// Privacy text dated no later than the Terms version it
+// names, and the Privacy page's date has never stood
+// ahead of the Terms' in the record's life. An unchanged
+// pair therefore asks nobody again.
+export function agreementsUpdate(latest, deps) {
+  if (!latest) return null;
+  var changedOn = null;
+  var privacyChangedOn = null;
+  if (deps.termsVersion && latest.terms_version < deps.termsVersion) {
+    changedOn = deps.termsVersion;
+  }
+  if (deps.privacyVersion) {
+    var agreedPrivacy = latest.privacy_version != null
+      ? latest.privacy_version
+      : (latest.terms_version < deps.privacyVersion
+        ? latest.terms_version : deps.privacyVersion);
+    if (agreedPrivacy < deps.privacyVersion) {
+      privacyChangedOn = deps.privacyVersion;
+    }
+  }
+  if (!changedOn && !privacyChangedOn) return null;
+  return { changedOn: changedOn, privacyChangedOn: privacyChangedOn };
+}
+
 export function createApiHandler(deps) {
   return async function handleApiRequest(request) {
     var env = deps.env;
@@ -3124,14 +3161,18 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         // agreement is older than it reads the standing here —
         // the new version, which the app speaks as the date the
         // terms changed — and the app stands its note before
-        // the boards. A person with no row reads nothing: the
+        // the boards. The standing judges both documents
+        // (issue #198): a change to the Privacy page alone
+        // stands it too, naming the Privacy date beside the
+        // Terms date. A person with no row reads nothing: the
         // record began with a tick they never gave, and a key
         // reads nothing either — the standing is a person's,
         // carried only on the answer their own sign-in reads.
         if (deps.termsVersion && caller && caller.account) {
           var latestTerms = await latestAgreement(deps.authDb || deps.db, caller.account.key);
-          if (latestTerms && latestTerms.terms_version < deps.termsVersion) {
-            stateAnswer.termsUpdate = { changedOn: deps.termsVersion };
+          var standing = agreementsUpdate(latestTerms, deps);
+          if (standing) {
+            stateAnswer.termsUpdate = standing;
           }
         }
         return json(stateAnswer);
@@ -3164,8 +3205,9 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
         if (!standingTerms) {
           return error("No agreement stands for this account to renew.", 400);
         }
-        if (standingTerms.terms_version < deps.termsVersion) {
-          await recordAgreement(termsAuthDb, caller.account.key, deps.termsVersion, "retick");
+        if (agreementsUpdate(standingTerms, deps)) {
+          await recordAgreement(termsAuthDb, caller.account.key,
+            deps.termsVersion, deps.privacyVersion, "retick");
         }
         return json({ ok: true });
       }
