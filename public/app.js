@@ -23,7 +23,7 @@
 // paints (see bootLoad). The deploy fails when the stamps differ,
 // so they can only ever disagree in a browser still holding an
 // older copy of this file — which is the case the reload cures.
-var BUILD_ID = "r2026-11-16-3";
+var BUILD_ID = "r2026-11-16-4";
 
 // Label colours are stored as palette ids. The person picks from this
 // palette in Settings and each card chip paints itself from it. Each
@@ -2142,6 +2142,7 @@ function render() {
   renderSchedule(board, columns);
   renderSearch();
   saveBoardView();
+  refreshHelpPane();
 }
 
 // --- The schedule ------------------------------------------------
@@ -3890,6 +3891,7 @@ function openEditor(id) {
   buildStepControls(card);
 
   document.getElementById("editor-backdrop").hidden = false;
+  refreshHelpPane();
 }
 
 // A column's plus button creates the card on screen at once, in
@@ -4827,6 +4829,14 @@ function renderStepLine(card) {
 // step handed to the person themselves — or to no one —
 // never waits.
 function paintedStepAfterHandover(value) {
+  // A card handed to a key while the hand-over walk stands
+  // ticks its step, and names the queue its last step looks
+  // for (#197).
+  if (helpWalk && helpWalk.id === "handover" &&
+      value !== "owner" && value !== "none") {
+    helpWalk.facts.handedKeyId = value;
+    saveHelpWalk();
+  }
   var stamp = new Date().toISOString();
   var myName = state && state.me ? state.me.name : null;
   if (value === "none") {
@@ -6547,6 +6557,7 @@ function renderSettings() {
   document.getElementById("agent-instructions").value = agentInstructions(me.name, state.agentHost || "");
   renderKeysList();
   if (settingsPage === "setup-agent" && agentKeys === null) refreshAgentKeys();
+  refreshHelpPane();
 }
 
 // Reads the owner's key list for the Your own AI page. The state
@@ -6728,11 +6739,469 @@ function openAccount() {
 function closeAccount() {
   document.getElementById("account-backdrop").hidden = true;
   closeAccountDeleteDialog();
+  refreshHelpPane();
+}
+
+// --- Help where the work is (issue #197) -------------------------
+//
+// The pane the header's Help button opens, in place of leaving
+// for the Help page. It carries two views. The describing view
+// describes the page the person stands on — the board, a card,
+// a Settings page — in the product's own words, and follows the
+// person as they move. The guided view walks a job: steps in
+// order, each ticking as its act lands. A step the app can see
+// (a page opened, a card handed over) ticks on its own; a step
+// whose act stands outside the app — giving the agent its key —
+// ticks when the person taps it, on their word. A walk in
+// progress stands on this device, so closing the pane or the
+// app never loses it: the chip at the screen's foot names the
+// walk and its count while the pane is closed, and the steps
+// keep ticking as the acts land.
+
+var HELP_PAGES = {
+  start: {
+    heading: "TaskSparkle",
+    body: [
+      "A free board for your work — and your AI works it beside you.",
+      "Boards hold the work in columns. Cards hold each piece of it: a title, notes, a checklist, links, comments and files, and a next step that names whose turn it is."
+    ]
+  },
+  board: {
+    heading: "Your board",
+    body: [
+      "A board holds one part of your work. Its columns are the stages the work moves through, and each card is one piece of it.",
+      "Open a card to work on it. Every change saves itself — there is no Save button.",
+      "The rows above the columns narrow the cards down: by project, and by whose next step each card is."
+    ]
+  },
+  schedule: {
+    heading: "Schedule",
+    body: [
+      "This board as one list. The Dated list orders cards by due date — late cards first, then today, then what follows — and the Undated list gathers the rest by column.",
+      "Tap a row to open its card."
+    ]
+  },
+  overview: {
+    heading: "All columns",
+    body: [
+      "Every column side by side, as narrow strips. Tap a strip to stand in that column at full size.",
+      "This view is for looking and choosing. The work itself happens in the column."
+    ]
+  },
+  card: {
+    heading: "A card",
+    body: [
+      "A card is one piece of work. The title and notes say what it is, and the checklist breaks it into steps you tick as you go.",
+      "Comments are the card's conversation. Links and files keep what the work needs beside it.",
+      "Next step names whose turn the card is: yours, one of your agent keys, or no one's. Choosing an agent hands the card over, and it waits in that key's queue until the agent writes on it."
+    ]
+  },
+  settings: {
+    heading: "Settings",
+    body: [
+      "The pages that shape your boards and your copy: Theme, Boards, Columns, Labels and Projects, and Your own AI, where your agent keys stand.",
+      "Account stands apart, in the header: who you are signed in as."
+    ]
+  },
+  theme: {
+    heading: "Theme",
+    body: [
+      "Eight looks, each with a light and a dark mode. Default follows your device.",
+      "The choice is saved on this device only."
+    ]
+  },
+  boards: {
+    heading: "Boards",
+    body: [
+      "Every board you hold. Rename one, change its icon, copy it, or add a new one.",
+      "A new board starts with five columns — Inbox, Ready, Doing, Waiting and Done — and no labels."
+    ]
+  },
+  columns: {
+    heading: "Columns",
+    body: [
+      "A board's columns are its stages. Add, rename, reorder or remove them; changes apply at once.",
+      "Removing a column moves its cards to another column first."
+    ]
+  },
+  labels: {
+    heading: "Labels",
+    body: [
+      "Labels are colours a card can wear. They belong to one board, and a card can wear more than one.",
+      "Deleting a label leaves its cards with no label where it stood."
+    ]
+  },
+  projects: {
+    heading: "Projects",
+    body: [
+      "A project groups cards on one board. The filter row above a board narrows it to one project, and a card carries one project or none.",
+      "Deleting a project leaves its cards with no project."
+    ]
+  },
+  agent: {
+    heading: "Your own AI",
+    body: [
+      "Make a key so your own AI assistant can read or work in a Spark product for you, and revoke it any time.",
+      "Give your agent the instructions on this page with its key. What your agent will read stands behind the button below them.",
+      "Each card names whose next step it is. A key's cards wait in its queue until it writes on one, and the key's name stamps the work it makes."
+    ]
+  },
+  people: {
+    heading: "Admin",
+    body: [
+      "Everyone with an account on this copy, and what stands against each name: inviting, passkeys, and removing a person.",
+      "Only an administrator sees this page."
+    ]
+  },
+  account: {
+    heading: "Account",
+    body: [
+      "Who you are signed in as, and your name as it stands on your work.",
+      "Your sign-in stands here too: the ways you get in, signing out everywhere, and closing your account at the foot of the page."
+    ]
+  }
+};
+
+// Which describing page a Settings page carries. The list
+// itself and any page without an entry read as Settings.
+var HELP_SETTINGS_CONTEXTS = {
+  "settings-theme": "theme",
+  "settings-boards": "boards",
+  "settings-columns-section": "columns",
+  "settings-labels-section": "labels",
+  "settings-projects-section": "projects",
+  "setup-agent": "agent",
+  "settings-people": "people"
+};
+
+var HELP_WALKS = [
+  {
+    id: "handover",
+    title: "Hand a card over",
+    intro: "Give a card's next step to one of your agent keys. The card waits in the key's queue until the agent picks it up with its first write on it.",
+    steps: [
+      { text: "Open the card you want to hand over." },
+      { text: "In Next step, choose your agent." },
+      { text: "Find the card in the agent's queue, in the row above the board." }
+    ],
+    finish: "The card stands in the agent's queue. Its face names the wait until the agent picks it up."
+  },
+  {
+    id: "agent",
+    title: "Set up your own AI",
+    intro: "Give your own AI assistant a key, so it can read and work your boards beside you.",
+    steps: [
+      { text: "Open Your own AI, in Settings." },
+      { text: "Copy the instructions for your agent." },
+      { text: "Make a key and give it to your agent, with the instructions.", tap: true }
+    ],
+    finish: "Your agent can work your boards now. Cards you hand it wait in its queue, and its name stamps the work it makes."
+  }
+];
+
+// Whether each walk step stands done, read from the walk's
+// standing facts and the app's own state. The facts are the
+// acts the app saw land while the walk stands: a page opened,
+// instructions copied, a key made, a card handed over.
+function helpStepDone(walk, walkState, index) {
+  var facts = walkState.facts || {};
+  if (walk.id === "agent") {
+    if (index === 0) return !!facts.agentPageOpened;
+    if (index === 1) return !!facts.copied;
+    if (index === 2) return !!facts.keyMade || !!(walkState.tapped && walkState.tapped[2]);
+  }
+  if (walk.id === "handover") {
+    if (index === 0) return !!facts.editorOpened;
+    if (index === 1) return !!facts.handedKeyId;
+    if (index === 2) {
+      return !!facts.handedKeyId && !!state && state.stepFilter === facts.handedKeyId;
+    }
+  }
+  return false;
+}
+
+function helpWalkById(id) {
+  for (var i = 0; i < HELP_WALKS.length; i++) {
+    if (HELP_WALKS[i].id === id) return HELP_WALKS[i];
+  }
+  return null;
+}
+
+// The walk standing on this device, or null: {id, tapped,
+// facts}. It is the device's, like the theme — a walk belongs
+// to the person standing at this screen.
+var HELP_WALK_KEY = "ts-help-walk-v1";
+var helpWalk = null;
+try {
+  var savedWalk = JSON.parse(localStorage.getItem(HELP_WALK_KEY) || "null");
+  if (savedWalk && helpWalkById(savedWalk.id)) {
+    helpWalk = {
+      id: savedWalk.id,
+      tapped: savedWalk.tapped || {},
+      facts: savedWalk.facts || {}
+    };
+  }
+} catch (e) { /* A broken store reads as no walk standing. */ }
+
+function saveHelpWalk() {
+  try {
+    if (helpWalk) localStorage.setItem(HELP_WALK_KEY, JSON.stringify(helpWalk));
+    else localStorage.removeItem(HELP_WALK_KEY);
+  } catch (e) { /* The walk still stands for this visit. */ }
+}
+
+// Which view the pane shows: the description, or the walk.
+var helpView = helpWalk ? "walk" : "describe";
+var helpSignature = null;
+
+function helpWalkStanding() {
+  if (!helpWalk) return null;
+  var walk = helpWalkById(helpWalk.id);
+  if (!walk) return null;
+  var done = walk.steps.map(function (step, i) { return helpStepDone(walk, helpWalk, i); });
+  var count = done.filter(Boolean).length;
+  return { walk: walk, done: done, count: count, complete: count === walk.steps.length };
+}
+
+// The page the person stands on, as the pane names it. The
+// topmost standing surface wins: Account, then Settings and
+// its page, then the card editor, then the board's own views.
+function currentHelpContext() {
+  var account = document.getElementById("account-backdrop");
+  if (account && !account.hidden) return "account";
+  var settings = document.getElementById("settings-backdrop");
+  if (settings && !settings.hidden) {
+    return HELP_SETTINGS_CONTEXTS[settingsPage] || "settings";
+  }
+  var editor = document.getElementById("editor-backdrop");
+  if (editor && !editor.hidden) return "card";
+  var boardUi = document.getElementById("board-ui");
+  if (state && boardUi && !boardUi.hidden) {
+    if (scheduleOpen) return "schedule";
+    if (overviewOpen && isPhoneLayout()) return "overview";
+    return "board";
+  }
+  return "start";
+}
+
+// The acts the app can see, gathered as the pane refreshes:
+// a page standing open while the walk stands is a step done,
+// whether or not the pane itself is open to see it.
+function gatherHelpFacts() {
+  if (!helpWalk) return;
+  var facts = helpWalk.facts;
+  var editor = document.getElementById("editor-backdrop");
+  if (editor && !editor.hidden) facts.editorOpened = true;
+  if (settingsPage === "setup-agent") {
+    var settings = document.getElementById("settings-backdrop");
+    if (settings && !settings.hidden) facts.agentPageOpened = true;
+  }
+}
+
+function startHelpWalk(id) {
+  if (!helpWalkById(id)) return;
+  helpWalk = { id: id, tapped: {}, facts: {} };
+  // A step whose standing already reads done as the walk
+  // starts — the agent page open, a card already handed over —
+  // starts ticked, the way the work stands.
+  gatherHelpFacts();
+  if (id === "handover") {
+    var editor = document.getElementById("editor-backdrop");
+    if (editor && !editor.hidden && editingId) {
+      var card = findCard(editingId);
+      var step = card ? stepOfCard(card) : null;
+      if (step && step.holder === "agent" && step.keyId) {
+        helpWalk.facts.handedKeyId = step.keyId;
+      }
+    }
+  }
+  helpView = "walk";
+  saveHelpWalk();
+  refreshHelpPane(true);
+}
+
+function clearHelpWalk() {
+  helpWalk = null;
+  helpView = "describe";
+  saveHelpWalk();
+  refreshHelpPane(true);
+}
+
+function openHelpPane() {
+  var pane = document.getElementById("help-pane");
+  if (!pane) return;
+  if (helpWalk) helpView = "walk";
+  pane.hidden = false;
+  var btn = document.getElementById("help-open");
+  if (btn) btn.setAttribute("aria-expanded", "true");
+  refreshHelpPane(true);
+  var close = document.getElementById("help-close");
+  if (close) close.focus();
+}
+
+function closeHelpPane() {
+  var pane = document.getElementById("help-pane");
+  if (!pane) return;
+  pane.hidden = true;
+  var btn = document.getElementById("help-open");
+  if (btn) btn.setAttribute("aria-expanded", "false");
+  refreshHelpPane(true);
+}
+
+function refreshHelpPane(force) {
+  var pane = document.getElementById("help-pane");
+  var chip = document.getElementById("help-walk-chip");
+  if (!pane || !chip) return;
+  gatherHelpFacts();
+  var context = currentHelpContext();
+  var standing = helpWalkStanding();
+  var signature = JSON.stringify([
+    context, helpView, pane.hidden,
+    standing ? [standing.walk.id, standing.done, standing.complete] : null,
+    helpWalk ? helpWalk.tapped : null
+  ]);
+  if (!force && signature === helpSignature) return;
+  helpSignature = signature;
+
+  // The chip: a walk standing with the pane closed names
+  // itself and its count at the screen's foot.
+  if (standing && pane.hidden) {
+    chip.hidden = false;
+    chip.textContent = standing.walk.title + (standing.complete
+      ? " · Done"
+      : " · " + standing.count + " of " + standing.walk.steps.length);
+  } else {
+    chip.hidden = true;
+  }
+  if (pane.hidden) return;
+
+  var heading = document.getElementById("help-pane-heading");
+  var body = document.getElementById("help-pane-body");
+  body.innerHTML = "";
+
+  if (standing && helpView === "walk") {
+    var walk = standing.walk;
+    heading.textContent = walk.title;
+    var progress = document.createElement("p");
+    progress.className = "help-progress";
+    progress.setAttribute("data-role", "help-walk-progress");
+    progress.textContent = standing.count + " of " + walk.steps.length + " steps";
+    body.appendChild(progress);
+    var intro = document.createElement("p");
+    intro.textContent = walk.intro;
+    body.appendChild(intro);
+    var list = document.createElement("ol");
+    list.className = "help-steps";
+    list.setAttribute("data-help-steps", walk.id);
+    walk.steps.forEach(function (step, i) {
+      var item = document.createElement("li");
+      item.className = "help-step" + (standing.done[i] ? " done" : "");
+      item.setAttribute("data-help-step", String(i));
+      item.setAttribute("data-done", standing.done[i] ? "true" : "false");
+      var mark = document.createElement("span");
+      mark.className = "help-step-mark";
+      mark.setAttribute("aria-hidden", "true");
+      mark.textContent = standing.done[i] ? "✓" : "";
+      var words = document.createElement("span");
+      words.className = "help-step-words";
+      words.textContent = step.text;
+      if (step.tap && !standing.done[i]) {
+        var tapBtn = document.createElement("button");
+        tapBtn.type = "button";
+        tapBtn.className = "help-step-tap";
+        tapBtn.setAttribute("data-help-step-tap", String(i));
+        tapBtn.setAttribute("aria-label", "Tick this step: " + step.text);
+        tapBtn.appendChild(mark);
+        tapBtn.appendChild(words);
+        item.appendChild(tapBtn);
+        var hint = document.createElement("p");
+        hint.className = "help-step-hint";
+        hint.textContent = "Tap the step when it stands done.";
+        item.appendChild(hint);
+      } else {
+        item.appendChild(mark);
+        item.appendChild(words);
+      }
+      list.appendChild(item);
+    });
+    body.appendChild(list);
+    if (standing.complete) {
+      var finishWords = document.createElement("p");
+      finishWords.className = "help-finish-words";
+      finishWords.setAttribute("data-help-walk-done", walk.id);
+      finishWords.textContent = walk.finish;
+      body.appendChild(finishWords);
+      var finishBtn = document.createElement("button");
+      finishBtn.type = "button";
+      finishBtn.className = "btn btn-primary";
+      finishBtn.setAttribute("data-help-walk-finish", walk.id);
+      finishBtn.textContent = "Finish the walk";
+      body.appendChild(finishBtn);
+    } else {
+      var leaveBtn = document.createElement("button");
+      leaveBtn.type = "button";
+      leaveBtn.className = "btn btn-quiet";
+      leaveBtn.setAttribute("data-help-walk-leave", walk.id);
+      leaveBtn.textContent = "Leave the walk";
+      body.appendChild(leaveBtn);
+    }
+    var aboutBtn = document.createElement("button");
+    aboutBtn.type = "button";
+    aboutBtn.className = "btn btn-quiet help-about-btn";
+    aboutBtn.setAttribute("data-help-view", "describe");
+    aboutBtn.textContent = "About this page";
+    body.appendChild(aboutBtn);
+    return;
+  }
+
+  var pageDef = HELP_PAGES[context] || HELP_PAGES.start;
+  heading.textContent = pageDef.heading;
+  pageDef.body.forEach(function (words) {
+    var p = document.createElement("p");
+    p.textContent = words;
+    body.appendChild(p);
+  });
+  if (!standing) {
+    var walksHead = document.createElement("h3");
+    walksHead.className = "help-walks-head";
+    walksHead.textContent = "Walks";
+    body.appendChild(walksHead);
+    HELP_WALKS.forEach(function (walk) {
+      var row = document.createElement("div");
+      row.className = "help-walk-row";
+      var name = document.createElement("span");
+      name.textContent = walk.title;
+      row.appendChild(name);
+      var start = document.createElement("button");
+      start.type = "button";
+      start.className = "btn";
+      start.setAttribute("data-help-walk-start", walk.id);
+      start.textContent = "Start";
+      row.appendChild(start);
+      body.appendChild(row);
+    });
+  } else {
+    var openWalkBtn = document.createElement("button");
+    openWalkBtn.type = "button";
+    openWalkBtn.className = "btn";
+    openWalkBtn.setAttribute("data-help-view", "walk");
+    openWalkBtn.textContent = standing.walk.title + " — " +
+      standing.count + " of " + standing.walk.steps.length + " steps";
+    body.appendChild(openWalkBtn);
+  }
+  var foot = document.createElement("p");
+  foot.className = "help-pane-foot";
+  var allLink = document.createElement("a");
+  allLink.href = "/help";
+  allLink.textContent = "All of Help";
+  foot.appendChild(allLink);
+  body.appendChild(foot);
 }
 
 function closeSettings() {
   document.getElementById("settings-backdrop").hidden = true;
   settingsPage = null;
+  refreshHelpPane();
   // The key dialogs stand down with the panel, and the shown-once
   // key leaves with them. The delete dialogs of the sweep stand
   // down with it too. The key list is read fresh the next time
@@ -6759,6 +7228,13 @@ function closeSettings() {
 // dialog; the row it was pressed on never changes shape.
 
 function openKeyCreatedDialog(key) {
+  // A key made while the set-up walk stands ticks its last
+  // step: the making is the app's own act, seen here (#197).
+  if (helpWalk && helpWalk.id === "agent") {
+    helpWalk.facts.keyMade = true;
+    saveHelpWalk();
+    refreshHelpPane(true);
+  }
   justCreatedKey = key;
   var field = document.getElementById("agent-key");
   field.value = key;
@@ -8464,6 +8940,44 @@ function init() {
     if (currentThemeMode() === "system") applyTheme();
   });
 
+  // The Help button opens the pane where the work is (#197);
+  // the pane's own buttons ride one delegated listener, since
+  // its body is rebuilt as the person moves.
+  wire("help-open", "click", function () {
+    if (!state) return;
+    var pane = document.getElementById("help-pane");
+    if (pane && pane.hidden) openHelpPane();
+    else closeHelpPane();
+  });
+  wire("help-close", "click", function () {
+    closeHelpPane();
+    var btn = document.getElementById("help-open");
+    if (btn) btn.focus();
+  });
+  wire("help-walk-chip", "click", function () {
+    openHelpPane();
+  });
+  wire("help-pane-body", "click", function (ev) {
+    var start = ev.target.closest("[data-help-walk-start]");
+    if (start) { startHelpWalk(start.getAttribute("data-help-walk-start")); return; }
+    var tap = ev.target.closest("[data-help-step-tap]");
+    if (tap && helpWalk) {
+      helpWalk.tapped[tap.getAttribute("data-help-step-tap")] = true;
+      saveHelpWalk();
+      refreshHelpPane(true);
+      return;
+    }
+    var finish = ev.target.closest("[data-help-walk-finish]");
+    if (finish) { clearHelpWalk(); return; }
+    var leave = ev.target.closest("[data-help-walk-leave]");
+    if (leave) { clearHelpWalk(); return; }
+    var view = ev.target.closest("[data-help-view]");
+    if (view) {
+      helpView = view.getAttribute("data-help-view");
+      refreshHelpPane(true);
+    }
+  });
+
   // Settings gear and panel
   wire("settings-open", "click", function () {
     if (state) openSettings();
@@ -9056,6 +9570,13 @@ function init() {
   // Your own AI buttons.
   wire("copy-instructions", "click", function () {
     copyFieldText(document.getElementById("agent-instructions").value, this);
+    // Copying the instructions while the set-up walk stands
+    // ticks its step: the copy is the act, seen here (#197).
+    if (helpWalk && helpWalk.id === "agent") {
+      helpWalk.facts.copied = true;
+      saveHelpWalk();
+      refreshHelpPane(true);
+    }
   });
   // "What your agent will read": opens a read-only view of the
   // directions the API serves, fetched fresh each time it opens,

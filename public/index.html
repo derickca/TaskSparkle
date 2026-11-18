@@ -15,7 +15,7 @@
      sheet under an old address; the local checks hold the pin
      equal to the stamp. The wordmark's font is preloaded so
      the name never paints in a fallback face first. -->
-<link rel="stylesheet" href="styles.css?v=r2026-11-16-3">
+<link rel="stylesheet" href="styles.css?v=r2026-11-16-4">
 <link rel="preload" as="font" type="font/woff2" href="/fonts/comfortaa-bold.woff2" crossorigin>
 <!-- The installable app: a manifest, the colour a phone's chrome
      wears around the page (the Spark family accent), and the
@@ -32,12 +32,12 @@
      (mark.svg) is the page icon and never serves as the tab
      icon. The SVG leads and the PNGs follow as fallbacks, in
      files the install bypass already serves without a session. -->
-<link rel="icon" type="image/svg+xml" href="/icons/icon.svg?v=r2026-11-16-3">
-<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png?v=r2026-11-16-3">
-<link rel="icon" type="image/png" sizes="64x64" href="/icons/icon-64.png?v=r2026-11-16-3">
-<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=r2026-11-16-3">
-<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png?v=r2026-11-16-3">
-<link rel="apple-touch-icon" href="/icons/icon-180.png?v=r2026-11-16-3">
+<link rel="icon" type="image/svg+xml" href="/icons/icon.svg?v=r2026-11-16-4">
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png?v=r2026-11-16-4">
+<link rel="icon" type="image/png" sizes="64x64" href="/icons/icon-64.png?v=r2026-11-16-4">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=r2026-11-16-4">
+<link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png?v=r2026-11-16-4">
+<link rel="apple-touch-icon" href="/icons/icon-180.png?v=r2026-11-16-4">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="TaskSparkle">
 </head>
@@ -84,7 +84,7 @@
         <button type="button" class="settings-btn" id="search-toggle" aria-label="Search" title="Search" aria-pressed="false">
           <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
         </button>
-        <a class="settings-btn" id="help-open" href="/help" aria-label="Help" title="Help"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></a>
+        <button type="button" class="settings-btn" id="help-open" aria-label="Help" title="Help" aria-expanded="false" aria-controls="help-pane"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
         <button type="button" class="settings-btn" id="theme-toggle" aria-label="Theme: Light" title="Theme: Light"></button>
         <button type="button" class="settings-btn account-btn" id="account-open" aria-label="Account" title="Account" hidden><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>
         <button type="button" class="settings-btn" id="settings-open" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" /></svg></button>
@@ -913,6 +913,26 @@
     </div>
   </div>
 </div>
+
+<!-- Help where the work is (issue #197): the pane the header's
+     Help button opens, standing beside the work instead of
+     leaving it for the Help page. app.js fills its body with
+     one of two views: the describing view, which describes the
+     page the person stands on, and the guided view, which
+     walks a job and ticks its steps. The pane carries no
+     backdrop and traps nothing: the work stays live around
+     it, and a walk in progress keeps standing on the chip
+     below while the pane is closed, its steps still ticking
+     as the acts land. The pane's foot keeps the road to the
+     whole Help page. -->
+<aside class="help-pane" id="help-pane" hidden aria-label="Help">
+  <div class="editor-head">
+    <h2 id="help-pane-heading">Help</h2>
+    <button type="button" class="btn btn-quiet" id="help-close">Close</button>
+  </div>
+  <div class="help-pane-body" id="help-pane-body"></div>
+</aside>
+<button type="button" class="help-walk-chip" id="help-walk-chip" hidden></button>
 
 <script src="app.js"></script>
 </body>
