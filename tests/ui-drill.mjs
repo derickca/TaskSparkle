@@ -1142,8 +1142,10 @@ await page.click("#settings-close").catch(() => {});
   check("#197: the hand-over walk's finish names the queue the card waits in",
     handFinish.includes("stands in the agent's queue"), handFinish.slice(0, 160));
   await page.click("[data-help-walk-finish]");
-  // Leave the board as it was found: the filter back to
-  // Everyone, and the card's step back to the owner.
+  // Leave the board as it was found: the pane closes, the
+  // filter goes back to Everyone, and the card's step back
+  // to the owner.
+  await page.click("#help-close");
   await page.click('[data-step-filter="everyone"]');
   await page.locator(".card", { hasText: TITLE }).first().click();
   await page.waitForSelector("#editor-backdrop:not([hidden])", { timeout: 10000 });
