@@ -157,7 +157,7 @@
     <h2>The terms changed</h2>
     <p id="terms-note"></p>
     <p><a href="/terms" target="_blank" rel="noopener">Read the Terms of Use</a></p>
-    <p><label><input type="checkbox" id="terms-agree"> I agree to the Terms of Use</label></p>
+    <p><label><input type="checkbox" id="terms-agree"> I agree to the Terms of Use. The terms are a draft while the pilot stands.</label></p>
     <p><button type="button" class="btn btn-primary" id="terms-continue" disabled>Continue</button></p>
   </div>
 
@@ -234,7 +234,7 @@
       <button type="button" class="settings-list-btn" data-settings-page="settings-columns-section"><span>Columns</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
       <button type="button" class="settings-list-btn" data-settings-page="settings-labels-section"><span>Labels</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
       <button type="button" class="settings-list-btn" data-settings-page="settings-projects-section"><span>Projects</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
-      <button type="button" class="settings-list-btn" data-settings-page="setup-agent"><span>Set Up Agent</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
+      <button type="button" class="settings-list-btn" data-settings-page="setup-agent"><span>Your own AI</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
       <button type="button" class="settings-list-btn" id="settings-people-btn" data-settings-page="settings-people" hidden><span>Admin</span><span class="settings-list-arrow" aria-hidden="true">›</span></button>
     </nav>
 
@@ -332,8 +332,8 @@
     </section>
 
     <section class="settings-section settings-page" id="setup-agent" hidden>
-      <h3>Set Up Agent</h3>
-      <p>Give these instructions to your agent.</p>
+      <h3>Your own AI</h3>
+      <p>Make a key so your own AI assistant can read or work in a Spark product for you, and revoke it any time.</p>
       <label for="agent-instructions">Instructions for your agent</label>
       <textarea id="agent-instructions" class="copy-field" rows="9" readonly></textarea>
       <div class="copy-row">
@@ -580,7 +580,7 @@
 
 <!-- Your new key: the dialog a made key arrives in (issue #98).
      The key shows once, here, with a button that copies it;
-     the Set Up Agent page underneath never carries it. Closing
+     the Your own AI page underneath never carries it. Closing
      the dialog clears the field, so the value stands nowhere
      on the page afterwards — only its hash exists anywhere. -->
 <div class="editor-backdrop" id="key-created-backdrop" hidden>

@@ -755,7 +755,7 @@ const peopleEntryShown = await page.evaluate(() =>
   !document.getElementById("settings-people-btn").hidden);
 check("#124: the administrator sees the Admin entry in Settings", peopleEntryShown, "");
 // Issue #124: the entry carries the new name and stands
-// last in the list — after Set Up Agent, at the end.
+// last in the list — after Your own AI, at the end.
 const settingsOrder = await page.evaluate(() =>
   Array.from(document.querySelectorAll("#settings-list .settings-list-btn"))
     .filter((b) => !b.hidden)

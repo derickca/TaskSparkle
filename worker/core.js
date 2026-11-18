@@ -248,7 +248,7 @@ function plainText(text, status) {
 // live in this file so they deploy in the same act as the API they
 // describe and can never describe a different API than the one
 // answering. The build stamp rides at the top, so an agent can
-// name the revision it read. Everything the Set Up Agent panel's
+// name the revision it read. Everything the Your own AI panel's
 // copied text once carried as its Reference stands here instead,
 // corrected to the rules as they now stand; the panel's text is a
 // short bootstrap that ends by pointing the agent here. When a
@@ -443,14 +443,14 @@ function agentDirections(env) {
     "Keys and access",
     "All API use need to be from real MemberSpark users. No public access.",
     "- An owner holds a list of named keys, all live at once, up to 10. Each key stands on its own, and making, renaming or revoking another key never touches it. A key holds one of two levels, which the person sets: write, which carries its owner's full powers over the boards, or read, which reads everything a key may read and changes nothing.",
-    "- Keys are managed by the person alone, in the app under Settings, then Set Up Agent: they make a key under a name and a level (the full key shows once, at that moment), rename a key (the name only; the key itself never changes), change a key's level, and delete a key (that key stops working at once; the others are untouched). A level change takes effect on the key's next call.",
+    "- Keys are managed by the person alone, in the app under Settings, then Your own AI: they make a key under a name and a level (the full key shows once, at that moment), rename a key (the name only; the key itself never changes), change a key's level, and delete a key (that key stops working at once; the others are untouched). A level change takes effect on the key's next call.",
     "- A read key's write is refused with a 401: \"This key holds read access only, so this change is refused.\" Nothing is written and no version rises. GET /me with your key names your own level as access, so you can tell which standing you hold before you try to write.",
     "- A key's name rides on the work it does as the key is named when the work is read: the cards it creates and holds, the comments it writes and the hand-overs it makes all record the key itself, never its name, so renaming a key renames its name on the work everywhere at once, and deleting a key leaves its name standing on its work, because the key's row stands as its record. The person is told this where keys are named, before they name one.",
     "- The /me/token routes answer only the signed-in browser: a call carrying a key gets a 403. Do not call them. A key can never mint, rename or revoke a key, so a leaked key cannot lock the person's other agents out.",
     "- The sign-in routes answer only the signed-in browser the same way: passkeys, the password and the Admin page are the person's own, under /api/auth. A call carrying a key gets a 403 on every one of them. A key can never enrol a passkey, change a password, mint an invite or be exchanged for the person's session.",
     "- A key speaks for its owner while the owner's account stands and is linked to their boards, and that is checked on every request, at both doors. If the person's account is removed, their keys stop working from the next request on. An account that stands but is not linked to any boards yet — a new account waiting to be linked — answers its keys the same way: not yet.",
     "- A person can delete their own boards and account in the app, under Settings, then Account (DELETE /me): the act deletes the owner's row and everything under it — boards, cards, steps, links, comments and keys — in one act, and their keys stop working in the same act, yours included. It is the person's own act only; a key calling the route gets a 403. Copies inside the nightly backups are the one remainder: each export holds the whole database, and exports age out of the backup bucket within 14 days, so a deletion is fully gone once the exports that predate it have aged out. An administrator removing a person under Settings, then Admin, is the same whole erasure done by another hand; there is no softer removal that keeps the boards.",
-    "- 401 means the key did not work: it is wrong or revoked. 403 means the key worked but the call is not allowed, or the owner's account no longer stands linked to their boards. Either way, tell the person, and they will check the key in TaskSparkle under Settings, then Set Up Agent.",
+    "- 401 means the key did not work: it is wrong or revoked. 403 means the key worked but the call is not allowed, or the owner's account no longer stands linked to their boards. Either way, tell the person, and they will check the key in TaskSparkle under Settings, then Your own AI.",
     "- A MemberSpark key is checked with MemberSpark as it is used. 503 means that check could not be answered just now — MemberSpark did not answer, or the check itself failed: the call is refused, never with a 401, and the answer carries Retry-After: 60. Wait a minute, then try again; your key may still be good.",
     "- While MemberSpark cannot be reached, a MemberSpark key it has vouched for before keeps working on its last good check for ten days, under the name and the access that check gave it; a write still needs write access on that check. A call answered from the last good check does not extend the ten days, and a key whose record stands revoked has no standing at all: when the ten days run out, or no check stands, the 503 above is the answer until MemberSpark answers again.",
     "- 429 means too many refused key checks from your address: when 20 key checks from one address inside a minute have all been refused as not valid, every call from that address is refused until the minute passes. The answer carries Retry-After: 60: wait, then try again.",
@@ -682,7 +682,7 @@ async function resolveCaller(request, deps, host) {
         return { owner: row, via: "agent-token", key: { id: row.token_id, name: row.token_label || "Agent", access: row.token_access === "read" ? "read" : "write" } };
       }
     }
-    return { error: error("That key does not work. Check the key in TaskSparkle under Settings, then Set Up Agent.", 401) };
+    return { error: error("That key does not work. Check the key in TaskSparkle under Settings, then Your own AI.", 401) };
   }
 
   // The people's door is every host but the agents' door — where
@@ -2572,7 +2572,7 @@ export function createApiHandler(deps) {
   var parts = url.pathname.split("/").filter(function (s) { return s.length > 0; });
   var method = request.method;
 
-  // The Set Up Agent instructions name the API's address as
+  // The Your own AI instructions name the API's address as
   // /api/v1, so that spelling is part of both doors: /api/v1/state
   // and /api/state are the same route. Dropping the version
   // segment here keeps every route below defined exactly once,
@@ -3452,7 +3452,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
     // happen.
     if ((p = match(parts, ["api", "me", "token"]))) {
       if (via !== "access" && via !== "account") {
-        return error("Keys are made and removed in the signed-in app, under Settings, then Set Up Agent.", 403);
+        return error("Keys are made and removed in the signed-in app, under Settings, then Your own AI.", 403);
       }
       if (method === "GET") {
         var keyRows = (await db.prepare(
@@ -3505,7 +3505,7 @@ async function routeApi(request, deps, owner, parts, via, callerKey, caller, rep
     // way every id here does.
     if ((p = match(parts, ["api", "me", "token", ":tokenId"]))) {
       if (via !== "access" && via !== "account") {
-        return error("Keys are made and removed in the signed-in app, under Settings, then Set Up Agent.", 403);
+        return error("Keys are made and removed in the signed-in app, under Settings, then Your own AI.", 403);
       }
       var theToken = await db.prepare(
         "SELECT * FROM api_tokens WHERE id = ? AND owner_id = ? AND revoked_at IS NULL"
