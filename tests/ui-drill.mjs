@@ -1119,12 +1119,15 @@ await page.click("#settings-close").catch(() => {});
   await page.waitForFunction(
     (name) => (document.getElementById("step-line") || {}).textContent?.includes(name),
     "UI drill key", { timeout: 10000 }).catch(() => {});
-  await page.click("#help-open");
-  await page.waitForSelector("#help-pane [data-help-steps]", { timeout: 10000 });
+  // The pane cannot open from under the editor: it opens
+  // before the card does, or once the editor closes. While the
+  // editor stands, the tick shows on the chip — the way the
+  // person sees it as they work.
+  await page.waitForFunction(
+    () => (document.getElementById("help-walk-chip") || {}).textContent?.includes("2 of 3"),
+    undefined, { timeout: 10000 }).catch(() => {});
   check("#197: choosing the agent in Next step ticks the second step",
-    (await helpTicked()) === 2, "ticked " + (await helpTicked()));
-  await page.screenshot({ path: join(OUT, "help-walk-handover-1280.png") });
-  await page.click("#help-close");
+    (await chipText()).includes("2 of 3"), "chip " + JSON.stringify(await chipText()));
   await page.click("#editor-close");
   await page.waitForSelector("#editor-backdrop[hidden]", { timeout: 10000 }).catch(() => {});
   await page.click('[data-step-filter="' + drillKey.id + '"]');
@@ -1134,6 +1137,7 @@ await page.click("#settings-close").catch(() => {});
   check("#197: finding the card in the agent's queue ticks the last step",
     (await chipText()).includes("3 of 3"), "chip " + JSON.stringify(await chipText()));
   await page.click("#help-walk-chip");
+  await page.screenshot({ path: join(OUT, "help-walk-handover-1280.png") });
   const handFinish = await page.locator("#help-pane-body").innerText();
   check("#197: the hand-over walk's finish names the queue the card waits in",
     handFinish.includes("stands in the agent's queue"), handFinish.slice(0, 160));
