@@ -152,11 +152,14 @@
        stands here before the boards. app.js fills the date —
        the note states the date and nothing more — the box
        stands unticked, and Continue posts the new agreement
-       before the boards load. -->
+       before the boards load. Where the Privacy page also
+       changed (issue #198), the note names its date too and
+       the Privacy line below stands with its link. -->
   <div id="terms-state" hidden>
     <h2>The terms changed</h2>
     <p id="terms-note"></p>
     <p><a href="/terms" target="_blank" rel="noopener">Read the Terms of Use</a></p>
+    <p id="terms-privacy-line" hidden><a href="/privacy" target="_blank" rel="noopener">Read the Privacy page</a></p>
     <p><label><input type="checkbox" id="terms-agree"> I agree to the Terms of Use. The terms are a draft while the pilot stands.</label></p>
     <p><button type="button" class="btn btn-primary" id="terms-continue" disabled>Continue</button></p>
   </div>
