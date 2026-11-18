@@ -1100,7 +1100,11 @@ await page.click("#settings-close").catch(() => {});
   const drillKey = keyStateJson && (keyStateJson.keys || []).find((k) => k.name === "UI drill key");
   check("#197: the walk's key stands in the state read", !!drillKey && !!drillKey.id,
     "keys " + JSON.stringify(((keyStateJson || {}).keys || []).map((k) => k.name)));
-  await page.click("#help-open");
+  // The pane may still stand from the set-up walk's finish —
+  // it is a toggle, so open it only if it stands closed.
+  if (await page.locator("#help-pane[hidden]").count() === 1) {
+    await page.click("#help-open");
+  }
   await page.click('[data-help-walk-start="handover"]');
   await page.waitForSelector("#help-pane [data-help-steps]", { timeout: 10000 });
   await page.click("#help-close");
