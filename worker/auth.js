@@ -1457,35 +1457,45 @@ export async function writeSignInRefusal(authDb, actorAccount, targetAccount, de
   await writeAudit(authDb, actorAccount, "sign-in-refused", targetAccount, detail);
 }
 
-// --- The daily routine: a heartbeat, and the closed-day
-// proofs (Log Monitoring Standard; issue #104) ---
+// --- The daily routine: the closed-day proofs, and the
+// audit log's expiry (Log Monitoring Standard; issue
+// #104, and public issues #205 and #207) ---
 //
 // Once a day this routine runs: on the Worker from its
 // Cron Trigger (worker.js's scheduled handler;
 // wrangler.toml.example carries the trigger), and on
 // the self-host server from the cleanup sweep's
 // piggyback under a daily stamp, since no cron stands
-// there (runDailyIfDue below). It writes one heartbeat
-// entry through writeAudit above — a missing one proves
-// the writer or the road is down, and nothing more — and
-// it closes every unproven day into auth_audit_days: the
-// day's digest and the log's running total of entries,
-// computed once and never recomputed. The first proof
-// stands, the way the centre keeps the first digest it
-// receives for a closed day, so a late write into a closed
-// day never rewrites the day's proof.
+// there (runDailyIfDue below). It writes no heartbeat
+// entry: the standard's heartbeat is the standing rows'
+// newest stamp, which the operator door's audit answer
+// reports — a stamp that stops moving proves the writer
+// or the road is down, and nothing more (public #205).
+// The routine closes every unproven day into
+// auth_audit_days: the day's digest and the log's
+// running total of entries, computed once and never
+// recomputed. The first proof stands, the way the
+// centre keeps the first digest it receives for a
+// closed day, so a late write into a closed day never
+// rewrites the day's proof. The day tables stand as the
+// product's own record of its closed days; no answer
+// reads them for its window.
 //
 // The digest is the SHA-256 of the day's entries in the
 // order they were written (rowid order), one line per
 // entry — id | at | actor_id | act | target_id — joined
 // by newlines. Anyone holding the rows can recompute it
-// from this description alone; the centre's pull reads
-// only the digest and the counts in auth_audit_days,
-// never an entry. The expired count stands at 0: no purge
-// of this log runs anywhere in the product today, and the
-// day one does, it records its expiries against the day
-// they fall on, so a lawful purge never reads as a
-// broken proof.
+// from this description alone.
+//
+// After the proofs, the run expires the audit entries
+// past the log's registered retention (public #207):
+// entries stand ninety days, and past that line they
+// are deleted — the one permitted delete from an audit
+// log — each day's expiries counted on that day's proof
+// row in auth_audit_days, so a lawful expiry never
+// reads as a broken proof. The proofs close first, so
+// a day's digest always stands computed over its rows
+// before any of them can expire.
 
 var AUDIT_DAY_MS = 86400000;
 
@@ -1513,16 +1523,17 @@ export async function auditDayDigest(authDb, dayStart) {
   return sha256Hex(lines.join("\n"));
 }
 
+// The audit log's registered retention, in days (public
+// issue #207): entries stand at least ninety days under
+// the Log Monitoring standard, and ninety is the period
+// this product registers, here and in the centre's
+// registry. Expiry past the line is the audit log's one
+// permitted delete.
+export var AUDIT_RETENTION_DAYS = 90;
+
 export async function runAuditDaily(authDb) {
   var now = nowMs();
   var todayStart = Math.floor(now / AUDIT_DAY_MS) * AUDIT_DAY_MS;
-  var standing = await authDb.prepare(
-    "SELECT COUNT(*) AS n FROM auth_audit " +
-    "WHERE act = 'heartbeat' AND at >= ? AND at < ?"
-  ).bind(todayStart, todayStart + AUDIT_DAY_MS).first();
-  if (!standing || !standing.n) {
-    await writeAudit(authDb, null, "heartbeat", null, auditDayName(now));
-  }
   var first = await authDb.prepare(
     "SELECT MIN(at) AS at FROM auth_audit").first();
   if (!first || first.at == null) return;
@@ -1544,6 +1555,32 @@ export async function runAuditDaily(authDb) {
     }
     day += AUDIT_DAY_MS;
     closed++;
+  }
+  // The expiry (public issue #207), in the error log's
+  // standing shape: every entry older than the retention
+  // line goes, and each is counted as expired on its own
+  // day's proof row.
+  var cutoff = todayStart - AUDIT_RETENTION_DAYS * AUDIT_DAY_MS;
+  var stale = await authDb.prepare(
+    "SELECT id, at FROM auth_audit WHERE at < ?"
+  ).bind(cutoff).all();
+  var staleRows = stale.results || [];
+  if (!staleRows.length) return;
+  var perDay = {};
+  for (var k = 0; k < staleRows.length; k++) {
+    var staleDayName = auditDayName(
+      Math.floor(staleRows[k].at / AUDIT_DAY_MS) * AUDIT_DAY_MS);
+    perDay[staleDayName] = (perDay[staleDayName] || 0) + 1;
+  }
+  for (var m = 0; m < staleRows.length; m++) {
+    await authDb.prepare("DELETE FROM auth_audit WHERE id = ?")
+      .bind(staleRows[m].id).run();
+  }
+  var expiredDays = Object.keys(perDay);
+  for (var n = 0; n < expiredDays.length; n++) {
+    await authDb.prepare(
+      "UPDATE auth_audit_days SET expired = expired + ? WHERE day = ?"
+    ).bind(perDay[expiredDays[n]], expiredDays[n]).run();
   }
 }
 
@@ -1698,8 +1735,9 @@ export async function runErrorDaily(authDb) {
 // hourly piggyback carries them, stamped in auth_meta the
 // way the sweep itself is stamped. The first auth request
 // of a new UTC day runs them; the routines themselves are
-// idempotent (the heartbeat checks its standing entry, the
-// proofs are written once), so the Worker's cron and this
+// idempotent (the proofs are written once and each expiry
+// is counted once, on the day it falls), so the Worker's
+// cron and this
 // piggyback may both fire without doubling anything.
 export async function runDailyIfDue(authDb) {
   var stamp = nowMs();
