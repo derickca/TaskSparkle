@@ -431,13 +431,16 @@ CREATE TABLE IF NOT EXISTS auth_audit (
 );
 
 -- The audit log's closed-day proofs (Log Monitoring
--- Standard; issue #104): one row per closed UTC
--- day, written once by the daily routine and never
+-- Standard; issue #104): one row per closed UTC day,
+-- written once by the daily routine and never
 -- rewritten — the day's digest over its entries and the
--- log's running total of entries at the day's close. The
--- centre's pull reads this table's counts and digests
--- only. The expired count stands at 0 until a purge of
--- the audit log exists; none runs today.
+-- log's running total of entries at the day's close.
+-- The proofs stand as the product's own record; no
+-- answer reads this table for its window (public
+-- #205). The expired count records the entries the
+-- daily routine expired past the audit log's
+-- registered retention — ninety days (public #207) —
+-- counted on the day they fall on.
 CREATE TABLE IF NOT EXISTS auth_audit_days (
   day TEXT PRIMARY KEY,
   digest TEXT NOT NULL,

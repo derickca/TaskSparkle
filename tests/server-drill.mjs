@@ -1865,8 +1865,9 @@ try {
   // The Log Monitoring Standard's shape, exercised against a
   // throwaway store: the error log's writer (a signature from
   // the fixed list, a scrubbed message, a request id), the
-  // refusal writer, and the daily routine — one heartbeat a
-  // day through the audit writer, a closed-day proof for each
+  // refusal writer, and the daily routine — no heartbeat
+  // entry (public #205: the log's newest stamp is the
+  // heartbeat the door reports), a closed-day proof for each
   // log (digest and running total, computed once), and the
   // error prune past seven days sparing open incidents.
   {
@@ -1942,21 +1943,36 @@ try {
       "SELECT id, at, actor_id, act, target_id FROM auth_audit WHERE at >= ? AND at < ? ORDER BY rowid",
       auditDay, auditDay + DAY)).map((r) =>
         r.id + "|" + r.at + "|" + (r.actor_id || "") + "|" + r.act + "|" + (r.target_id || ""));
+    // An entry past the audit log's registered retention
+    // (ninety days, public #207): the same run that closes
+    // its day's proof expires it and counts the expiry on
+    // that proof, so the expected running total is read
+    // before the run, while the entry still stands.
+    const oldDay = todayStart - 95 * DAY;
+    await seedAudit("audit-drill-104-old", oldDay + 1000, "sign-in");
+    const totalBeforeRun = (await rows(
+      "SELECT COUNT(*) AS n FROM auth_audit WHERE at < ?", auditDay + DAY))[0].n;
     await auth104.runAuditDaily(logDb);
     const auditProof = await rows("SELECT * FROM auth_audit_days WHERE day = ?", dayName(auditDay));
     check("#104: the closed audit day's proof stands with the recomputed digest",
       !!auditProof && auditProof.length === 1 && auditProof[0].digest === sha(auditLines.join("\n")),
       auditProof && auditProof.length ? auditProof[0].digest.slice(0, 12) : "no proof row");
     check("#104: the proof's running total counts every entry written through the day's end",
-      !!auditProof && auditProof.length === 1 && Number(auditProof[0].total) ===
-        (await rows("SELECT COUNT(*) AS n FROM auth_audit WHERE at < ?", auditDay + DAY))[0].n,
+      !!auditProof && auditProof.length === 1 && Number(auditProof[0].total) === totalBeforeRun,
       auditProof && auditProof.length ? "total " + auditProof[0].total : "no proof row");
     const hearts = await rows(
       "SELECT * FROM auth_audit WHERE act = 'heartbeat' AND at >= ? AND at < ?",
       todayStart, todayStart + DAY);
-    check("#104: one heartbeat stands for today, naming its day",
-      !!hearts && hearts.length === 1 && hearts[0].detail === dayName(Date.now()),
+    check("#104: no heartbeat stands for today — the routine writes none (public #205)",
+      !!hearts && hearts.length === 0,
       hearts ? hearts.length + " heartbeats" : "no rows");
+    const oldProof = await rows("SELECT * FROM auth_audit_days WHERE day = ?", dayName(oldDay));
+    const oldStanding = await rows("SELECT id FROM auth_audit WHERE id = 'audit-drill-104-old'");
+    check("#104: the entry past ninety days stands expired, its day's proof carrying the count (public #207)",
+      !!oldProof && oldProof.length === 1 && Number(oldProof[0].expired) === 1 &&
+        oldProof[0].digest === sha("audit-drill-104-old|" + (oldDay + 1000) + "||sign-in|") &&
+        !!oldStanding && oldStanding.length === 0,
+      oldProof && oldProof.length ? "expired " + oldProof[0].expired : "no proof row");
 
     // The error day proof and the prune: an unpinned entry
     // past the line goes and is counted expired on its own
@@ -1999,11 +2015,13 @@ try {
     const hearts2 = await rows(
       "SELECT * FROM auth_audit WHERE act = 'heartbeat' AND at >= ? AND at < ?",
       todayStart, todayStart + DAY);
-    check("#104: a second daily run rewrites no proof and writes no second heartbeat",
+    const oldProof2 = await rows("SELECT * FROM auth_audit_days WHERE day = ?", dayName(oldDay));
+    check("#104: a second daily run rewrites no proof, writes no heartbeat and recounts no expiry",
       !!auditProof2 && auditProof2[0].digest === auditProof[0].digest &&
         !!errProof2 && Number(errProof2[0].expired) === 1 &&
-        !!hearts2 && hearts2.length === 1,
-      "proofs or heartbeat moved");
+        !!hearts2 && hearts2.length === 0 &&
+        !!oldProof2 && oldProof2.length === 1 && Number(oldProof2[0].expired) === 1,
+      "proofs, heartbeat or expiry moved");
 
     // The piggyback driver: due once a day, then not again.
     const dueFirst = await auth104.runDailyIfDue(logDb);
