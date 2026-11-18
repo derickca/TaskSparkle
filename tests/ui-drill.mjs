@@ -40,6 +40,16 @@
 // standing the dialog down keeps the key working, and
 // confirming kills it. Both dialogs are screenshotted at
 // desktop and phone widths.
+// It walks help where the work is (issue #197): the header's
+// Help button opens a pane in the app that describes the page
+// the person stands on — the board, then the Your own AI page
+// as the person moves — and two guided walks are worked the
+// way a person works them, the pane closing to its chip while
+// the acts land: setting up your own AI through the page's
+// copy button and a key made on the page, and handing a card
+// over through the editor's Next step chooser and the board's
+// step filter, each step ticking as its act lands. The pane
+// is screenshotted at desktop and phone widths.
 // It walks the dialog sweep (issue #99): deleting a project
 // asks in one shared dialog — from Settings → Projects and
 // from the press-and-hold editor alike — over the untouched
@@ -980,6 +990,174 @@ check("#98: confirming in the dialog deletes the key — row gone, key dead",
   keyTwoRowGone === 0 && keyTwoDead.status === 401,
   "rows=" + keyTwoRowGone + " status " + keyTwoDead.status);
 await page.click("#settings-close").catch(() => {});
+
+// --- Help where the work is (issue #197) --------------------------------------
+// The describing pane and the guided pane. The header's Help
+// button opens the pane in the app — the address never changes
+// and the board stands behind it — and the pane describes the
+// page the person stands on, following them into Settings and
+// the Your own AI page. Two walks are then worked the way a
+// person works them: the pane closes, the chip keeps the walk
+// standing with its count, and the steps tick as the acts land
+// — the Your own AI walk through the page's own acts (the copy
+// button, a key made on the page while the walk stands), and
+// the hand-over walk through the editor's Next step chooser and
+// the board's step filter. Both walks are left as they were
+// found: the walk's key is deleted and the card's step is
+// handed back to the owner.
+{
+  const helpTicked = async () =>
+    page.locator('#help-pane [data-help-step][data-done="true"]').count();
+  const chipText = async () =>
+    (await page.locator("#help-walk-chip").textContent().catch(() => "")) || "";
+
+  const urlBefore = page.url();
+  await page.click("#help-open");
+  await page.waitForSelector("#help-pane:not([hidden])", { timeout: 10000 });
+  check("#197: the Help button opens a pane in the app — no leaving for the Help page",
+    page.url() === urlBefore && await page.locator("#board-ui:not([hidden])").count() === 1,
+    "url " + page.url());
+  const boardHeading = await page.locator("#help-pane-heading").textContent();
+  const boardWords = await page.locator("#help-pane-body").innerText();
+  check("#197: the pane describes the page the person stands on — the board",
+    (boardHeading || "").trim() === "Your board" && boardWords.includes("next step"),
+    "heading " + JSON.stringify(boardHeading));
+  await page.screenshot({ path: join(OUT, "help-pane-1280.png") });
+
+  // The description follows the person: Settings, then the
+  // Your own AI page, each described as it stands.
+  await page.click("#help-close");
+  await page.click("#settings-open");
+  await page.click('[data-settings-page="setup-agent"]');
+  await page.waitForSelector("#key-add", { timeout: 10000 });
+  await page.click("#help-open");
+  await page.waitForSelector("#help-pane:not([hidden])", { timeout: 10000 });
+  const agentHeading = await page.locator("#help-pane-heading").textContent();
+  const agentWords = await page.locator("#help-pane-body").innerText();
+  check("#197: the description follows the person — the Your own AI page",
+    (agentHeading || "").trim() === "Your own AI" && agentWords.includes("queue"),
+    "heading " + JSON.stringify(agentHeading));
+  await page.click("#help-close");
+  await page.click("#settings-close");
+
+  // The Your own AI walk, worked from the board.
+  await page.click("#help-open");
+  await page.click('[data-help-walk-start="agent"]');
+  await page.waitForSelector("#help-pane [data-help-steps]", { timeout: 10000 });
+  check("#197: the guided pane opens the walk with no step ticked",
+    (await helpTicked()) === 0, "ticked " + (await helpTicked()));
+  await page.click("#help-close");
+  check("#197: closing the pane leaves the walk standing on its chip",
+    await page.locator("#help-walk-chip:not([hidden])").count() === 1 &&
+      (await chipText()).includes("0 of 3"),
+    "chip " + JSON.stringify(await chipText()));
+  await page.click("#settings-open");
+  await page.click('[data-settings-page="setup-agent"]');
+  await page.waitForSelector("#key-add", { timeout: 10000 });
+  await page.waitForFunction(
+    () => (document.getElementById("help-walk-chip") || {}).textContent?.includes("1 of 3"),
+    undefined, { timeout: 10000 }).catch(() => {});
+  check("#197: the walk ticks its first step as the page is opened, the pane closed",
+    (await chipText()).includes("1 of 3"), "chip " + JSON.stringify(await chipText()));
+  await page.click("#help-walk-chip");
+  await page.waitForSelector("#help-pane [data-help-steps]", { timeout: 10000 });
+  await page.click("#copy-instructions");
+  await page.waitForFunction(
+    () => document.querySelectorAll('#help-pane [data-help-step][data-done="true"]').length === 2,
+    undefined, { timeout: 10000 }).catch(() => {});
+  check("#197: copying the instructions ticks the second step; the key made before the walk does not tick the third",
+    (await helpTicked()) === 2, "ticked " + (await helpTicked()));
+  await page.fill("#key-add-name", "UI drill walk key");
+  await page.click("#key-add");
+  await page.waitForSelector("#key-created-backdrop:not([hidden])", { timeout: 10000 });
+  await page.click("#key-created-close");
+  await page.waitForFunction(
+    () => document.querySelectorAll('#help-pane [data-help-step][data-done="true"]').length === 3,
+    undefined, { timeout: 10000 }).catch(() => {});
+  const agentFinish = await page.locator("#help-pane-body").innerText();
+  check("#197: a key made on the page while the walk stands ticks the last step, and the finish stands",
+    (await helpTicked()) === 3 && agentFinish.includes("can work your boards now"),
+    "ticked " + (await helpTicked()));
+  await page.screenshot({ path: join(OUT, "help-walk-agent-1280.png") });
+  await page.click("[data-help-walk-finish]");
+  check("#197: finishing the walk stands the chip down",
+    await page.locator("#help-walk-chip[hidden]").count() === 1, "");
+  // Leave the page as it was found: the walk's key goes away.
+  const walkKeyRow = page.locator("[data-key-row]", { hasText: "UI drill walk key" });
+  await walkKeyRow.locator('[data-role="key-delete"]').click();
+  await page.waitForSelector("#key-delete-backdrop:not([hidden])", { timeout: 10000 });
+  await page.click("#key-delete-confirm");
+  await page.waitForFunction(
+    (name) => !Array.from(document.querySelectorAll("[data-key-row]"))
+      .some((r) => (r.textContent || "").includes(name)),
+    "UI drill walk key", { timeout: 10000 }).catch(() => {});
+  await page.click("#settings-close").catch(() => {});
+
+  // The hand-over walk, worked from the board.
+  const keyStateRes = await fetch(BASE + "/api/v1/state", {
+    headers: { Authorization: "Bearer " + mintedKey },
+  });
+  const keyStateJson = await keyStateRes.json().catch(() => null);
+  const drillKey = keyStateJson && (keyStateJson.keys || []).find((k) => k.name === "UI drill key");
+  check("#197: the walk's key stands in the state read", !!drillKey && !!drillKey.id,
+    "keys " + JSON.stringify(((keyStateJson || {}).keys || []).map((k) => k.name)));
+  await page.click("#help-open");
+  await page.click('[data-help-walk-start="handover"]');
+  await page.waitForSelector("#help-pane [data-help-steps]", { timeout: 10000 });
+  await page.click("#help-close");
+  await page.locator(".card", { hasText: TITLE }).first().click();
+  await page.waitForSelector("#editor-backdrop:not([hidden])", { timeout: 10000 });
+  await page.waitForFunction(
+    () => (document.getElementById("help-walk-chip") || {}).textContent?.includes("1 of 3"),
+    undefined, { timeout: 10000 }).catch(() => {});
+  check("#197: opening the card ticks the hand-over walk's first step",
+    (await chipText()).includes("1 of 3"), "chip " + JSON.stringify(await chipText()));
+  await page.selectOption("#field-step", drillKey.id);
+  await page.waitForFunction(
+    (name) => (document.getElementById("step-line") || {}).textContent?.includes(name),
+    "UI drill key", { timeout: 10000 }).catch(() => {});
+  await page.click("#help-open");
+  await page.waitForSelector("#help-pane [data-help-steps]", { timeout: 10000 });
+  check("#197: choosing the agent in Next step ticks the second step",
+    (await helpTicked()) === 2, "ticked " + (await helpTicked()));
+  await page.screenshot({ path: join(OUT, "help-walk-handover-1280.png") });
+  await page.click("#help-close");
+  await page.click("#editor-close");
+  await page.waitForSelector("#editor-backdrop[hidden]", { timeout: 10000 }).catch(() => {});
+  await page.click('[data-step-filter="' + drillKey.id + '"]');
+  await page.waitForFunction(
+    () => (document.getElementById("help-walk-chip") || {}).textContent?.includes("3 of 3"),
+    undefined, { timeout: 10000 }).catch(() => {});
+  check("#197: finding the card in the agent's queue ticks the last step",
+    (await chipText()).includes("3 of 3"), "chip " + JSON.stringify(await chipText()));
+  await page.click("#help-walk-chip");
+  const handFinish = await page.locator("#help-pane-body").innerText();
+  check("#197: the hand-over walk's finish names the queue the card waits in",
+    handFinish.includes("stands in the agent's queue"), handFinish.slice(0, 160));
+  await page.click("[data-help-walk-finish]");
+  // Leave the board as it was found: the filter back to
+  // Everyone, and the card's step back to the owner.
+  await page.click('[data-step-filter="everyone"]');
+  await page.locator(".card", { hasText: TITLE }).first().click();
+  await page.waitForSelector("#editor-backdrop:not([hidden])", { timeout: 10000 });
+  await page.selectOption("#field-step", "owner");
+  await page.waitForFunction(
+    () => (document.getElementById("step-line") || {}).textContent?.includes("Next step: You"),
+    undefined, { timeout: 10000 }).catch(() => {});
+  await page.click("#editor-close");
+  await page.waitForSelector("#editor-backdrop[hidden]", { timeout: 10000 }).catch(() => {});
+
+  // The pane at phone width.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.click("#help-open");
+  await page.waitForSelector("#help-pane:not([hidden])", { timeout: 10000 });
+  const phoneHeading = await page.locator("#help-pane-heading").textContent();
+  check("#197: the pane stands at phone width, describing the board",
+    (phoneHeading || "").trim() === "Your board", "heading " + JSON.stringify(phoneHeading));
+  await page.screenshot({ path: join(OUT, "help-pane-390.png") });
+  await page.click("#help-close");
+  await page.setViewportSize({ width: 1280, height: 900 });
+}
 
 // --- Wave 3: the sweep's remaining fixes, walked (issues #135, #137,
 // #138, #139, #148, #150, #151) -------------------------------------------------
