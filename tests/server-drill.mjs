@@ -1700,7 +1700,14 @@ try {
   // the new version's date — and the person's tick on the
   // agree route writes the new row beside it. Sign-in spends
   // never write a row, and a key can neither see the standing
-  // nor answer it.
+  // nor answer it. The row also carries the Privacy version
+  // the tick accepted (public issue #198): the standing
+  // judges both documents, a change to the Privacy page
+  // alone stands the gate naming its own date, and a row
+  // written before the pair was recorded — no Privacy
+  // version on it — reads its Privacy standing as the
+  // earlier of the two dates, so an unchanged pair asks
+  // nobody again.
   {
     const agreementRows = (configName) => {
       const file = join(scratch,
@@ -1745,7 +1752,7 @@ try {
 
     // Configured: the deployment names the standing version.
     const portTerms = nextPort;
-    const cfgTerms = writeConfig("terms.json", { termsVersion: "2026-11-07" });
+    const cfgTerms = writeConfig("terms.json", { termsVersion: "2026-11-07", privacyVersion: "2026-11-05" });
     nextPort += 1;
     const sTerms = await startServer(cfgTerms);
     res = await postForm(portTerms, "/setup",
@@ -1857,6 +1864,85 @@ try {
     check("#43: the key's refused press wrote no row",
       rowsKeyed !== null && rowsKeyed.length === 2,
       rowsKeyed === null ? "no agreements table stands" : rowsKeyed.length + " rows stand");
+    // The pair walk (public issue #198), on the same
+    // standing row the family above leaves current.
+    const privacyRows = () => {
+      const file = join(scratch, "data-termsjson", "tasksparkle.sqlite");
+      const raw = new DatabaseSync(file, { readOnly: true });
+      try {
+        return raw.prepare(
+          "SELECT account_key, terms_version, privacy_version, source FROM agreements ORDER BY agreed_at, rowid"
+        ).all();
+      } catch (e) { return null; } finally { raw.close(); }
+    };
+    const setPair = (terms, privacy) => {
+      try {
+        const db = new DatabaseSync(termsFile);
+        db.prepare(
+          "UPDATE agreements SET terms_version = ?, privacy_version = ? " +
+          "WHERE account_key = 'terms person' AND agreed_at = " +
+          "(SELECT MAX(agreed_at) FROM agreements WHERE account_key = 'terms person')"
+        ).run(terms, privacy);
+        db.close();
+        return true;
+      } catch (e) { return false; }
+    };
+    const pairAtStart = privacyRows();
+    check("#198: the re-tick's row carries the Privacy version the tick accepted, beside the Terms version",
+      pairAtStart !== null && pairAtStart.length === 2 &&
+        pairAtStart[1].terms_version === "2026-11-07" && pairAtStart[1].privacy_version === "2026-11-05",
+      pairAtStart === null ? "no privacy_version column stands" : JSON.stringify(pairAtStart));
+    check("#198: the standing row's pair can be set back for the Privacy-only walk",
+      setPair("2026-11-07", "2026-11-01"), "the pair update failed");
+    const stPriv = cookieTerms2 ? await apiCall(portTerms, cookieTerms2, "GET", "/api/v1/state")
+      : { status: 0, json: null };
+    check("#198: a Privacy-only change stands the gate, naming the Privacy date and no Terms date",
+      stPriv.status === 200 && !!stPriv.json && !!stPriv.json.termsUpdate &&
+        stPriv.json.termsUpdate.privacyChangedOn === "2026-11-05" &&
+        !stPriv.json.termsUpdate.changedOn,
+      "status " + stPriv.status + " termsUpdate " + JSON.stringify(stPriv.json && stPriv.json.termsUpdate));
+    const agreePriv = cookieTerms2 ? await apiCall(portTerms, cookieTerms2, "POST", "/api/terms/agree", { agreed: true })
+      : { status: 0, json: null };
+    check("#198: the ticked press answers the Privacy-only standing",
+      agreePriv.status === 200, "status " + agreePriv.status);
+    const pairAfter = privacyRows();
+    check("#198: the answering tick brings the standing row to the current pair, writing no new row",
+      pairAfter !== null && pairAfter.length === 2 &&
+        pairAfter[1].terms_version === "2026-11-07" && pairAfter[1].privacy_version === "2026-11-05" &&
+        pairAfter[1].source === "retick",
+      pairAfter === null ? "no privacy_version column stands" : JSON.stringify(pairAfter));
+    const stPriv2 = cookieTerms2 ? await apiCall(portTerms, cookieTerms2, "GET", "/api/v1/state")
+      : { status: 0, json: null };
+    check("#198: with the pair standing current, the state carries no standing",
+      stPriv2.status === 200 && !!stPriv2.json && !("termsUpdate" in stPriv2.json),
+      "status " + stPriv2.status);
+    check("#198: the standing row's Privacy version can be cleared for the legacy walk",
+      setPair("2026-11-07", null), "the pair update failed");
+    const stLegacy = cookieTerms2 ? await apiCall(portTerms, cookieTerms2, "GET", "/api/v1/state")
+      : { status: 0, json: null };
+    check("#198: a row written before the pair was recorded, at the standing Terms version, fires nothing",
+      stLegacy.status === 200 && !!stLegacy.json && !("termsUpdate" in stLegacy.json),
+      "status " + stLegacy.status + " termsUpdate " + JSON.stringify(stLegacy.json && stLegacy.json.termsUpdate));
+    check("#198: the standing row's pair can be set back on both documents for the both-changed walk",
+      setPair("2026-11-06", "2026-11-01"), "the pair update failed");
+    const stBoth = cookieTerms2 ? await apiCall(portTerms, cookieTerms2, "GET", "/api/v1/state")
+      : { status: 0, json: null };
+    check("#198: a change to both documents names both dates in the standing",
+      stBoth.status === 200 && !!stBoth.json && !!stBoth.json.termsUpdate &&
+        stBoth.json.termsUpdate.changedOn === "2026-11-07" &&
+        stBoth.json.termsUpdate.privacyChangedOn === "2026-11-05",
+      "status " + stBoth.status + " termsUpdate " + JSON.stringify(stBoth.json && stBoth.json.termsUpdate));
+    const agreeBoth = cookieTerms2 ? await apiCall(portTerms, cookieTerms2, "POST", "/api/terms/agree", { agreed: true })
+      : { status: 0, json: null };
+    const pairFinal = privacyRows();
+    const stBoth2 = cookieTerms2 ? await apiCall(portTerms, cookieTerms2, "GET", "/api/v1/state")
+      : { status: 0, json: null };
+    check("#198: the both-changed tick lands the current pair and the standing clears",
+      agreeBoth.status === 200 && pairFinal !== null &&
+        pairFinal.some((r) => r.terms_version === "2026-11-07" && r.privacy_version === "2026-11-05" && r.source === "retick") &&
+        stBoth2.status === 200 && !!stBoth2.json && !("termsUpdate" in stBoth2.json),
+      "status " + agreeBoth.status + " rows " + JSON.stringify(pairFinal));
+
     check("stop: the configured terms instance stops cleanly",
       (await stopServer(sTerms)) === 0, "exit " + sTerms.exited());
   }

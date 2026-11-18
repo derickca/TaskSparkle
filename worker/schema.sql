@@ -407,11 +407,20 @@ CREATE TABLE IF NOT EXISTS sessions (
 -- version; a copy that names none keeps no rows and nothing
 -- in its behaviour changes. The pair is the key — one row
 -- per person per version — so a second tick at the same
--- version can never stand beside the first. An erased
--- person's rows go with their credentials (worker/auth.js).
+-- version can never stand beside the first. The row also
+-- carries the Privacy version the tick accepted (issue
+-- #198), where the deployment names one: the standing the
+-- re-tick judges covers both documents, and a Privacy-only
+-- change brings the standing row's Privacy version forward
+-- on the row that already stands. A row written before the
+-- pair was recorded carries no Privacy version; the core
+-- reads its Privacy standing from its Terms version. An
+-- erased person's rows go with their credentials
+-- (worker/auth.js).
 CREATE TABLE IF NOT EXISTS agreements (
   account_key TEXT NOT NULL,
   terms_version TEXT NOT NULL,
+  privacy_version TEXT,
   agreed_at INTEGER NOT NULL,
   source TEXT NOT NULL,
   PRIMARY KEY (account_key, terms_version)

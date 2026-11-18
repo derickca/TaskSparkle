@@ -467,8 +467,11 @@ const authPages = createAuthHandlers({
     cookieSecure: () => false,
     // The deployment's Terms version (issue #43), when this
     // copy's config names one; a config that names none keeps
-    // no terms record and nothing changes.
+    // no terms record and nothing changes. The config's
+    // Privacy version rides it (issue #198): the standing
+    // judges both documents.
     termsVersion: config.termsVersion ? String(config.termsVersion) : null,
+    privacyVersion: config.privacyVersion ? String(config.privacyVersion) : null,
     },
 });
 
@@ -478,6 +481,7 @@ const handler = createApiHandler({
   env: coreEnv,
   auth: authConfig,
   termsVersion: config.termsVersion ? String(config.termsVersion) : null,
+  privacyVersion: config.privacyVersion ? String(config.privacyVersion) : null,
   sessionCookieName: null, // a stale local session simply reads as signed out
   onOwnerDeleted: async (owner) => {
     // An erasure (issue #57): the core has deleted the owners

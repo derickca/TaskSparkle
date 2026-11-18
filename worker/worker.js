@@ -62,6 +62,17 @@ function termsVersionOf(env) {
   return version || null;
 }
 
+// The deployment's Privacy version (issue #198): the date
+// its Privacy page was last updated, named in the
+// deployment's own settings as PRIVACY_VERSION. It rides
+// the Terms record — the shared code judges a person's
+// standing against both documents — and a deployment that
+// names none judges the Terms version alone, as before.
+function privacyVersionOf(env) {
+  var version = String((env && env.PRIVACY_VERSION) || "").trim();
+  return version || null;
+}
+
 var accessKeysCache = { fetchedAt: 0, keys: [] };
 
 async function accessSigningKeys(env) {
@@ -216,7 +227,8 @@ async function dispatchFetch(request, env, ctx) {
           },
           sourceCapMs: 15 * 60 * 1000,
           cookieSecure: function () { return true; },
-          termsVersion: termsVersionOf(env)
+          termsVersion: termsVersionOf(env),
+          privacyVersion: privacyVersionOf(env)
         }
       });
       var pageAnswer = await authPages(request);
@@ -252,7 +264,8 @@ async function dispatchFetch(request, env, ctx) {
       // An erasure on the hosted copy has no deployment state
       // outside the shared tables to clear.
       onOwnerDeleted: null,
-      termsVersion: termsVersionOf(env)
+      termsVersion: termsVersionOf(env),
+      privacyVersion: privacyVersionOf(env)
     });
     return handler(request);
 }
