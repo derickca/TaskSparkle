@@ -60,4 +60,5 @@ The light theme is dark blue on off-white, and each product takes one accent col
 - `components.css`: the components, built only on tokens.
 - `icons/`: `lucide/` holds the vendored Lucide subset and its LICENSE. `manifest.json` records the version, the npm integrity, each icon's use and its sha256. `flag-ca.svg` and `spark.svg` are MemberSpark's own drawings.
 - `preview.html`: every token and component on one page, in light and dark. Open it from disk; `?theme=dark` or `?theme=light` opens it in one theme.
+- `WORDS.md`: TaskSparkle's word list — the words the product uses for its own things and its settled pairs. New wording is checked against it before a page ships.
 - The check is `tests/design-system-check.ps1`, and the paired suite `tests/spec-check.ps1` runs it. It checks the tokens, text and control contrast, the 44px floor, the header heights, the icon hashes, the preview and this README.
