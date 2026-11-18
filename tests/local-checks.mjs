@@ -1775,6 +1775,38 @@ function paletteBlocksOf(css) {
     "the ten days of the outage standing, and the owner's sentence.");
 }
 
+// The wording bundle (public issues #193, #199): the
+// agent key page carries its shared name, Your own AI,
+// with the shared name's one line, and the terms gate's
+// agreement words carry the draft line while the pilot
+// stands. The directions and the instructions name the
+// page by its shared name too.
+{
+  const indexW = readFileSync(join(ROOT, "public", "index.html"), "utf8");
+  const appW = readFileSync(join(ROOT, "public", "app.js"), "utf8");
+  const coreW = readFileSync(join(ROOT, "worker", "core.js"), "utf8");
+  const missing = [];
+  if (!indexW.includes("<span>Your own AI</span>") ||
+      !indexW.includes("<h3>Your own AI</h3>") ||
+      !indexW.includes("Make a key so your own AI assistant can read or work in a Spark product for you, and revoke it any time.")) {
+    missing.push("the Settings entry or the Your own AI page does not carry the shared name or its one line");
+  }
+  if (!indexW.includes("I agree to the Terms of Use. The terms are a draft while the pilot stands.")) {
+    missing.push("the terms gate's agreement words carry no draft line");
+  }
+  if (!appW.includes("under Settings, then Your own AI") ||
+      !coreW.includes("under Settings, then Your own AI") ||
+      appW.includes("then Set Up Agent") || coreW.includes("then Set Up Agent")) {
+    missing.push("the instructions or the directions do not name the page Your own AI");
+  }
+  if (missing.length) {
+    console.error("The wording bundle is not settled: " + missing.join("; ") + ".");
+    process.exit(1);
+  }
+  console.log("Wording bundle: the shared name stands word for word, and the " +
+    "agreement words carry the draft line.");
+}
+
 let server = null;
 function stopServer() {
   if (server && !server.killed) server.kill();

@@ -609,13 +609,13 @@ var pendingGuarded = null;
 // made. It is never stored. Once the person leaves Settings it is
 // gone, by design: only its hash exists on the server.
 var justCreatedKey = null;
-// The owner's keys as the Set Up Agent page last read them from the
+// The owner's keys as the Your own AI page last read them from the
 // key list route: [{id, name, last4, created_at}], or null before
 // the first read. The state itself names only the newest key, so
 // the list the page manages comes from the route, fetched when the
 // page opens and after every change the page makes.
 var agentKeys = null;
-// The key whose rename field is open on the Set Up Agent page.
+// The key whose rename field is open on the Your own AI page.
 // A delete asks in its own dialog instead (issue #98) and holds
 // its key here, the way the card delete dialog holds its card.
 var keyRenameId = null;
@@ -5803,14 +5803,14 @@ function agentInstructions(name, agentHost) {
     "My name is " + name + ".\n" +
     "TaskSparkle is my personal kanban board. The boards in it are mine alone and they are private.\n" +
     "Its agent API is at " + base + "\n" +
-    "If I have no key yet, tell me to add one in TaskSparkle under Settings, then Set Up Agent: tap Add a key, give it a name, and paste you the key it shows me. The key is shown once, so I copy it then.\n" +
+    "If I have no key yet, tell me to add one in TaskSparkle under Settings, then Your own AI: tap Add a key, give it a name, and paste you the key it shows me. The key is shown once, so I copy it then.\n" +
     "When you set up the connection, ask me for my TaskSparkle key and save it in the secure secret field. Send it as Authorization: Bearer <key> on every request, and send an ordinary browser User-Agent on every request.\n" +
     "Then, before anything else, read the directions: GET " + base + "/directions with my key, and follow what they say. They carry the routes, the fields and the rules, and they always match the API that serves them.\n" +
-    "Keep my key secret and never show it back to me in full. The key reaches only my boards. If a request comes back 401 or 403, tell me, and I will check the key in TaskSparkle under Settings, then Set Up Agent.";
+    "Keep my key secret and never show it back to me in full. The key reaches only my boards. If a request comes back 401 or 403, tell me, and I will check the key in TaskSparkle under Settings, then Your own AI.";
 }
 
 // Fetches the agent directions through this door, signed in, for
-// the Set Up Agent panel's read-only view. The api helper parses
+// the Your own AI panel's read-only view. The api helper parses
 // JSON, so this one call reads the raw text itself: the panel
 // shows the very text the Worker serves to a key at
 // /api/v1/directions, fetched from the same handler here.
@@ -6539,7 +6539,7 @@ function renderSettings() {
     projectsWrap.appendChild(addRow);
   }
 
-  // Set Up Agent. The page manages the owner's list of keys, read
+  // Your own AI. The page manages the owner's list of keys, read
   // from the key list route: each key's name, its ending and the
   // date it was made, with rename and delete beside it. A key made
   // in this visit shows once, in full, in its own dialog — the
@@ -6549,7 +6549,7 @@ function renderSettings() {
   if (settingsPage === "setup-agent" && agentKeys === null) refreshAgentKeys();
 }
 
-// Reads the owner's key list for the Set Up Agent page. The state
+// Reads the owner's key list for the Your own AI page. The state
 // names only the newest key, so the list the page manages comes
 // from the route itself, read when the page opens and again after
 // every change the page makes.
@@ -6572,7 +6572,7 @@ function refreshAgentKeys() {
   });
 }
 
-// One row of the Set Up Agent key list per key: its name, its
+// One row of the Your own AI key list per key: its name, its
 // ending, its date and its level, then Rename, a level button
 // and Delete. Rename opens a field in the row (the name only;
 // the key itself never changes), the level button flips the
@@ -6689,7 +6689,7 @@ function defaultSettingsBoardPicks(pageId) {
 
 // Opens Settings at the list. A page id opens that page directly;
 // the ?settings=agent link uses that, so a person following it lands
-// on the Set Up Agent page rather than the list.
+// on the Your own AI page rather than the list.
 function openSettings(pageId) {
   settingsPage = SETTINGS_PAGES.indexOf(pageId) !== -1 ? pageId : null;
   defaultSettingsBoardPicks(settingsPage);
@@ -6751,7 +6751,7 @@ function closeSettings() {
 
 //
 // The key dialogs (issue #98). Adding a key and deleting a key
-// each ask in a dialog of their own, over the Set Up Agent page
+// each ask in a dialog of their own, over the Your own AI page
 // as it stands — the shape the card delete set (issue #97). A
 // new key shows once, in its dialog, with a button that copies
 // it; closing the dialog clears the field, so the value stands
@@ -9053,7 +9053,7 @@ function init() {
     }).catch(function () { /* reloadState already ran */ });
   });
 
-  // Set Up Agent buttons.
+  // Your own AI buttons.
   wire("copy-instructions", "click", function () {
     copyFieldText(document.getElementById("agent-instructions").value, this);
   });

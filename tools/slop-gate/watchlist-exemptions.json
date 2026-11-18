@@ -243,5 +243,26 @@
     "sentence_sha256": "0beb2317ec4ac8ad608917286eaff01266afe9fff9ca29eb83e10dc19e0bbdf9",
     "sentence": "Changing the key's level did not work.",
     "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Set Up Agent). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. New copy from the read-only keys build (issue #147), whose key-level control carries this sentence; recorded 2026-11-16."
+  },
+  {
+    "page": "public/index.html",
+    "entry": "key",
+    "sentence_sha256": "dae923ff24f987c04e791e7f255926823bef6226eefdf434c49d94ca8b25da48",
+    "sentence": "Make a key so your own AI assistant can read or work in a Spark product for you, and revoke it any time.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Your own AI). The sentence is the MS-NAME standard's prescribed one line for the feature (MS-NAME-2), standing word for word. The watchlist's sources exclude the literal use of 'key': a real key is not a hit. Recorded 2026-11-17 with the wording bundle (issue #199)."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "51250c16e13dbacc8812b14fc3e90f3be5fed1f0003a76de180c84ecc0452bf2",
+    "sentence": "If I have no key yet, tell me to add one in TaskSparkle under Settings, then Your own AI: tap Add a key, give it a name, and paste you the key it shows me.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Your own AI). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. The sentence stands renamed by the wording bundle (issue #199), recorded 2026-11-17."
+  },
+  {
+    "page": "strings/public-app.html",
+    "entry": "key",
+    "sentence_sha256": "8b5dafaaeb8a8ef9e822962a828bc64d4bd76d269bb86923e077db8d05efa2a2",
+    "sentence": "If a request comes back 401 or 403, tell me, and I will check the key in TaskSparkle under Settings, then Your own AI.",
+    "reason": "Literal use: the words are about an agent key \u2014 a real key a person makes, copies and revokes in TaskSparkle (Settings, then Your own AI). The watchlist's sources exclude the literal use of 'key': a real key is not a hit. The sentence stands renamed by the wording bundle (issue #199), recorded 2026-11-17."
   }
 ]
