@@ -1003,8 +1003,8 @@ await page.click("#settings-close").catch(() => {});
 // button, a key made on the page while the walk stands), and
 // the hand-over walk through the editor's Next step chooser and
 // the board's step filter. Both walks are left as they were
-// found: the walk's key is deleted and the card's step is
-// handed back to the owner.
+// found: the walk's key is deleted and the walk's own card —
+// made for the walk — is deleted with it.
 {
   const helpTicked = async () =>
     page.locator('#help-pane [data-help-step][data-done="true"]').count();
@@ -1100,15 +1100,25 @@ await page.click("#settings-close").catch(() => {});
   const drillKey = keyStateJson && (keyStateJson.keys || []).find((k) => k.name === "UI drill key");
   check("#197: the walk's key stands in the state read", !!drillKey && !!drillKey.id,
     "keys " + JSON.stringify(((keyStateJson || {}).keys || []).map((k) => k.name)));
-  // The pane may still stand from the set-up walk's finish —
-  // it is a toggle, so open it only if it stands closed.
-  if (await page.locator("#help-pane[hidden]").count() === 1) {
-    await page.click("#help-open");
+  // The hand-over walk works its own card, made here and
+  // deleted at the leg's end: the drill card's step is never
+  // the walk's to move — a hand-over stamps its hour, and the
+  // sections after this one read the drill card's step as it
+  // was left for them.
+  const HELP_TITLE = "UI drill help card " + Date.now();
+  if (await page.locator("#help-pane:not([hidden])").count() === 1) {
+    await page.click("#help-close");
   }
+  await page.click('button[data-add-to="inbox"]');
+  await page.waitForSelector("#editor-backdrop:not([hidden])", { timeout: 10000 });
+  await page.fill("#field-title", HELP_TITLE);
+  await page.click("#editor-close");
+  await page.waitForSelector("#editor-backdrop[hidden]", { timeout: 10000 }).catch(() => {});
+  await page.click("#help-open");
   await page.click('[data-help-walk-start="handover"]');
   await page.waitForSelector("#help-pane [data-help-steps]", { timeout: 10000 });
   await page.click("#help-close");
-  await page.locator(".card", { hasText: TITLE }).first().click();
+  await page.locator(".card", { hasText: HELP_TITLE }).first().click();
   await page.waitForSelector("#editor-backdrop:not([hidden])", { timeout: 10000 });
   await page.waitForFunction(
     () => (document.getElementById("help-walk-chip") || {}).textContent?.includes("1 of 3"),
@@ -1143,18 +1153,16 @@ await page.click("#settings-close").catch(() => {});
     handFinish.includes("stands in the agent's queue"), handFinish.slice(0, 160));
   await page.click("[data-help-walk-finish]");
   // Leave the board as it was found: the pane closes, the
-  // filter goes back to Everyone, and the card's step back
-  // to the owner.
+  // filter goes back to Everyone, and the walk's own card
+  // is deleted.
   await page.click("#help-close");
   await page.click('[data-step-filter="everyone"]');
-  await page.locator(".card", { hasText: TITLE }).first().click();
+  await page.locator(".card", { hasText: HELP_TITLE }).first().click();
   await page.waitForSelector("#editor-backdrop:not([hidden])", { timeout: 10000 });
-  await page.selectOption("#field-step", "owner");
-  await page.waitForFunction(
-    () => (document.getElementById("step-line") || {}).textContent?.includes("Next step: You"),
-    undefined, { timeout: 10000 }).catch(() => {});
-  await page.click("#editor-close");
-  await page.waitForSelector("#editor-backdrop[hidden]", { timeout: 10000 }).catch(() => {});
+  await page.click("#editor-delete");
+  await page.waitForSelector("#card-delete-backdrop:not([hidden])", { timeout: 10000 });
+  await page.click("#card-delete-confirm");
+  await page.waitForSelector("#editor-backdrop[hidden]", { state: "attached", timeout: 10000 });
 
   // The pane at phone width.
   await page.setViewportSize({ width: 390, height: 844 });
