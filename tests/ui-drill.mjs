@@ -1024,14 +1024,13 @@ await page.click("#settings-close").catch(() => {});
     "heading " + JSON.stringify(boardHeading));
   await page.screenshot({ path: join(OUT, "help-pane-1280.png") });
 
-  // The description follows the person: Settings, then the
-  // Your own AI page, each described as it stands.
-  await page.click("#help-close");
+  // The description follows the person: the pane stands at the
+  // left edge, so the header's gear stays reachable while it
+  // stands; Settings opens beneath it and the pane names the
+  // page the person lands on.
   await page.click("#settings-open");
   await page.click('[data-settings-page="setup-agent"]');
   await page.waitForSelector("#key-add", { timeout: 10000 });
-  await page.click("#help-open");
-  await page.waitForSelector("#help-pane:not([hidden])", { timeout: 10000 });
   const agentHeading = await page.locator("#help-pane-heading").textContent();
   const agentWords = await page.locator("#help-pane-body").innerText();
   check("#197: the description follows the person — the Your own AI page",
