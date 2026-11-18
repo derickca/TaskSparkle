@@ -1132,10 +1132,10 @@ await page.click("#settings-close").catch(() => {});
   await page.waitForSelector("#editor-backdrop[hidden]", { timeout: 10000 }).catch(() => {});
   await page.click('[data-step-filter="' + drillKey.id + '"]');
   await page.waitForFunction(
-    () => (document.getElementById("help-walk-chip") || {}).textContent?.includes("3 of 3"),
+    () => (document.getElementById("help-walk-chip") || {}).textContent?.includes("Done"),
     undefined, { timeout: 10000 }).catch(() => {});
   check("#197: finding the card in the agent's queue ticks the last step",
-    (await chipText()).includes("3 of 3"), "chip " + JSON.stringify(await chipText()));
+    (await chipText()).includes("Done"), "chip " + JSON.stringify(await chipText()));
   await page.click("#help-walk-chip");
   await page.screenshot({ path: join(OUT, "help-walk-handover-1280.png") });
   const handFinish = await page.locator("#help-pane-body").innerText();
